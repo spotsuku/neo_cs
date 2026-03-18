@@ -839,6 +839,27 @@ const AVC = [
   ['#d97706','#fef3c7'],['#7c3aed','#ede9fe'],
   ['#db2777','#fce7f3'],['#0891b2','#cffafe']
 ];
+/* ── ENT_DETAIL → RAW ent マージ（卒業後等の追加フィールド） ── */
+(function(){
+  var qMap = {'1Q':'ent1','2Q':'ent2','3Q':'ent3'};
+  Object.keys(qMap).forEach(function(qKey){
+    var entKey = qMap[qKey];
+    var records = (ENT_DETAIL[qKey]||{}).records||[];
+    records.forEach(function(r){
+      var coName = r['企業名'];
+      if(!coName) return;
+      var co = RAW.find(function(c){ return c['企業名']===coName || c['企業名_norm']===coName; });
+      if(!co) return;
+      if(!co[entKey]) co[entKey]={};
+      Object.keys(r).forEach(function(k){
+        if(k==='企業名') return;
+        if(co[entKey][k]===undefined || co[entKey][k]===null || co[entKey][k]===''){
+          co[entKey][k] = r[k];
+        }
+      });
+    });
+  });
+})();
 function sc(v){var n=parseFloat(v);return isNaN(n)?'#94a3b8':n>=8?'#059669':n>=6?'#d97706':'#dc2626';}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function cBadge(s){var a=CM[s]||['b-new',s];return '<span class="badge '+a[0]+'">'+a[1]+'</span>';}
@@ -1071,6 +1092,15 @@ function buildEntQ(ent,q){
     ['1年満足コメント','1年間総合コメント','#2563eb'],['PJ方針','PJ方針','#2563eb'],
     ['お困りごと','お困りごと','#dc2626'],['アイデア','改善アイデア','#64748b'],
     ['学習効果コメント','学習効果','#0891b2'],
+    ['卒業後','選抜生の卒業後','#7c3aed'],['活用方針','NEO活用方針','#2563eb'],
+    ['ユース選抜評価','ユース選抜評価','#0891b2'],['ユース期待値','ユース選抜への期待値','#0891b2'],
+    ['会員価格','会員価格について','#94a3b8'],['担当部署','担当部署','#94a3b8'],
+    ['派遣人数','派遣人数','#94a3b8'],['適正年代','適正年代','#94a3b8'],
+    ['適正部署','適正部署','#94a3b8'],['若者繋がり','若者との繋がり','#d97706'],
+    ['授業頻度','授業頻度','#d97706'],['講義タイミング','講義タイミング','#d97706'],
+    ['NEOアイデア','NEO発展アイデア','#94a3b8'],['自由記入','自由記入','#94a3b8'],
+    ['Playful研修','Playful研修 興味','#d97706'],['AI研修','AI研修 興味','#d97706'],
+    ['伴走サービス','PJ伴走サービス','#d97706'],
   ];
   var cmts='',seen={};
   cmtKeys.forEach(function(p){
