@@ -761,18 +761,21 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 var _cache = { edits:{}, status:{}, coInvolve:{}, mbInvolve:{}, vision:{}, loaded:false };
 async function loadFromSupabase(){
   try {
-    var [r1,r2,r3,r4,r5] = await Promise.all([
+    var [r1,r2,r3,r4] = await Promise.all([
       _supabase.from('company_edits').select('*'),
       _supabase.from('company_status').select('*'),
       _supabase.from('company_involve').select('*'),
-      _supabase.from('member_involve').select('*'),
-      _supabase.from('vision_data').select('*')
+      _supabase.from('member_involve').select('*')
     ]);
     if(r1.data) r1.data.forEach(function(r){ _cache.edits[r.company_no]=r.data; });
     if(r2.data) r2.data.forEach(function(r){ _cache.status[r.company_no]=r.status; });
     if(r3.data) r3.data.forEach(function(r){ _cache.coInvolve[r.company_no]=r.involve; });
     if(r4.data) r4.data.forEach(function(r){ _cache.mbInvolve[r.member_name]=r.involve; });
-    if(r5.data) r5.data.forEach(function(r){ _cache.vision[r.company_name]=r.data; });
+    // vision_data テーブルが未作成の場合があるので個別に読み込む
+    try {
+      var r5 = await _supabase.from('vision_data').select('*');
+      if(r5.data) r5.data.forEach(function(r){ _cache.vision[r.company_name]=r.data; });
+    } catch(ve) { console.warn('vision_data table not found, skipping', ve); }
     _cache.loaded=true;
     migrateLocalStorage();
   } catch(e) {
