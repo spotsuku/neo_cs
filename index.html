@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -302,6 +303,83 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
 .heatmap-cell { height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; cursor: pointer; transition: transform .1s; font-family: 'Space Mono', monospace; }
 .heatmap-cell:hover { transform: scale(1.05); }
 
+/* ── CONTRACT DROPDOWN ── */
+.contract-select {
+  appearance: none; padding: 5px 28px 5px 10px; border-radius: 6px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  font-size: 11px; font-weight: 700; font-family: 'Space Mono', monospace;
+  cursor: pointer; outline: none; transition: all .15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a7090'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.contract-select:focus { border-color: var(--accent); }
+.contract-select.sel-s { background-color: var(--ok-lt); color: var(--ok); border-color: #6ee7b7; }
+.contract-select.sel-a { background-color: var(--accent-lt); color: var(--accent); border-color: #93c5fd; }
+.contract-select.sel-b { background-color: var(--warn-lt); color: var(--warn); border-color: #fcd34d; }
+.contract-select.sel-c { background-color: #fff7ed; color: #ea580c; border-color: #fdba74; }
+.contract-select.sel-d { background-color: var(--ng-lt); color: var(--ng); border-color: #fca5a5; }
+
+/* ── BOARD VIEW ── */
+.board-wrap { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 20px; min-height: 600px; }
+.board-wrap::-webkit-scrollbar { height: 6px; }
+.board-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+.board-col {
+  min-width: 220px; max-width: 220px; background: var(--surface2);
+  border-radius: 10px; padding: 12px 10px; border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.board-col-header {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+  padding-bottom: 8px; border-bottom: 2px solid;
+}
+.board-col-num { font-family: 'Bebas Neue', sans-serif; font-size: 20px; line-height: 1; }
+.board-col-title { font-size: 10px; font-weight: 700; color: var(--t2); line-height: 1.3; flex: 1; }
+.board-col-count { font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.board-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; cursor: grab; transition: all .15s; position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.board-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.12); transform: translateY(-1px); }
+.board-card.dragging { opacity: .5; transform: rotate(2deg); }
+.board-col.drag-over { background: #e8f0ff; border-color: var(--accent); }
+.board-card-name { font-size: 12px; font-weight: 700; color: var(--t1); margin-bottom: 4px; }
+.board-card-meta { font-size: 10px; color: var(--td); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.board-card-cs { font-size: 9px; padding: 1px 5px; background: var(--accent-lt); color: var(--accent); border-radius: 3px; font-weight: 700; }
+.board-card-contract { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+.board-month { font-size: 9px; color: var(--t-muted); font-family: 'Space Mono', monospace; }
+.board-empty { text-align: center; padding: 20px 8px; color: var(--t-muted); font-size: 11px; border: 2px dashed var(--border); border-radius: 8px; }
+
+/* ── STAGE PANEL (company page) ── */
+.stage-current { display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--surface2); border-radius: 10px; margin-bottom: 16px; border: 2px solid; }
+.stage-num-big { font-family: 'Bebas Neue', sans-serif; font-size: 52px; line-height: 1; }
+.stage-info { flex: 1; }
+.stage-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.stage-desc { font-size: 12px; color: var(--td); line-height: 1.6; }
+.stage-action-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.stage-action-title { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--td); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; font-weight: 700; }
+.stage-action-text { font-size: 12px; color: var(--t2); line-height: 1.7; }
+.stage-timeline { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; }
+.stage-timeline::-webkit-scrollbar { height: 4px; }
+.stage-pip {
+  min-width: 40px; height: 32px; border-radius: 6px; display: flex; align-items: center;
+  justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 15px;
+  cursor: pointer; transition: all .15s; border: 2px solid transparent;
+}
+.stage-pip.done { opacity: .7; }
+.stage-pip.current { transform: scale(1.15); box-shadow: 0 2px 10px rgba(0,0,0,.2); border-color: #fff; }
+.stage-pip:hover { transform: scale(1.1); }
+.stage-move-btns { display: flex; gap: 10px; }
+.stage-btn {
+  flex: 1; padding: 10px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 700; font-family: 'Space Mono', monospace;
+  transition: all .15s; letter-spacing: .5px;
+}
+.stage-btn-prev { background: var(--surface2); color: var(--td); border: 1px solid var(--border); }
+.stage-btn-prev:hover { background: var(--surface3); }
+.stage-btn-next { background: var(--accent); color: #fff; }
+.stage-btn-next:hover { background: #1446b8; box-shadow: 0 3px 12px rgba(26,86,219,.35); }
+
 /* ACTION ITEMS */
 .action-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: 7px; margin-bottom: 7px; border-left: 3px solid; }
 .action-check { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; transition: all .15s; margin-top: 1px; }
@@ -332,6 +410,7 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
     <div class="nav-tab" id="ntab-onboarding" onclick="switchMainTab('onboarding')">📋 オンボーディング</div>
     <div class="nav-tab" id="ntab-meetings" onclick="switchMainTab('meetings')">📅 定例面談</div>
     <div class="nav-tab" id="ntab-survey" onclick="switchMainTab('survey')">📊 アンケート分析</div>
+    <div class="nav-tab" id="ntab-board" onclick="switchMainTab('board')">📌 ボードビュー</div>
   </div>
 </nav>
 
@@ -341,6 +420,10 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
 
 <div id="page-overview" class="page active" style="padding:28px 36px 80px">
   <!-- Overview rendered by JS -->
+</div>
+
+<div id="page-board" class="page" style="padding:28px 36px 80px">
+  <!-- Board rendered by JS -->
 </div>
 
 <div id="toast"></div>
@@ -402,6 +485,46 @@ const LS = {
   setArr: (key, val) => localStorage.setItem('neo_ps_'+key, JSON.stringify(val))
 };
 
+// ── 企業進捗ステージ定義 ──
+const STAGES = [
+  {no:1, name:'興味喚起（ワクワク）', month:'5月', color:'#6366f1',
+   desc:'「NEOって面白そう」と思っているが、実態はよくわかっていない',
+   action:'事例共有、動画、オープニングイベント参加などで共感形成'},
+  {no:2, name:'接触・初体験', month:'6月', color:'#8b5cf6',
+   desc:'NEOイベントやSlack、学生との交流などを一部体験',
+   action:'イベント招待、ライトな参加体験、共感発見'},
+  {no:3, name:'価値の仮理解', month:'7月', color:'#a855f7',
+   desc:'「他と違う」「可能性がある」と感じている',
+   action:'他企業の活用例・成果事例をストーリーで共有'},
+  {no:4, name:'自社との接点発見', month:'8月', color:'#ec4899',
+   desc:'「これは自社の○○にも使えそう」とイメージが湧く',
+   action:'メンターMTG、社内ペルソナ提示、業務課題との接続支援'},
+  {no:5, name:'小さな成功体験', month:'9月', color:'#f43f5e',
+   desc:'学生連携や他企業交流などで社内にポジティブな話題が出る',
+   action:'成果の言語化サポート、フィードバック共有'},
+  {no:6, name:'社内共有（一次共有）', month:'10月', color:'#ef4444',
+   desc:'社内の誰か（上司や現場）にNEOの活動や魅力を伝える',
+   action:'報告資料テンプレート、1分ピッチ資料提供'},
+  {no:7, name:'継続価値検討', month:'11月', color:'#f97316',
+   desc:'来期どう関わるかを考え、方針を固める。第二回面談実施',
+   action:'第二回面談を実施し、報告とプランの説明'},
+  {no:8, name:'社内稟議承認', month:'12月', color:'#f59e0b',
+   desc:'稟議・承認に必要な資料やストーリーが揃い社内承認',
+   action:'稟議必要書類の作成サポート'},
+  {no:9, name:'契約手続き', month:'1月', color:'#eab308',
+   desc:'稟議・承認に必要な資料やストーリーが揃いはじめている',
+   action:'役員向けサマリー資料、企業名入り成果報告書など提供'},
+  {no:10, name:'契約締結', month:'2月', color:'#84cc16',
+   desc:'社内決裁が下り、来期の継続が決定。継続価値が言語化される',
+   action:'感謝＋次期計画提示、アップセルの提案機会にもなる'},
+  {no:11, name:'投資対象としてのNEO', month:'2月', color:'#22c55e',
+   desc:'NEOが「中長期の人材育成・事業共創・ブランド価値向上」に貢献すると認識',
+   action:'来期に向けた拡張提案（協業、プロジェクト共創、他地域展開など）'},
+  {no:12, name:'アップセル快諾', month:'2月', color:'#059669',
+   desc:'継続だけでなく、金額・関与領域の拡大を快諾。「共創パートナー」として自認',
+   action:'パートナー契約（例：500万円〜）の締結、新たな活用戦略会議'},
+];
+
 // ══ UTILITIES ══
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function scColor(v) { const n=parseFloat(v); if(isNaN(n)) return '#94a3b8'; if(n>=8) return '#059669'; if(n>=6) return '#d97706'; return '#dc2626'; }
@@ -420,27 +543,52 @@ function avatarColor(name) {
   return colors[idx];
 }
 
+// ══ CONTRACT (LS override) ══
+function getContract(no) {
+  const ov = LS.get('contract_overrides');
+  return ov[no] || COMPANIES.find(x=>x.no===no)?.contract || '';
+}
+function setContract(no, val) {
+  const ov = LS.get('contract_overrides');
+  ov[no] = val; LS.set('contract_overrides', ov);
+  // サイドバーのバッジを更新
+  const sb = document.getElementById('sb-item-'+no);
+  if(sb) {
+    const tag = sb.querySelector('.contract-tag');
+    if(tag) {
+      const [cls, label] = contractInfo(val);
+      tag.className = 'contract-tag '+cls;
+      tag.textContent = label;
+    }
+  }
+  toast('契約ステータスを更新しました');
+}
+function getStage(no) {
+  const s = LS.get('stages');
+  return parseInt(s[no]||1);
+}
+function setStage(no, stageNo) {
+  const s = LS.get('stages');
+  s[no] = stageNo; LS.set('stages', s);
+}
+
 // ══ MAIN TAB SWITCH ══
 let currentMainTab = 'overview';
 let currentCompanyNo = 1;
 
 function switchMainTab(tab) {
-  ['overview'].forEach(id => {
-    const el = document.getElementById('page-'+id);
-    if(el) el.classList.toggle('active', id === tab);
-  });
-  document.getElementById('app-company').style.display = ['company','onboarding','meetings','survey'].includes(tab) ? 'flex' : 'none';
   document.getElementById('page-overview').style.display = tab === 'overview' ? '' : 'none';
+  document.getElementById('page-board').style.display = tab === 'board' ? '' : 'none';
+  document.getElementById('app-company').style.display = ['company','onboarding','meetings','survey'].includes(tab) ? 'flex' : 'none';
 
-  ['overview','company','onboarding','meetings','survey'].forEach(t => {
+  ['overview','company','onboarding','meetings','survey','board'].forEach(t => {
     const btn = document.getElementById('ntab-'+t);
     if(btn) btn.classList.toggle('active', t === tab);
   });
   currentMainTab = tab;
 
-  if(tab !== 'overview') {
-    renderAppLayout(tab);
-  }
+  if(tab === 'board') { renderBoard(); return; }
+  if(tab !== 'overview') { renderAppLayout(tab); }
 }
 
 // ══ APP LAYOUT (sidebar + main) ══
@@ -496,15 +644,17 @@ function filterSidebar(q) {
 
 function renderSidebarList(cos, activeNo) {
   return cos.map(c => {
-    const [cls, label] = contractInfo(c.contract);
+    const contract = getContract(c.no);
+    const [cls, label] = contractInfo(contract);
     const health = getHealthScore(c);
     const hColor = health >= 7 ? '#059669' : health >= 5 ? '#d97706' : '#dc2626';
     const [bg, fg] = avatarColor(c.name);
-    return `<div class="sb-item ${c.no === activeNo ? 'active' : ''}" onclick="selectCompany(${c.no})" id="sb-item-${c.no}" data-name="${c.short.toLowerCase()}" data-contract="${c.contract}" data-status="${c.status}">
+    const stage = getStage(c.no);
+    return `<div class="sb-item ${c.no === activeNo ? 'active' : ''}" onclick="selectCompany(${c.no})" id="sb-item-${c.no}" data-name="${c.short.toLowerCase()}" data-contract="${contract}" data-status="${c.status}">
       <div class="sb-av" style="background:${fg};color:${bg}">${c.short[0]}</div>
       <div class="sb-info">
         <div class="sb-name">${esc(c.short)}</div>
-        <div class="sb-meta">${c.course2||c.course1||'—'} · CS:${esc(c.cs)||'未定'}</div>
+        <div class="sb-meta">${c.course2||c.course1||'—'} · St.${stage}</div>
       </div>
       <div class="sb-right">
         <div class="health-dot" style="background:${hColor}" title="健全スコア:${health}"></div>
@@ -525,9 +675,10 @@ function selectCompany(no) {
 
 function getHealthScore(c) {
   let score = 5;
-  if(c.contract === 'S：契約書締結' || c.contract === 'A：契約中') score += 2;
-  if(c.contract === 'B：内諾確認済') score += 1;
-  if(c.contract === 'D：非継続') score -= 2;
+  const contract = getContract(c.no);
+  if(contract === 'S：契約書締結' || contract === 'A：契約中') score += 2;
+  if(contract === 'B：内諾確認済') score += 1;
+  if(contract === 'D：非継続') score -= 2;
   if(c.ent_sat != null && c.ent_sat >= 8) score += 1;
   if(c.ent_sat != null && c.ent_sat < 6) score -= 1;
   const meetings = LS.getArr('meetings_'+c.no);
@@ -550,24 +701,29 @@ function renderTabContent(tab, no) {
 
 // ══ COMPANY PAGE ══
 function renderCompanyPage(c) {
-  const [cls] = contractInfo(c.contract);
+  const contract = getContract(c.no);
+  const [cls] = contractInfo(contract);
   const plans = LS.get('plans_'+c.no);
-  const actions = LS.getArr('actions_'+c.no);
   const health = getHealthScore(c);
   const hColor = health >= 7 ? 'var(--ok)' : health >= 5 ? 'var(--warn)' : 'var(--ng)';
   const gradRate = c.sent > 0 ? Math.round(c.grad/c.sent*100) : null;
   const gradColor = gradRate === 100 ? 'var(--ok)' : gradRate != null && gradRate >= 50 ? 'var(--warn)' : 'var(--ng)';
+  const stage = getStage(c.no);
+  const stageData = STAGES[stage-1];
 
-  // Risk banners
   let risk = '';
-  if(c.contract === 'D：非継続') risk = `<div class="risk-banner danger"><span class="risk-icon">🚨</span><span class="risk-text">非継続企業 — ウィンバック戦略を検討してください</span></div>`;
-  else if(c.contract === 'C：社内調整中') risk = `<div class="risk-banner warn"><span class="risk-icon">⚠️</span><span class="risk-text">社内調整中 — 継続確認の打ち合わせを設定してください</span></div>`;
+  if(contract === 'D：非継続') risk = `<div class="risk-banner danger"><span class="risk-icon">🚨</span><span class="risk-text">非継続企業 — ウィンバック戦略を検討してください</span></div>`;
+  else if(contract === 'C：社内調整中') risk = `<div class="risk-banner warn"><span class="risk-icon">⚠️</span><span class="risk-text">社内調整中 — 継続確認の打ち合わせを設定してください</span></div>`;
   else if(c.ent_sat != null && c.ent_sat < 7) risk = `<div class="risk-banner warn"><span class="risk-icon">📉</span><span class="risk-text">企業満足度 ${c.ent_sat}/10 — フォローアップが必要です</span></div>`;
 
   const savedVision = plans.vision != null ? plans.vision : c.vision;
   const savedGoal = plans.short_goal != null ? plans.short_goal : c.short_goal;
   const savedEscort = plans.escort != null ? plans.escort : c.escort;
   const savedSuccess = plans.success != null ? plans.success : c.success;
+
+  const contractOptions = ['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続']
+    .map(opt => `<option value="${opt}" ${opt===contract?'selected':''}>${opt}</option>`).join('');
+  const selCls = cls.replace('tag-','sel-');
 
   return `<div style="padding:28px 36px 80px">
   ${risk}
@@ -576,39 +732,20 @@ function renderCompanyPage(c) {
     <div class="co-name">${esc(c.short)}</div>
     <div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div>
     <div class="co-meta">
-      <span class="badge ${cls === 'tag-s' ? 'b-ok' : cls === 'tag-a' ? 'b-accent' : cls === 'tag-b' ? 'b-warn' : cls === 'tag-c' ? 'b-warn' : 'b-ng'}">${c.contract}</span>
+      <select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select>
       <span class="badge ${c.status === '既存顧客' ? 'b-accent' : 'b-purple'}">${c.status}</span>
       ${c.course2 ? `<span class="badge b-gray">${c.course2}</span>` : ''}
       ${c.cs ? `<span class="badge b-gray">CS: ${esc(c.cs)}</span>` : ''}
+      <span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span>
     </div>
   </div>
 
   <div class="co-kpi-row">
-    <div class="co-kpi">
-      <div class="co-kpi-label">健全スコア</div>
-      <div class="co-kpi-val" style="color:${hColor}">${health}</div>
-      <div class="co-kpi-sub">/10</div>
-    </div>
-    <div class="co-kpi">
-      <div class="co-kpi-label">派遣人数</div>
-      <div class="co-kpi-val" style="color:var(--accent)">${c.sent}</div>
-      <div class="co-kpi-sub">名（1期）</div>
-    </div>
-    <div class="co-kpi">
-      <div class="co-kpi-label">卒業率</div>
-      <div class="co-kpi-val" style="color:${gradColor}">${gradRate != null ? gradRate + '%' : '—'}</div>
-      <div class="co-kpi-sub">${c.grad}/${c.sent}名</div>
-    </div>
-    <div class="co-kpi">
-      <div class="co-kpi-label">企業満足度</div>
-      <div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat != null ? c.ent_sat : '—'}</div>
-      <div class="co-kpi-sub">/10</div>
-    </div>
-    <div class="co-kpi">
-      <div class="co-kpi-label">企業おすすめ度</div>
-      <div class="co-kpi-val" style="color:${scColor(c.ent_recommend)}">${c.ent_recommend != null ? c.ent_recommend : '—'}</div>
-      <div class="co-kpi-sub">/10</div>
-    </div>
+    <div class="co-kpi"><div class="co-kpi-label">健全スコア</div><div class="co-kpi-val" style="color:${hColor}">${health}</div><div class="co-kpi-sub">/10</div></div>
+    <div class="co-kpi"><div class="co-kpi-label">企業進捗</div><div class="co-kpi-val" style="color:${stageData?.color||'#888'};font-size:26px">St.${stage}</div><div class="co-kpi-sub">${stageData?.month||'—'}</div></div>
+    <div class="co-kpi"><div class="co-kpi-label">派遣人数</div><div class="co-kpi-val" style="color:var(--accent)">${c.sent}</div><div class="co-kpi-sub">名（1期）</div></div>
+    <div class="co-kpi"><div class="co-kpi-label">卒業率</div><div class="co-kpi-val" style="color:${gradColor}">${gradRate != null ? gradRate + '%' : '—'}</div><div class="co-kpi-sub">${c.grad}/${c.sent}名</div></div>
+    <div class="co-kpi"><div class="co-kpi-label">企業満足度</div><div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat != null ? c.ent_sat : '—'}</div><div class="co-kpi-sub">/10</div></div>
   </div>
 
   <div class="inner-tabs" id="inner-tabs-${c.no}">
@@ -616,6 +753,7 @@ function renderCompanyPage(c) {
     <div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div>
     <div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div>
     <div class="inner-tab" onclick="switchInner(this,'actions-${c.no}','inner-tabs-${c.no}')">✅ アクション</div>
+    <div class="inner-tab" onclick="switchInner(this,'stage-panel-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div>
   </div>
 
   <div class="inner-content active" id="karte-${c.no}">
@@ -650,37 +788,20 @@ function renderCompanyPage(c) {
   <div class="inner-content" id="plan-${c.no}">
     <div class="grid2">
       <div>
-        <div class="plan-section">
-          <div class="plan-label">長期ビジョン（1〜3年後のサクセス状態）</div>
-          <textarea class="plan-textarea" id="plan-vision-${c.no}" rows="4">${esc(savedVision)}</textarea>
-        </div>
-        <div class="plan-section">
-          <div class="plan-label">短期ゴール（直近3ヶ月）</div>
-          <textarea class="plan-textarea" id="plan-goal-${c.no}" rows="3">${esc(savedGoal)}</textarea>
-        </div>
+        <div class="plan-section"><div class="plan-label">長期ビジョン（1〜3年後のサクセス状態）</div><textarea class="plan-textarea" id="plan-vision-${c.no}" rows="4">${esc(savedVision)}</textarea></div>
+        <div class="plan-section"><div class="plan-label">短期ゴール（直近3ヶ月）</div><textarea class="plan-textarea" id="plan-goal-${c.no}" rows="3">${esc(savedGoal)}</textarea></div>
       </div>
       <div>
-        <div class="plan-section">
-          <div class="plan-label">伴走方針・アクション</div>
-          <textarea class="plan-textarea" id="plan-escort-${c.no}" rows="5">${esc(savedEscort)}</textarea>
-        </div>
-        <div class="plan-section">
-          <div class="plan-label">1年後のサクセス定義</div>
-          <textarea class="plan-textarea" id="plan-success-${c.no}" rows="4">${esc(savedSuccess)}</textarea>
-        </div>
+        <div class="plan-section"><div class="plan-label">伴走方針・アクション</div><textarea class="plan-textarea" id="plan-escort-${c.no}" rows="5">${esc(savedEscort)}</textarea></div>
+        <div class="plan-section"><div class="plan-label">1年後のサクセス定義</div><textarea class="plan-textarea" id="plan-success-${c.no}" rows="4">${esc(savedSuccess)}</textarea></div>
       </div>
     </div>
     <button class="plan-save-btn" onclick="savePlan(${c.no})">💾 アカウントプランを保存</button>
   </div>
 
-  <div class="inner-content" id="contacts-${c.no}">
-    ${renderContacts(c)}
-  </div>
-
-  <div class="inner-content" id="actions-${c.no}">
-    ${renderActions(c.no)}
-  </div>
-
+  <div class="inner-content" id="contacts-${c.no}">${renderContacts(c)}</div>
+  <div class="inner-content" id="actions-${c.no}">${renderActions(c.no)}</div>
+  <div class="inner-content" id="stage-panel-${c.no}">${renderStagePanel(c.no)}</div>
 </div>`;
 }
 
@@ -781,6 +902,201 @@ function savePlan(no) {
     if(el) { el.classList.remove('plan-saved-flash'); void el.offsetWidth; el.classList.add('plan-saved-flash'); }
   });
   toast('💾 保存しました');
+}
+
+// ══ CONTRACT CHANGE ══
+function changeContract(no, sel) {
+  const val = sel.value;
+  setContract(no, val);
+  // update select class
+  sel.className = 'contract-select ' + 'sel-' + val.replace('S：契約書締結','s').replace('A：契約中','a').replace('B：内諾確認済','b').replace('C：社内調整中','c').replace('D：非継続','d');
+  // refresh risk banner area without full page reload
+  const c = COMPANIES.find(x=>x.no===no);
+  if(c) {
+    // rerender main area quietly
+    const mainArea = document.getElementById('co-main-area');
+    if(mainArea) { mainArea.innerHTML = renderCompanyPage(c); }
+  }
+}
+
+// ══ STAGE PANEL ══
+function renderStagePanel(no) {
+  const stage = getStage(no);
+  const sd = STAGES[stage-1];
+
+  const timeline = STAGES.map((s,i) => {
+    const n = i+1;
+    const isDone = n < stage;
+    const isCurr = n === stage;
+    const alpha = isDone ? '99' : isCurr ? 'ff' : '44';
+    return `<div class="stage-pip ${isDone?'done':''} ${isCurr?'current':''}"
+      style="background:${s.color}${alpha};color:${isCurr?'#fff':'#fff'}"
+      onclick="jumpStage(${no},${n})" title="St.${n} ${s.name}">
+      ${n}
+    </div>`;
+  }).join('');
+
+  return `<div>
+    <div class="stage-current" style="border-color:${sd?.color||'#ccc'}">
+      <div class="stage-num-big" style="color:${sd?.color||'#888'}">${stage}</div>
+      <div class="stage-info">
+        <div class="stage-name" style="color:${sd?.color||'#888'}">${sd?.name||'—'}</div>
+        <div class="stage-desc">${esc(sd?.desc||'')}</div>
+        <div style="font-size:11px;color:var(--t-muted);margin-top:6px;font-family:'Space Mono',monospace">理想時期: ${sd?.month||'—'}</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div style="font-size:9px;font-family:'Space Mono';color:var(--td);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">ステージタイムライン</div>
+      <div class="stage-timeline">${timeline}</div>
+    </div>
+
+    ${sd ? `<div class="stage-action-box" style="border-left:3px solid ${sd.color}">
+      <div class="stage-action-title" style="color:${sd.color}">キーアクション・必要な支援</div>
+      <div class="stage-action-text">${esc(sd.action)}</div>
+    </div>` : ''}
+
+    <div class="stage-move-btns">
+      ${stage > 1 ? `<button class="stage-btn stage-btn-prev" onclick="moveStage(${no},-1)">← St.${stage-1} に戻す</button>` : '<div></div>'}
+      ${stage < 12 ? `<button class="stage-btn stage-btn-next" onclick="moveStage(${no},1)">St.${stage+1} ${STAGES[stage]?.name||''} →</button>` : `<div style="padding:10px;text-align:center;color:var(--ok);font-weight:700">🎉 最終ステージ達成！</div>`}
+    </div>
+  </div>`;
+}
+
+function moveStage(no, delta) {
+  const cur = getStage(no);
+  const next = Math.max(1, Math.min(12, cur + delta));
+  setStage(no, next);
+  // refresh stage panel
+  const panel = document.getElementById('stage-panel-'+no);
+  if(panel) panel.innerHTML = renderStagePanel(no);
+  // refresh kpi row stage display
+  const mainArea = document.getElementById('co-main-area');
+  const c = COMPANIES.find(x=>x.no===no);
+  if(mainArea && c) mainArea.innerHTML = renderCompanyPage(c);
+  // re-open stage tab
+  setTimeout(()=>{
+    const tabs = document.getElementById('inner-tabs-'+no);
+    if(tabs) {
+      const stagTab = [...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));
+      if(stagTab) switchInner(stagTab, 'stage-panel-'+no, 'inner-tabs-'+no);
+    }
+  }, 0);
+  toast(`St.${next} ${STAGES[next-1]?.name||''} に移動しました`);
+}
+
+function jumpStage(no, stageNo) {
+  setStage(no, stageNo);
+  const panel = document.getElementById('stage-panel-'+no);
+  if(panel) panel.innerHTML = renderStagePanel(no);
+  const c = COMPANIES.find(x=>x.no===no);
+  const mainArea = document.getElementById('co-main-area');
+  if(mainArea && c) mainArea.innerHTML = renderCompanyPage(c);
+  setTimeout(()=>{
+    const tabs = document.getElementById('inner-tabs-'+no);
+    if(tabs) {
+      const stagTab = [...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));
+      if(stagTab) switchInner(stagTab, 'stage-panel-'+no, 'inner-tabs-'+no);
+    }
+  }, 0);
+  toast(`St.${stageNo} ${STAGES[stageNo-1]?.name||''} に設定しました`);
+}
+
+// ══ BOARD VIEW ══
+function renderBoard() {
+  const boardEl = document.getElementById('page-board');
+
+  // ヘッダー
+  const header = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Bebas Neue';font-size:36px;letter-spacing:2px">📌 企業進捗 ボードビュー</div>
+        <div style="font-size:13px;color:var(--td);margin-top:2px">ドラッグ&ドロップでステージを移動できます</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <select id="board-filter-status" class="meeting-date-input" style="width:140px" onchange="renderBoard()">
+          <option value="">すべて</option><option value="既存顧客">既存顧客</option><option value="新規契約">新規契約</option>
+        </select>
+        <select id="board-filter-contract" class="meeting-date-input" style="width:160px" onchange="renderBoard()">
+          <option value="">契約：すべて</option>
+          ${['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(v=>`<option value="${v}">${v}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+
+  const statusF = document.getElementById('board-filter-status')?.value || '';
+  const contractF = document.getElementById('board-filter-contract')?.value || '';
+
+  const filteredCos = COMPANIES.filter(c => {
+    const contract = getContract(c.no);
+    if(statusF && c.status !== statusF) return false;
+    if(contractF && contract !== contractF) return false;
+    return true;
+  });
+
+  const cols = STAGES.map(stage => {
+    const companies = filteredCos.filter(c => getStage(c.no) === stage.no);
+    const cards = companies.map(c => {
+      const contract = getContract(c.no);
+      const [cls, label] = contractInfo(contract);
+      return `<div class="board-card" draggable="true"
+        ondragstart="boardDragStart(event,${c.no})"
+        ondragend="boardDragEnd(event)"
+        onclick="goToCompany(${c.no})"
+        title="${esc(c.name)}">
+        <div class="board-card-name">${esc(c.short)}</div>
+        <div class="board-card-meta">
+          <span class="board-card-contract ${cls}">${label}</span>
+          ${c.cs ? `<span class="board-card-cs">${esc(c.cs.split(' ')[0])}</span>` : ''}
+        </div>
+        <div class="board-month" style="margin-top:4px">${c.status === '新規契約' ? '🆕 新規' : esc(c.course2||c.course1||'—')}</div>
+      </div>`;
+    }).join('') || `<div class="board-empty">企業なし</div>`;
+
+    return `<div class="board-col"
+      ondragover="boardDragOver(event)"
+      ondragleave="boardDragLeave(event)"
+      ondrop="boardDrop(event,${stage.no})"
+      data-stage="${stage.no}">
+      <div class="board-col-header" style="border-color:${stage.color}">
+        <div class="board-col-num" style="color:${stage.color}">${stage.no}</div>
+        <div class="board-col-title">${esc(stage.name)}<br><span style="font-family:'Space Mono';font-size:9px;color:var(--t-muted)">${stage.month}</span></div>
+        <span class="board-col-count" style="background:${stage.color}22;color:${stage.color}">${companies.length}</span>
+      </div>
+      ${cards}
+    </div>`;
+  }).join('');
+
+  boardEl.innerHTML = header + `<div class="board-wrap">${cols}</div>`;
+}
+
+// Board drag & drop
+let draggedCompanyNo = null;
+function boardDragStart(e, no) {
+  draggedCompanyNo = no;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function boardDragEnd(e) {
+  e.target.classList.remove('dragging');
+}
+function boardDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function boardDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function boardDrop(e, stageNo) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(draggedCompanyNo !== null) {
+    setStage(draggedCompanyNo, stageNo);
+    const c = COMPANIES.find(x=>x.no===draggedCompanyNo);
+    toast(`${c?.short||''} → St.${stageNo} ${STAGES[stageNo-1]?.name||''}`);
+    draggedCompanyNo = null;
+    renderBoard();
+  }
 }
 
 // ══ ONBOARDING ══
@@ -961,12 +1277,12 @@ function switchInner(el, targetId, tabsId) {
 
 // ══ OVERVIEW PAGE ══
 function renderOverview() {
-  const active = COMPANIES.filter(c => c.contract !== 'D：非継続');
-  const disc = COMPANIES.filter(c => c.contract === 'D：非継続');
+  const active = COMPANIES.filter(c => getContract(c.no) !== 'D：非継続');
+  const disc = COMPANIES.filter(c => getContract(c.no) === 'D：非継続');
   const newCo = COMPANIES.filter(c => c.status === '新規契約');
-  const s_count = COMPANIES.filter(c => c.contract === 'S：契約書締結').length;
-  const a_count = COMPANIES.filter(c => c.contract === 'A：契約中').length;
-  const total_rev = active.reduce((s, c) => s + (c.price||0), 0);
+  const s_count = COMPANIES.filter(c => getContract(c.no) === 'S：契約書締結').length;
+  const a_count = COMPANIES.filter(c => getContract(c.no) === 'A：契約中').length;
+  const total_rev = COMPANIES.filter(c => getContract(c.no) !== 'D：非継続').reduce((s, c) => s + (c.price||0), 0);
   const avg_sat = (() => { const v = COMPANIES.filter(c=>c.ent_sat!=null).map(c=>c.ent_sat); return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '—'; })();
 
   const html = `
@@ -1025,8 +1341,9 @@ function renderOverview() {
         <th>コース</th><th>卒業率</th><th>企業満足</th><th>企業成長</th><th>健全スコア</th><th>面談数</th><th>操作</th>
       </tr></thead>
       <tbody>
-        ${COMPANIES.filter(c => c.contract !== 'D：非継続').map(c => {
-          const [cls, label] = contractInfo(c.contract);
+        ${COMPANIES.filter(c => getContract(c.no) !== 'D：非継続').map(c => {
+          const contract = getContract(c.no);
+          const [cls, label] = contractInfo(contract);
           const health = getHealthScore(c);
           const hColor = health >= 7 ? 'var(--ok)' : health >= 5 ? 'var(--warn)' : 'var(--ng)';
           const gradRate = c.sent > 0 ? Math.round(c.grad/c.sent*100)+'%' : '—';
@@ -1064,7 +1381,7 @@ function renderOverview() {
     <div class="panel">
       <div class="panel-title">契約状況</div>
       ${['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(ct => {
-        const count = COMPANIES.filter(c=>c.contract===ct).length;
+        const count = COMPANIES.filter(c=>getContract(c.no)===ct).length;
         const [cls, label] = contractInfo(ct);
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
           <span class="cs-tag ${cls}">${label}</span>
@@ -1093,8 +1410,8 @@ function renderOverview() {
     </div>
     <div class="panel">
       <div class="panel-title">要注意・フォローアップ</div>
-      ${COMPANIES.filter(c => c.contract === 'C：社内調整中' || (c.ent_sat != null && c.ent_sat < 7)).slice(0,6).map(c => {
-        const risk = c.contract === 'C：社内調整中' ? '社内調整中' : `満足度${c.ent_sat}`;
+      ${COMPANIES.filter(c => getContract(c.no) === 'C：社内調整中' || (c.ent_sat != null && c.ent_sat < 7)).slice(0,6).map(c => {
+        const risk = getContract(c.no) === 'C：社内調整中' ? '社内調整中' : `満足度${c.ent_sat}`;
         return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
           <span style="font-size:12px;font-weight:600;flex:1;cursor:pointer;color:var(--accent)" onclick="goToCompany(${c.no})">${esc(c.short)}</span>
           <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--warn-lt);color:var(--warn);font-weight:700">${risk}</span>
