@@ -380,7 +380,135 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
 .stage-btn-next { background: var(--accent); color: #fff; }
 .stage-btn-next:hover { background: #1446b8; box-shadow: 0 3px 12px rgba(26,86,219,.35); }
 
-/* ACTION ITEMS */
+/* ── ACTION LOG ── */
+.next-action-banner {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 18px; border-radius: 10px; margin-bottom: 20px;
+  background: linear-gradient(135deg, #0e1a2b 0%, #1a3a6b 100%);
+  border: 1px solid #2d5ab8; color: #fff; position: relative; overflow: hidden;
+}
+.next-action-banner::before {
+  content: ''; position: absolute; top: -30px; right: -30px;
+  width: 120px; height: 120px; border-radius: 50%;
+  background: rgba(255,255,255,.04);
+}
+.na-icon { font-size: 26px; flex-shrink: 0; margin-top: 2px; }
+.na-body { flex: 1; }
+.na-label { font-size: 9px; font-family: 'Space Mono', monospace; letter-spacing: 2px; text-transform: uppercase; color: #93c5fd; margin-bottom: 5px; }
+.na-text { font-size: 14px; font-weight: 700; line-height: 1.5; color: #fff; }
+.na-empty { font-size: 13px; color: #93c5fd; font-style: italic; }
+.na-date { font-size: 10px; color: #93c5fd; margin-top: 4px; font-family: 'Space Mono', monospace; }
+.na-ai-btn {
+  padding: 6px 12px; border-radius: 6px; border: 1px solid #3b82f6;
+  background: rgba(59,130,246,.2); color: #93c5fd; cursor: pointer;
+  font-size: 11px; font-weight: 700; white-space: nowrap; transition: all .15s;
+  font-family: 'Space Mono', monospace; flex-shrink: 0; align-self: center;
+}
+.na-ai-btn:hover { background: rgba(59,130,246,.4); color: #fff; }
+.na-ai-btn.loading { opacity: .6; cursor: wait; }
+
+.ai-advice-box {
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f2344 100%);
+  border: 1px solid #3b82f6; border-radius: 10px; padding: 16px 18px;
+  margin-bottom: 20px; animation: fadeIn .3s ease;
+}
+.ai-advice-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.ai-advice-icon { font-size: 18px; }
+.ai-advice-title { font-size: 11px; font-family: 'Space Mono'; color: #60a5fa; font-weight: 700; letter-spacing: 1px; }
+.ai-advice-text { font-size: 13px; color: #e2e8f0; line-height: 1.8; white-space: pre-wrap; }
+.ai-advice-loading { display: flex; gap: 6px; align-items: center; color: #93c5fd; font-size: 12px; }
+.ai-dot { width: 6px; height: 6px; border-radius: 50%; background: #3b82f6; animation: pulse 1.2s infinite; }
+.ai-dot:nth-child(2) { animation-delay: .2s; }
+.ai-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+.log-form-wrap {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 18px; margin-bottom: 20px;
+}
+.log-form-title { font-size: 11px; font-family: 'Space Mono'; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--td); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.log-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.log-field-label { font-size: 10px; font-weight: 700; color: var(--td); margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+.log-field-emoji { font-size: 13px; }
+.log-textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 12px; font-family: 'Noto Sans JP', sans-serif; color: var(--t1); background: var(--surface2); resize: vertical; line-height: 1.6; transition: border-color .15s; }
+.log-textarea:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.log-date-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+.log-date-input { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 12px; font-family: 'Space Mono', monospace; color: var(--t1); background: var(--surface2); }
+.log-date-input:focus { outline: none; border-color: var(--accent); }
+.log-week-label { font-size: 11px; color: var(--td); flex: 1; }
+.log-submit-btn {
+  width: 100%; padding: 11px; border: none; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all .15s; font-family: 'Noto Sans JP', sans-serif;
+}
+.log-submit-btn:hover { background: #1446b8; box-shadow: 0 3px 12px rgba(26,86,219,.35); }
+
+/* ── LOG FORM TOGGLE ── */
+.log-toggle-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 11px 16px; border-radius: 8px; border: 1.5px dashed var(--border2);
+  background: var(--surface); color: var(--accent); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all .15s; font-family: 'Noto Sans JP', sans-serif; margin-bottom: 16px;
+}
+.log-toggle-btn:hover { background: var(--accent-lt); border-color: var(--accent); }
+.log-form-collapsible { display: none; }
+.log-form-collapsible.open { display: block; animation: fadeIn .2s ease; }
+
+/* ── EDITABLE INFO ROW ── */
+.info-row-edit { display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.info-row-label { font-size: 11px; color: var(--td); width: 110px; flex-shrink: 0; padding-top: 5px; }
+.info-row-body { flex: 1; }
+.info-edit-select {
+  appearance: none; padding: 4px 22px 4px 8px; border-radius: 6px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-size: 12px; font-weight: 500; font-family: 'Noto Sans JP', sans-serif;
+  color: var(--t1); cursor: pointer; outline: none; transition: border-color .15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a7090'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+}
+.info-edit-select:focus { border-color: var(--accent); background-color: var(--surface); }
+.info-edit-memo { margin-top: 5px; width: 100%; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; color: var(--t1); background: var(--surface2); resize: none; line-height: 1.5; }
+.info-edit-memo:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.info-edit-save-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.info-edit-save-btn { padding: 4px 10px; border-radius: 5px; border: none; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; font-family: 'Space Mono', monospace; }
+.info-edit-save-btn:hover { background: #1446b8; }
+
+.log-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.log-list-title { font-size: 11px; font-family: 'Space Mono'; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--td); }
+.log-count-badge { font-size: 10px; padding: 2px 8px; background: var(--accent-lt); color: var(--accent); border-radius: 99px; font-weight: 700; }
+
+.log-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  margin-bottom: 12px; overflow: hidden; transition: box-shadow .15s;
+}
+.log-card:hover { box-shadow: 0 3px 14px rgba(14,26,43,.1); }
+.log-card-header {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  border-bottom: 1px solid var(--border); cursor: pointer;
+  background: var(--surface2);
+}
+.log-card-date { font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; color: var(--accent); }
+.log-card-stage { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+.log-card-next-preview { flex: 1; font-size: 12px; color: var(--td); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-card-toggle { color: var(--t-muted); font-size: 12px; }
+.log-card-body { padding: 14px 16px; display: none; }
+.log-card-body.open { display: block; }
+.log-section { margin-bottom: 12px; }
+.log-section:last-child { margin-bottom: 0; }
+.log-section-label { font-size: 10px; font-weight: 700; color: var(--td); margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+.log-section-text { font-size: 12px; color: var(--t2); line-height: 1.7; white-space: pre-wrap; background: var(--surface2); padding: 10px 12px; border-radius: 7px; }
+.log-next-text { font-size: 13px; font-weight: 700; color: var(--accent); line-height: 1.7; background: var(--accent-lt); padding: 10px 12px; border-radius: 7px; }
+.log-delete-btn { font-size: 10px; color: var(--ng); background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; opacity: .6; }
+.log-delete-btn:hover { opacity: 1; background: var(--ng-lt); }
+.log-empty { text-align: center; padding: 30px; color: var(--t-muted); font-size: 13px; background: var(--surface); border: 2px dashed var(--border); border-radius: 12px; }
+
+/* ── STAGE SECTION DIVIDER ── */
+.stage-section-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; }
+.stage-section-divider-line { flex: 1; height: 1px; background: var(--border); }
+.stage-section-divider-label { font-size: 9px; font-family: 'Space Mono'; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--t-muted); }
+
+/* ── ACTION ITEMS (old style kept for compatibility) ── */
 .action-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: 7px; margin-bottom: 7px; border-left: 3px solid; }
 .action-check { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; transition: all .15s; margin-top: 1px; }
 .action-check.done { background: var(--ok); border-color: var(--ok); color: #fff; }
@@ -752,8 +880,7 @@ function renderCompanyPage(c) {
     <div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div>
     <div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div>
     <div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div>
-    <div class="inner-tab" onclick="switchInner(this,'actions-${c.no}','inner-tabs-${c.no}')">✅ アクション</div>
-    <div class="inner-tab" onclick="switchInner(this,'stage-panel-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div>
+    <div class="inner-tab" onclick="switchInner(this,'stage-panel-${c.no}','inner-tabs-${c.no}')">📈 企業進捗 &amp; アクション</div>
   </div>
 
   <div class="inner-content active" id="karte-${c.no}">
@@ -763,7 +890,7 @@ function renderCompanyPage(c) {
         ${infoRow('代表者', c.rep)} ${infoRow('住所', c.addr)} ${infoRow('年間単価', '¥' + (c.price||0).toLocaleString())}
         ${infoRow('1期コース', c.course1||'—')} ${infoRow('2期コース', c.course2||'—')}
         ${infoRow('AI研修', c.ai||'—')} ${infoRow('プレイフルキャンプ', c.camp||'—')}
-        ${infoRow('派遣方式', c.recruit||'未設定')} ${infoRow('労務区分', c.labor||'未設定')}
+        ${recruitRow(c)} ${laborRow(c)}
       </div>
       <div class="panel">
         <div class="panel-title">企業アンケートスコア（3Q）</div>
@@ -800,8 +927,7 @@ function renderCompanyPage(c) {
   </div>
 
   <div class="inner-content" id="contacts-${c.no}">${renderContacts(c)}</div>
-  <div class="inner-content" id="actions-${c.no}">${renderActions(c.no)}</div>
-  <div class="inner-content" id="stage-panel-${c.no}">${renderStagePanel(c.no)}</div>
+  <div class="inner-content" id="stage-panel-${c.no}">${renderStageFull(c.no)}</div>
 </div>`;
 }
 
@@ -810,6 +936,52 @@ function infoRow(label, val) {
     <span style="font-size:11px;color:var(--td);width:110px;flex-shrink:0">${esc(label)}</span>
     <span style="font-size:12px;color:var(--t1);font-weight:500">${esc(val||'—')}</span>
   </div>`;
+}
+
+function recruitRow(c) {
+  const saved = LS.get('basic_'+c.no);
+  const current = saved.recruit !== undefined ? saved.recruit : (c.recruit||'');
+  const opts = ['','選抜','公募','推薦','指名'].map(v =>
+    `<option value="${v}" ${v===current?'selected':''}>${v||'未設定'}</option>`).join('');
+  return `<div class="info-row-edit">
+    <span class="info-row-label">派遣方式</span>
+    <div class="info-row-body">
+      <select class="info-edit-select" id="recruit-sel-${c.no}" onchange="saveBasic(${c.no})">${opts}</select>
+    </div>
+  </div>`;
+}
+
+function laborRow(c) {
+  const saved = LS.get('basic_'+c.no);
+  const currentLabor = saved.labor !== undefined ? saved.labor : (c.labor||'');
+  const currentMemo = saved.labor_memo || '';
+  const opts = ['','労務内','労務外','一部労務外','両立型（要確認）','その他'].map(v =>
+    `<option value="${v}" ${v===currentLabor?'selected':''}>${v||'未設定'}</option>`).join('');
+  return `<div class="info-row-edit">
+    <span class="info-row-label">労務区分</span>
+    <div class="info-row-body">
+      <select class="info-edit-select" id="labor-sel-${c.no}" onchange="saveBasic(${c.no})">${opts}</select>
+      <textarea class="info-edit-memo" id="labor-memo-${c.no}" rows="2"
+        placeholder="備考（例：業務時間外で参加、一部部門のみ労務内など）"
+        oninput="saveBasic(${c.no})">${esc(currentMemo)}</textarea>
+      ${currentMemo ? `<div class="info-edit-save-row"><span style="font-size:10px;color:var(--ok)">✓ 保存済み</span></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function saveBasic(no) {
+  const recruit = document.getElementById('recruit-sel-'+no)?.value;
+  const labor = document.getElementById('labor-sel-'+no)?.value;
+  const labor_memo = document.getElementById('labor-memo-'+no)?.value;
+  const saved = LS.get('basic_'+no);
+  if(recruit !== undefined) saved.recruit = recruit;
+  if(labor !== undefined) saved.labor = labor;
+  if(labor_memo !== undefined) saved.labor_memo = labor_memo;
+  LS.set('basic_'+no, saved);
+  // 保存済み表示（メモ行のみ）
+  const memoEl = document.getElementById('labor-memo-'+no);
+  if(memoEl) memoEl.style.borderColor = 'var(--ok)';
+  setTimeout(() => { if(memoEl) memoEl.style.borderColor = ''; }, 1500);
 }
 function scoreBox(v, label) {
   return `<div style="flex:1;text-align:center;background:var(--surface2);border-radius:8px;padding:12px">
@@ -919,10 +1091,17 @@ function changeContract(no, sel) {
   }
 }
 
-// ══ STAGE PANEL ══
-function renderStagePanel(no) {
+// ══ STAGE + ACTION LOG (統合パネル) ══
+function renderStageFull(no) {
   const stage = getStage(no);
   const sd = STAGES[stage-1];
+  const c = COMPANIES.find(x=>x.no===no);
+  const logs = LS.getArr('actlogs_'+no);
+
+  // 最新ネクストアクション
+  const latestNext = logs.find(l => l.next && l.next.trim());
+  const nextText = latestNext ? latestNext.next : '';
+  const nextDate = latestNext ? latestNext.date : '';
 
   const timeline = STAGES.map((s,i) => {
     const n = i+1;
@@ -930,13 +1109,47 @@ function renderStagePanel(no) {
     const isCurr = n === stage;
     const alpha = isDone ? '99' : isCurr ? 'ff' : '44';
     return `<div class="stage-pip ${isDone?'done':''} ${isCurr?'current':''}"
-      style="background:${s.color}${alpha};color:${isCurr?'#fff':'#fff'}"
-      onclick="jumpStage(${no},${n})" title="St.${n} ${s.name}">
-      ${n}
-    </div>`;
+      style="background:${s.color}${alpha};color:#fff"
+      onclick="jumpStage(${no},${n})" title="St.${n} ${s.name}">${n}</div>`;
   }).join('');
 
+  // ログカード
+  const logCards = logs.length ? logs.map((l,i) => {
+    const logStage = STAGES[(l.stage||1)-1];
+    return `<div class="log-card">
+      <div class="log-card-header" onclick="toggleLog(this)">
+        <span class="log-card-date">${esc(l.date||'—')}</span>
+        <span class="log-card-stage" style="background:${logStage?.color||'#888'}22;color:${logStage?.color||'#888'}">St.${l.stage||'?'} ${logStage?.name||''}</span>
+        <span class="log-card-next-preview">→ ${esc(l.next||'（ネクストアクション未記入）')}</span>
+        <button class="log-delete-btn" onclick="deleteLog(${no},${i},event)">✕</button>
+        <span class="log-card-toggle">▼</span>
+      </div>
+      <div class="log-card-body">
+        ${l.done ? `<div class="log-section"><div class="log-section-label"><span class="log-field-emoji">✅</span>実施事項</div><div class="log-section-text">${esc(l.done)}</div></div>` : ''}
+        ${l.good ? `<div class="log-section"><div class="log-section-label"><span class="log-field-emoji">👍</span>Good（うまくいったこと）</div><div class="log-section-text">${esc(l.good)}</div></div>` : ''}
+        ${l.more ? `<div class="log-section"><div class="log-section-label"><span class="log-field-emoji">🔧</span>More（改善・課題）</div><div class="log-section-text">${esc(l.more)}</div></div>` : ''}
+        ${l.next ? `<div class="log-section"><div class="log-section-label"><span class="log-field-emoji">🎯</span>ネクストアクション</div><div class="log-next-text">${esc(l.next)}</div></div>` : ''}
+      </div>
+    </div>`;
+  }).join('') : `<div class="log-empty">📝 まだログがありません。<br>初回の活動記録を追加しましょう。</div>`;
+
   return `<div>
+    <!-- ① ネクストアクション常時表示バナー -->
+    <div class="next-action-banner">
+      <div class="na-icon">🎯</div>
+      <div class="na-body">
+        <div class="na-label">現在のネクストアクション</div>
+        ${nextText
+          ? `<div class="na-text">${esc(nextText)}</div><div class="na-date">記録日: ${esc(nextDate)}</div>`
+          : `<div class="na-empty">まだネクストアクションが記録されていません。下のフォームから追加してください。</div>`}
+      </div>
+      <button class="na-ai-btn" id="ai-btn-${no}" onclick="getAIAdvice(${no})">🤖 AIアドバイス</button>
+    </div>
+
+    <!-- AI アドバイスエリア -->
+    <div id="ai-advice-area-${no}" style="display:none"></div>
+
+    <!-- ② ステージ表示 -->
     <div class="stage-current" style="border-color:${sd?.color||'#ccc'}">
       <div class="stage-num-big" style="color:${sd?.color||'#888'}">${stage}</div>
       <div class="stage-info">
@@ -951,30 +1164,208 @@ function renderStagePanel(no) {
       <div class="stage-timeline">${timeline}</div>
     </div>
 
-    ${sd ? `<div class="stage-action-box" style="border-left:3px solid ${sd.color}">
-      <div class="stage-action-title" style="color:${sd.color}">キーアクション・必要な支援</div>
+    ${sd ? `<div class="stage-action-box" style="border-left:3px solid ${sd.color};margin-bottom:16px">
+      <div class="stage-action-title" style="color:${sd.color}">このステージのキーアクション</div>
       <div class="stage-action-text">${esc(sd.action)}</div>
     </div>` : ''}
 
-    <div class="stage-move-btns">
+    <div class="stage-move-btns" style="margin-bottom:24px">
       ${stage > 1 ? `<button class="stage-btn stage-btn-prev" onclick="moveStage(${no},-1)">← St.${stage-1} に戻す</button>` : '<div></div>'}
       ${stage < 12 ? `<button class="stage-btn stage-btn-next" onclick="moveStage(${no},1)">St.${stage+1} ${STAGES[stage]?.name||''} →</button>` : `<div style="padding:10px;text-align:center;color:var(--ok);font-weight:700">🎉 最終ステージ達成！</div>`}
     </div>
+
+    <!-- ③ 週次アクションログ入力フォーム -->
+    <div class="stage-section-divider">
+      <div class="stage-section-divider-line"></div>
+      <div class="stage-section-divider-label">週次アクションログ</div>
+      <div class="stage-section-divider-line"></div>
+    </div>
+
+    <button class="log-toggle-btn" id="log-toggle-btn-${no}" onclick="toggleLogForm(${no})">
+      ＋ アクションログを記録する
+    </button>
+
+    <div class="log-form-collapsible" id="log-form-wrap-${no}">
+    <div class="log-form-wrap">
+      <div class="log-form-title">📝 アクションログ記録</div>
+      <div class="log-date-row">
+        <input type="date" id="log-date-${no}" class="log-date-input" value="${new Date().toISOString().slice(0,10)}">
+        <span class="log-week-label" id="log-week-label-${no}">週を選択してください</span>
+      </div>
+      <div class="log-form-grid">
+        <div>
+          <div class="log-field-label"><span class="log-field-emoji">✅</span>実施事項</div>
+          <textarea class="log-textarea" id="log-done-${no}" rows="3" placeholder="今週実施したこと、接触・面談の内容など"></textarea>
+        </div>
+        <div>
+          <div class="log-field-label"><span class="log-field-emoji">👍</span>Good（うまくいったこと）</div>
+          <textarea class="log-textarea" id="log-good-${no}" rows="3" placeholder="ポジティブな反応、進んだポイントなど"></textarea>
+        </div>
+        <div>
+          <div class="log-field-label"><span class="log-field-emoji">🔧</span>More（改善・課題）</div>
+          <textarea class="log-textarea" id="log-more-${no}" rows="3" placeholder="懸念点、うまくいかなかったこと、次回改善したいことなど"></textarea>
+        </div>
+        <div>
+          <div class="log-field-label"><span class="log-field-emoji">🎯</span>ネクストアクション <span style="color:var(--ng)">★重要</span></div>
+          <textarea class="log-textarea" id="log-next-${no}" rows="3" placeholder="次回までに実施すること（具体的・明確に）" style="border-color:var(--accent)"></textarea>
+        </div>
+      </div>
+      <button class="log-submit-btn" onclick="saveLog(${no})">💾 ログを保存する</button>
+    </div>
+    </div>
+
+    <!-- ④ ログ一覧 -->
+    <div class="stage-section-divider">
+      <div class="stage-section-divider-line"></div>
+      <div class="stage-section-divider-label">アクションログ履歴</div>
+      <div class="stage-section-divider-line"></div>
+    </div>
+
+    <div class="log-list-header">
+      <span class="log-list-title">過去のログ</span>
+      <span class="log-count-badge">${logs.length}件</span>
+    </div>
+    <div id="log-list-${no}">${logCards}</div>
   </div>`;
 }
+
+function toggleLogForm(no) {
+  const form = document.getElementById('log-form-wrap-'+no);
+  const btn = document.getElementById('log-toggle-btn-'+no);
+  if(!form || !btn) return;
+  const isOpen = form.classList.toggle('open');
+  btn.textContent = isOpen ? '✕ 閉じる' : '＋ アクションログを記録する';
+  btn.style.color = isOpen ? 'var(--td)' : 'var(--accent)';
+}
+
+function saveLog(no) {
+  const date = document.getElementById('log-date-'+no)?.value;
+  const done = document.getElementById('log-done-'+no)?.value?.trim();
+  const good = document.getElementById('log-good-'+no)?.value?.trim();
+  const more = document.getElementById('log-more-'+no)?.value?.trim();
+  const next = document.getElementById('log-next-'+no)?.value?.trim();
+  if(!done && !next) { toast('⚠️ 実施事項かネクストアクションを入力してください'); return; }
+  const stage = getStage(no);
+  const logs = LS.getArr('actlogs_'+no);
+  logs.unshift({ date, done, good, more, next, stage, ts: Date.now() });
+  LS.setArr('actlogs_'+no, logs);
+  // clear form
+  ['done','good','more','next'].forEach(k => {
+    const el = document.getElementById('log-'+k+'-'+no);
+    if(el) el.value = '';
+  });
+  // re-render full panel
+  const panel = document.getElementById('stage-panel-'+no);
+  if(panel) panel.innerHTML = renderStageFull(no);
+  toast('✅ アクションログを保存しました');
+}
+
+function deleteLog(no, i, e) {
+  e.stopPropagation();
+  if(!confirm('このログを削除しますか？')) return;
+  const logs = LS.getArr('actlogs_'+no);
+  logs.splice(i, 1);
+  LS.setArr('actlogs_'+no, logs);
+  const panel = document.getElementById('stage-panel-'+no);
+  if(panel) panel.innerHTML = renderStageFull(no);
+  toast('ログを削除しました');
+}
+
+function toggleLog(el) {
+  const body = el.nextElementSibling;
+  const toggle = el.querySelector('.log-card-toggle');
+  body.classList.toggle('open');
+  toggle.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+// ══ AI ADVICE ══
+async function getAIAdvice(no) {
+  const c = COMPANIES.find(x=>x.no===no);
+  if(!c) return;
+  const btn = document.getElementById('ai-btn-'+no);
+  const area = document.getElementById('ai-advice-area-'+no);
+  if(!btn || !area) return;
+
+  const stage = getStage(no);
+  const sd = STAGES[stage-1];
+  const logs = LS.getArr('actlogs_'+no);
+  const plans = LS.get('plans_'+no);
+  const contract = getContract(no);
+
+  // 最新3件のログを使ってコンテキスト作成
+  const recentLogs = logs.slice(0,3).map((l,i) => `【${l.date} St.${l.stage}】実施: ${l.done||'—'} / Good: ${l.good||'—'} / More: ${l.more||'—'} / Next: ${l.next||'—'}`).join('\n');
+
+  btn.classList.add('loading');
+  btn.textContent = '⏳ 生成中...';
+  area.style.display = 'block';
+  area.innerHTML = `<div class="ai-advice-box"><div class="ai-advice-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span style="margin-left:6px">AIがアドバイスを生成中...</span></div></div>`;
+
+  const prompt = `あなたはNEO ACADEMIA（福岡の若者育成コミュニティ）のパートナーサクセス担当者のコーチです。
+企業への伴走支援における、具体的なネクストアクションをアドバイスしてください。
+
+【企業情報】
+- 企業名: ${c.name}
+- コース: ${c.course2||c.course1||'未設定'}
+- 契約ステータス: ${contract}
+- CS担当: ${c.cs||'未定'}
+- 企業満足度: ${c.ent_sat != null ? c.ent_sat+'/10' : '未回答'}
+
+【現在のステージ】
+St.${stage}「${sd?.name||'—'}」（理想時期: ${sd?.month||'—'}）
+ステージ説明: ${sd?.desc||'—'}
+このステージのキーアクション: ${sd?.action||'—'}
+
+【アカウントプラン】
+長期ビジョン: ${plans.vision||c.vision||'未設定'}
+短期ゴール: ${plans.short_goal||c.short_goal||'未設定'}
+伴走方針: ${plans.escort||c.escort||'未設定'}
+
+【最近のアクションログ（最新3件）】
+${recentLogs || '（まだログなし）'}
+
+上記を踏まえて、次の面談・接触までに取るべき具体的なネクストアクションを3〜5点、箇条書きでアドバイスしてください。
+また、このステージで特に注意すべき点や、企業との関係深化のためのヒントも1〜2点加えてください。
+日本語で、簡潔かつ実践的に書いてください。`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.map(b => b.text||'').join('') || 'アドバイスを取得できませんでした。';
+    area.innerHTML = `<div class="ai-advice-box">
+      <div class="ai-advice-header">
+        <span class="ai-advice-icon">🤖</span>
+        <span class="ai-advice-title">AI ネクストアクション アドバイス — ${c.short} / St.${stage} ${sd?.name||''}</span>
+        <button onclick="document.getElementById('ai-advice-area-${no}').style.display='none'" style="margin-left:auto;background:none;border:none;color:#93c5fd;cursor:pointer;font-size:16px">✕</button>
+      </div>
+      <div class="ai-advice-text">${esc(text)}</div>
+    </div>`;
+  } catch(err) {
+    area.innerHTML = `<div class="ai-advice-box"><div class="ai-advice-text" style="color:#f87171">⚠️ AIアドバイスの取得に失敗しました: ${esc(String(err))}</div></div>`;
+  }
+  btn.classList.remove('loading');
+  btn.textContent = '🤖 AIアドバイス';
+}
+
+// ══ STAGE PANEL (old renderStagePanel kept as wrapper) ══
+function renderStagePanel(no) { return renderStageFull(no); }
 
 function moveStage(no, delta) {
   const cur = getStage(no);
   const next = Math.max(1, Math.min(12, cur + delta));
   setStage(no, next);
-  // refresh stage panel
   const panel = document.getElementById('stage-panel-'+no);
-  if(panel) panel.innerHTML = renderStagePanel(no);
-  // refresh kpi row stage display
+  if(panel) panel.innerHTML = renderStageFull(no);
   const mainArea = document.getElementById('co-main-area');
   const c = COMPANIES.find(x=>x.no===no);
   if(mainArea && c) mainArea.innerHTML = renderCompanyPage(c);
-  // re-open stage tab
   setTimeout(()=>{
     const tabs = document.getElementById('inner-tabs-'+no);
     if(tabs) {
@@ -988,7 +1379,7 @@ function moveStage(no, delta) {
 function jumpStage(no, stageNo) {
   setStage(no, stageNo);
   const panel = document.getElementById('stage-panel-'+no);
-  if(panel) panel.innerHTML = renderStagePanel(no);
+  if(panel) panel.innerHTML = renderStageFull(no);
   const c = COMPANIES.find(x=>x.no===no);
   const mainArea = document.getElementById('co-main-area');
   if(mainArea && c) mainArea.innerHTML = renderCompanyPage(c);
@@ -1001,6 +1392,8 @@ function jumpStage(no, stageNo) {
   }, 0);
   toast(`St.${stageNo} ${STAGES[stageNo-1]?.name||''} に設定しました`);
 }
+
+// ══ ONBOARDING ══
 
 // ══ BOARD VIEW ══
 function renderBoard() {
