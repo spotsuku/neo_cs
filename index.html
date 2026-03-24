@@ -650,7 +650,7 @@ const STAGES=[
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function scColor(v){const n=parseFloat(v);if(isNaN(n))return'#94a3b8';if(n>=8)return'#059669';if(n>=6)return'#d97706';return'#dc2626';}
 function contractInfo(c){const m={'S：契約書締結':['tag-s','S'],'A：契約中':['tag-a','A'],'B：内諾確認済':['tag-b','B'],'C：社内調整中':['tag-c','C'],'D：非継続':['tag-d','D']};return m[c]||['tag-s','?'];}
-function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800);}
+function toast(msg, duration=1800){const el=document.getElementById('toast');if(!el)return;el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),duration);}
 function avatarColor(name){const colors=[['#2563eb','#dbeafe'],['#059669','#d1fae5'],['#d97706','#fef3c7'],['#7c3aed','#ede9fe'],['#0891b2','#cffafe'],['#db2777','#fce7f3']];const idx=(name||'').charCodeAt(0)%colors.length;return colors[idx];}
 function getContract(no){const ov=LS.get('contract_overrides');return ov[no]||COMPANIES.find(x=>x.no===no)?.contract||'';}
 function setContract(no,val){const ov=LS.get('contract_overrides');ov[no]=val;LS.set('contract_overrides',ov);const sb=document.getElementById('sb-item-'+no);if(sb){const tag=sb.querySelector('.contract-tag');if(tag){const[cls,label]=contractInfo(val);tag.className='contract-tag '+cls;tag.textContent=label;}}toast('契約ステータスを更新しました');}
@@ -896,11 +896,28 @@ async function analyzeMeetings(no){
   const meetings = LS.getArr('meetings_'+no);
   if(!meetings.length){ toast('面談ログがありません'); return; }
   const c = COMPANIES.find(x=>x.no===no);
-  const btn = document.querySelector(`[onclick="analyzeMeetings(${no})"]`);
-  if(btn){ btn.textContent = '⏳ 解析中...'; btn.disabled = true; }
 
-  // ログをテキスト化
-  const logText = meetings.slice(0, 10).map((m,i)=>
+  // ボタンをローディング状態に
+  document.querySelectorAll(`[onclick="analyzeMeetings(${no})"]`).forEach(btn=>{
+    btn.textContent = '⏳ 解析中...';
+    btn.disabled = true;
+    btn.style.opacity = '.6';
+  });
+
+  // バナーにローディング表示
+  const banner = document.getElementById('meeting-insight-banner-'+no);
+  if(banner){
+    banner.innerHTML = `<div style="background:#0e1a2b;border-radius:10px;padding:20px 22px;color:#fff;display:flex;align-items:center;gap:16px">
+      <div style="font-size:28px">⏳</div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#4da6ff;margin-bottom:4px">AI解析中...</div>
+        <div style="font-size:12px;color:#5a7090">直近${Math.min(meetings.length,10)}件の面談ログを解析しています</div>
+      </div>
+    </div>`;
+  }
+
+  // ログをテキスト化（最新10件）
+  const logText = meetings.slice(0, 10).map(m=>
     `【${m.date}${m.title?' / '+m.title:''}】\n${m.text}`
   ).join('\n\n---\n\n');
 
@@ -910,61 +927,138 @@ async function analyzeMeetings(no){
 ${logText}
 
 上記の面談ログ全体を分析して、以下の3点を箇条書きで簡潔に抽出してください：
-
-1. ✅ 合意事項（双方で合意・確認されたこと）
-2. 💡 企業ニーズ（企業が求めていること、期待していること）
-3. 🎯 ネクストアクション（次回までに実施すべき具体的なアクション）
+1. 合意事項（双方で合意・確認されたこと）
+2. 企業ニーズ（企業が求めていること、期待していること）
+3. ネクストアクション（次回までに実施すべき具体的なアクション）
 
 各項目を「・」で始まる箇条書きで3〜5件ずつ出力してください。
-JSON形式で返してください：
+必ずJSON形式のみで返してください（前後に余計なテキスト不要）：
 {"agreements":"・合意1\n・合意2","needs":"・ニーズ1\n・ニーズ2","next_actions":"・アクション1\n・アクション2"}`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('/api/claude', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        messages: [{role:'user', content: prompt}]
+        messages: [{ role: 'user', content: prompt }]
       })
     });
-    const data = await resp.json();
-    const raw = data.content?.find(b=>b.type==='text')?.text || '';
-    // JSON部分を抽出
-    const match = raw.match(/\{[\s\S]*\}/);
-    if(match){
-      const parsed = JSON.parse(match[0]);
-      parsed.updated = new Date().toLocaleDateString('ja-JP');
-      // 蓄積型: 既存履歴の先頭に追加（最大10件保持）
-      const rawExist = LS.get('meeting_insight_'+no);
-      const existing = Array.isArray(rawExist) ? rawExist
-        : (rawExist && rawExist.agreements) ? [rawExist] : [];
-      existing.unshift(parsed);
-      LS.set('meeting_insight_'+no, existing.slice(0, 10));
-      toast('✅ AI解析が完了しました');
-    } else {
-      const fallback = {
-        agreements: raw.includes('合意') ? raw : '解析結果を確認してください',
-        needs: '', next_actions: '',
-        updated: new Date().toLocaleDateString('ja-JP')
-      };
-      const rawExist2 = LS.get('meeting_insight_'+no);
-      const existing2 = Array.isArray(rawExist2) ? rawExist2
-        : (rawExist2 && rawExist2.agreements) ? [rawExist2] : [];
-      existing2.unshift(fallback);
-      LS.set('meeting_insight_'+no, existing2.slice(0, 10));
-      toast('✅ 解析完了（手動確認推奨）');
+
+    if(!resp.ok){
+      const errText = await resp.text().catch(()=>'');
+      throw new Error(`API error ${resp.status}: ${errText.slice(0,100)}`);
     }
+
+    const data = await resp.json();
+    const raw  = (data.content||[]).find(b=>b.type==='text')?.text || '';
+    _saveMeetingInsight(no, raw);
+
   } catch(e) {
-    toast('❌ 解析エラー: ' + e.message);
-  } finally {
-    // バナーを更新
-    const c2 = COMPANIES.find(x=>x.no===no);
-    const area = document.getElementById('co-main-area');
-    if(area && c2) area.innerHTML = renderMeetingsPage(c2);
+    console.error('analyzeMeetings error:', e);
+    // 手動入力モードにフォールバック
+    _showManualInsightForm(no, c?.name||'企業', e.message);
   }
 }
+
+function _saveMeetingInsight(no, raw){
+  // JSONを抽出してパース
+  const match = raw.match(/\{[\s\S]*?\}/);
+  let parsed;
+  if(match){
+    try { parsed = JSON.parse(match[0]); }
+    catch(e){ parsed = _parseInsightText(raw); }
+  } else {
+    parsed = _parseInsightText(raw);
+  }
+  parsed.updated = new Date().toLocaleDateString('ja-JP') + ' ' + new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+
+  // 蓄積型（最大10件）
+  const rawExist = LS.get('meeting_insight_'+no);
+  const existing = Array.isArray(rawExist) ? rawExist
+    : (rawExist && rawExist.agreements) ? [rawExist] : [];
+  existing.unshift(parsed);
+  LS.set('meeting_insight_'+no, existing.slice(0, 10));
+  toast('✅ AI解析が完了しました');
+
+  // ページ再描画
+  const c2 = COMPANIES.find(x=>x.no===no);
+  const area = document.getElementById('co-main-area');
+  if(area && c2) area.innerHTML = renderMeetingsPage(c2);
+}
+
+function _parseInsightText(raw){
+  const lines = raw.split('\n').filter(l=>l.trim());
+  const agreements=[], needs=[], next_actions=[];
+  let cur = null;
+  lines.forEach(l=>{
+    if(/合意/i.test(l)) cur='a';
+    else if(/ニーズ|需要|期待/i.test(l)) cur='n';
+    else if(/ネクスト|アクション|次回/i.test(l)) cur='x';
+    else if(/^[・\-•]/.test(l.trim())){
+      if(cur==='a') agreements.push(l.trim());
+      else if(cur==='n') needs.push(l.trim());
+      else if(cur==='x') next_actions.push(l.trim());
+    }
+  });
+  return {
+    agreements:   agreements.join('\n') || raw.slice(0,200),
+    needs:        needs.join('\n') || '',
+    next_actions: next_actions.join('\n') || ''
+  };
+}
+
+function _showManualInsightForm(no, companyName, errMsg=''){
+  const banner = document.getElementById('meeting-insight-banner-'+no);
+  if(!banner) return;
+
+  banner.innerHTML = `
+  <div style="background:#0e1a2b;border-radius:10px;padding:18px 20px;color:#fff">
+    <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:4px">⚠️ AI自動解析は使用できません</div>
+    <div style="font-size:11px;color:#7899bb;margin-bottom:14px;line-height:1.7">
+      ${errMsg ? `エラー: ${errMsg}<br>` : ''}
+      AI解析には <strong style="color:#4da6ff">claude.ai のArtifacts機能</strong> が必要です。<br>
+      または手動で面談の要点を入力して保存できます。
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div style="font-size:9px;font-family:'Space Mono',monospace;color:#4da6ff;letter-spacing:2px;margin-bottom:6px">✅ 合意事項</div>
+        <textarea id="manual-agree-${no}" rows="4"
+          placeholder="・合意した内容を箇条書きで..."
+          style="width:100%;padding:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#e2e8f0;font-size:12px;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.6;box-sizing:border-box"
+          onfocus="this.style.borderColor='#4da6ff'" onblur="this.style.borderColor='rgba(255,255,255,.15)'"></textarea>
+      </div>
+      <div>
+        <div style="font-size:9px;font-family:'Space Mono',monospace;color:#f59e0b;letter-spacing:2px;margin-bottom:6px">💡 企業ニーズ</div>
+        <textarea id="manual-needs-${no}" rows="4"
+          placeholder="・企業が求めていること..."
+          style="width:100%;padding:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#e2e8f0;font-size:12px;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.6;box-sizing:border-box"
+          onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='rgba(255,255,255,.15)'"></textarea>
+      </div>
+      <div>
+        <div style="font-size:9px;font-family:'Space Mono',monospace;color:#34d399;letter-spacing:2px;margin-bottom:6px">🎯 ネクストアクション</div>
+        <textarea id="manual-next-${no}" rows="4"
+          placeholder="・次回までに実施すること..."
+          style="width:100%;padding:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#e2e8f0;font-size:12px;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.6;box-sizing:border-box"
+          onfocus="this.style.borderColor='#34d399'" onblur="this.style.borderColor='rgba(255,255,255,.15)'"></textarea>
+      </div>
+    </div>
+    <button onclick="saveManualInsight(${no})"
+      style="padding:9px 24px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">
+      💾 保存する
+    </button>
+  </div>`;
+}
+
+function saveManualInsight(no){
+  const agreements   = document.getElementById('manual-agree-'+no)?.value?.trim()||'';
+  const needs        = document.getElementById('manual-needs-'+no)?.value?.trim()||'';
+  const next_actions = document.getElementById('manual-next-'+no)?.value?.trim()||'';
+  if(!agreements && !needs && !next_actions){ toast('内容を入力してください'); return; }
+  _saveMeetingInsight(no, JSON.stringify({agreements, needs, next_actions}));
+}
+
 
 function addMeeting(no){const date=document.getElementById('mt-date-'+no)?.value;const text=document.getElementById('mt-text-'+no)?.value?.trim();if(!text)return;const meetings=LS.getArr('meetings_'+no);meetings.unshift({date:date||new Date().toISOString().split('T')[0],text});LS.setArr('meetings_'+no,meetings);document.getElementById('mt-text-'+no).value='';const listEl=document.getElementById('meeting-list-'+no);if(listEl)listEl.innerHTML=renderMeetingList(no);toast('📅 面談ログを追加しました');}
 function deleteMeeting(no,i){const meetings=LS.getArr('meetings_'+no);meetings.splice(i,1);LS.setArr('meetings_'+no,meetings);const listEl=document.getElementById('meeting-list-'+no);if(listEl)listEl.innerHTML=renderMeetingList(no);}

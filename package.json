@@ -1,0 +1,16 @@
+{
+  "name": "neo-academia-ps-dashboard",
+  "version": "1.0.0",
+  "description": "NEO ACADEMIA 福岡 第1期 Partner Success Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev":   "node server.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": ["neo-academia", "partner-success", "dashboard"],
+  "license": "UNLICENSED",
+  "private": true
+}
