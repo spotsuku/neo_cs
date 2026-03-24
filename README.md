@@ -1,34 +1,49 @@
 # NEO ACADEMIA 福岡 第1期 Partner Success Dashboard
 
-## セットアップ手順
+## Vercel へのデプロイ手順（推奨）
 
-### 1. Node.js の確認（v16以上）
-```bash
-node --version
+### 1. GitHubリポジトリを Vercel に連携
+
+1. https://vercel.com にログイン
+2. 「Add New Project」→ GitHubの `neo_cs` リポジトリを選択
+3. 「Deploy」をクリック（この時点ではAI解析は未設定）
+
+### 2. 環境変数（APIキー）を設定 ← **ここが重要**
+
+Vercelのダッシュボードで設定します：
+
+```
+Vercel Dashboard
+ → プロジェクト（neo_cs）を開く
+   → 上部メニュー「Settings」
+     → 左メニュー「Environment Variables」
+       → 以下を追加：
+
+Name:  ANTHROPIC_API_KEY
+Value: sk-ant-あなたのAPIキー
 ```
 
-### 2. APIキーの設定
+> APIキーは https://console.anthropic.com/ → API Keys で取得
+
+### 3. 再デプロイ
+
+「Deployments」タブ → 最新のDeployment右の「…」→「Redeploy」
+
+---
+
+## ローカル開発
+
 ```bash
+git clone https://github.com/spotsuku/neo_cs.git
+cd neo_cs
+
+# .env を作成
 cp .env.example .env
-```
-`.env` を開いて `ANTHROPIC_API_KEY` に取得したAPIキーを設定：
-```
-ANTHROPIC_API_KEY=sk-ant-あなたのキー
-```
-> APIキーは https://console.anthropic.com/ で取得できます
+# .env を開いて ANTHROPIC_API_KEY=sk-ant-... を設定
 
-### 3. サーバー起動
-```bash
+# サーバー起動（Node.js標準モジュールのみ・npm installは不要）
 node server.js
-```
-または
-```bash
-npm start
-```
-
-### 4. ブラウザで開く
-```
-http://localhost:3000
+# → http://localhost:3000
 ```
 
 ---
@@ -36,26 +51,28 @@ http://localhost:3000
 ## ファイル構成
 
 ```
-neo_ps_dashboard/
-├── index.html       ← ダッシュボード本体（すべての機能）
-├── server.js        ← 静的ファイル配信 + APIプロキシサーバー
+neo_cs/
+├── index.html       ← ダッシュボード本体
+├── server.js        ← ローカル開発用サーバー
+├── vercel.json      ← Vercel設定（APIルーティング）
 ├── api/
-│   └── claude.js    ← Anthropic APIプロキシ（CORSを回避）
+│   └── claude.js    ← Anthropic APIプロキシ（Vercel Serverless Function）
 ├── package.json
-├── .env             ← APIキー設定（要作成 / Gitにコミット禁止）
+├── .env             ← ローカル用APIキー（要作成・Git除外）
 ├── .env.example     ← .env のテンプレート
-└── .gitignore
+└── .gitignore       ← .env を除外設定済み
 ```
 
-## AI解析機能について
+## AIが動く仕組み
 
-`定例面談` タブの **AI解析インサイト** 機能は、サーバー経由でAnthropicのAPIを呼び出します。
+```
+ブラウザ（index.html）
+    ↓  POST /api/claude
+Vercel（api/claude.js が実行）
+    ↓  APIキーをサーバー側で付与して転送
+api.anthropic.com/v1/messages
+    ↓  解析結果を返す
+ブラウザ（インサイトバナーに表示・LocalStorageに保存）
+```
 
-- ブラウザ → `POST /api/claude` → `server.js` → `api/claude.js` → Anthropic API
-- APIキーはサーバー側（`.env`）で管理されるため、ブラウザには公開されません
-- 解析結果は LocalStorage に蓄積保存され、ページをリロードしても維持されます
-
-## 注意事項
-
-- `.env` ファイルは絶対にGitにコミットしないでください
-- 本番運用時は `ALLOWED_ORIGIN` を適切なドメインに設定してください
+APIキーはVercelの Environment Variables（サーバー側）に保管され、ブラウザには一切公開されません。

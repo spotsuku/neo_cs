@@ -1,13 +1,9 @@
 /**
- * NEO ACADEMIA PS Dashboard
- * API Proxy: /api/claude
+ * Vercel Serverless Function: /api/claude
+ * Anthropic API へのプロキシ（CORSを解決）
  *
- * Anthropic API キーをサーバー側で管理し、
- * ブラウザからの直接API呼び出し（CORS）を回避する。
- *
- * 使い方:
- *   POST /api/claude
- *   Body: { model, max_tokens, messages }
+ * Vercel の環境変数に ANTHROPIC_API_KEY を設定してください：
+ * Vercel Dashboard → Project → Settings → Environment Variables
  */
 
 const https = require('https');
