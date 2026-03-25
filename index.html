@@ -740,14 +740,22 @@ const LSdb = {
   async loadAll(){
     const data = await this._call({action:'all'});
     if(data && data.rows){
+      let count = 0;
       data.rows.forEach(({key, value})=>{
-        localStorage.setItem('neo_ps_'+key, JSON.stringify(value));
+        // Supabaseのデータで常に上書き（Supabaseが正式保存先）
+        // ただし現在のセッションで保存中のキーは上書きしない
+        const fullKey = 'neo_ps_'+key;
+        if(!this._saving[key]){
+          // 保存中でなければSupabaseの値を採用
+          localStorage.setItem(fullKey, JSON.stringify(value));
+          count++;
+        }
       });
-      console.log('[LSdb] loaded', data.rows.length, 'keys from Supabase');
+      console.log('[LSdb] loaded', count, 'keys from Supabase');
     } else {
       console.warn('[LSdb] loadAll: no data or offline');
     }
-    this._loaded = true;  // 成功・失敗に関わらず完了フラグを立てる
+    this._loaded = true;
   },
 
   // デバッグ用: ブラウザコンソールで LSdb.status() を実行して確認
@@ -2991,8 +2999,7 @@ async function renderOnboardingAll(){
   const page = document.getElementById('page-onboarding-all');
   if(!page) return;
 
-  // 毎回Supabaseから最新データを同期してから描画
-  await LSdb.loadAll();
+  // ページ起動時の1回のみloadAll済み。ここでは呼ばない（競合防止）
 
   const filterPhase  = window._onboFilterPhase  || 'p1';
   const filterStatus = window._onboFilterStatus || 'all';
@@ -3075,10 +3082,10 @@ async function renderOnboardingAll(){
       min-width:108px;max-width:130px;vertical-align:bottom;text-align:center">
       <!-- タスク名 -->
       <div style="padding:8px 8px 6px;font-size:11px;font-weight:700;
-        color:var(--surface);background:${phase.color};
+        color:#fff;background:${phase.color};
         line-height:1.5;min-height:44px;
         display:flex;align-items:center;justify-content:center;
-        word-break:break-all;text-align:center">
+        word-break:break-all;text-align:center;letter-spacing:.3px">
         ${esc(t.label)}
       </div>
       <!-- 共通期日入力 -->
@@ -3121,18 +3128,27 @@ async function renderOnboardingAll(){
         if(icon) dueNode = `<div style="font-size:9px;color:${color};font-weight:700">${icon}</div>`;
       }
 
-      return `<td style="padding:6px 4px;text-align:center;
+      // 期日の色情報（背景に使う）
+      const dueBorderColor = due&&!isDone ? getDueDisplay(due).color : 'var(--border)';
+      const dueIconText    = due&&!isDone ? getDueDisplay(due).icon  : '';
+      const dueDateText    = due&&!isDone ? getDueDisplay(due).text  : '';
+
+      return `<td style="padding:5px 4px;text-align:center;
         border-right:1px solid var(--border);vertical-align:middle;
-        background:${isDone?'var(--ok-lt)':cellBg}">
+        background:${isDone?'var(--ok-lt)':cellBg==='transparent'?'var(--surface)':cellBg}">
         <div onclick="toggleOnboByIdAndRefresh(${c.no},'${esc(t.id)}')"
-          style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px">
+          style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <!-- チェックボックス -->
           <div style="width:22px;height:22px;border-radius:5px;
-            border:2px solid ${isDone?'var(--ok)':'var(--border)'};
-            background:${isDone?'var(--ok)':'transparent'};
+            border:2px solid ${isDone?'var(--ok)':'#94a3b8'};
+            background:${isDone?'var(--ok)':'#fff'};
             display:flex;align-items:center;justify-content:center;
-            font-size:13px;color:#fff;font-weight:700">${isDone?'✓':''}</div>
+            font-size:13px;color:${isDone?'#fff':'transparent'};font-weight:700;
+            box-shadow:0 1px 3px rgba(0,0,0,.15)">${isDone?'✓':''}</div>
+          <!-- 担当者 -->
           ${owner?`<div style="font-size:9px;color:var(--accent);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤${esc(owner)}</div>`:''}
-          ${dueNode}
+          <!-- 期日アイコン（超過・近接のみ表示） -->
+          ${dueIconText?`<div style="font-size:10px;font-weight:700;color:${dueBorderColor}">${dueIconText}</div>`:''}
         </div>
       </td>`;
     }).join('');
