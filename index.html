@@ -668,11 +668,69 @@ const ONBO_PHASES=[
 {id:'p4',title:'④ 参加準備・ツール習熟',color:'#d97706',tasks:['キックオフ日程調整','キックオフ実施','選抜メンバー情報記入','メンバーへ参加意義説明','受講生オリエン出席確認','スラックログイン案内','Notionフォーム記入']},
 {id:'p5',title:'⑤ 本格エンゲージメントフェーズ',color:'#0891b2',tasks:['受講生オリエン後サポート','参考図書案内','自己紹介促進','参加促進','委員会希望者募集案内','定例面談スケジューリング']}
 ];
-const LS={
-  get:(k)=>{try{return JSON.parse(localStorage.getItem('neo_ps_'+k)||'{}');}catch(e){return{};}},
-  set:(k,v)=>localStorage.setItem('neo_ps_'+k,JSON.stringify(v)),
-  getArr:(k)=>{try{return JSON.parse(localStorage.getItem('neo_ps_'+k)||'[]');}catch(e){return[];}},
-  setArr:(k,v)=>localStorage.setItem('neo_ps_'+k,JSON.stringify(v))
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LS: LocalStorage + Supabase 二重保存
+// 読み込みはまずLocalStorageのキャッシュを使用し、
+// 書き込み時はLocalStorageとSupabaseの両方に保存
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const LS = {
+  // 同期読み取り（LocalStorageキャッシュ）
+  get(k){
+    try{ return JSON.parse(localStorage.getItem('neo_ps_'+k)||'{}'); }
+    catch(e){ return {}; }
+  },
+  // 同期書き込み + 非同期でSupabaseに保存
+  set(k, v){
+    localStorage.setItem('neo_ps_'+k, JSON.stringify(v));
+    LSdb.save(k, v);
+  },
+  getArr(k){
+    try{ return JSON.parse(localStorage.getItem('neo_ps_'+k)||'[]'); }
+    catch(e){ return []; }
+  },
+  setArr(k, v){
+    localStorage.setItem('neo_ps_'+k, JSON.stringify(v));
+    LSdb.save(k, v);
+  }
+};
+
+// Supabase との同期
+const LSdb = {
+  _saving: {},
+
+  // Supabaseに保存（debounce: 連続更新をまとめる）
+  save(key, value){
+    clearTimeout(this._saving[key]);
+    this._saving[key] = setTimeout(async ()=>{
+      try {
+        await fetch('/api/db', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({key, value})
+        });
+      } catch(e) {
+        // Supabase保存失敗 → LocalStorageのみで継続
+        console.warn('[LSdb] save failed:', key, e.message);
+      }
+    }, 800); // 800ms後に保存（連続操作をまとめる）
+  },
+
+  // Supabaseから全データを取得してLocalStorageに同期
+  async loadAll(){
+    try {
+      const res  = await fetch('/api/db/all');
+      if(!res.ok) throw new Error('loadAll failed: '+res.status);
+      const data = await res.json();
+      if(data && data.rows){
+        data.rows.forEach(({key, value})=>{
+          localStorage.setItem('neo_ps_'+key, JSON.stringify(value));
+        });
+        console.log('[LSdb] loaded', data.rows.length, 'keys from Supabase');
+      }
+    } catch(e) {
+      console.warn('[LSdb] loadAll failed (offline mode):', e.message);
+    }
+  }
 };
 const STAGES=[
 {no:1,name:'興味喚起（ワクワク）',month:'5月',color:'#6366f1',desc:'「NEOって面白そう」と思っているが、実態はよくわかっていない',action:'事例共有、動画、オープニングイベント参加などで共感形成'},
@@ -755,6 +813,8 @@ function renderStagePanel(no){
 function moveStage(no,delta){const cur=getStage(no);const next=Math.max(1,Math.min(12,cur+delta));setStage(no,next);const c=COMPANIES.find(x=>x.no===no);const mainArea=document.getElementById('co-main-area');if(mainArea&&c)mainArea.innerHTML=renderCompanyPage(c);setTimeout(()=>{const tabs=document.getElementById('inner-tabs-'+no);if(tabs){const st=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));if(st)switchInner(st,'progress-'+no,'inner-tabs-'+no);}},0);toast(`St.${next} ${STAGES[next-1]?.name||''} に移動しました`);}
 function jumpStage(no,stageNo){setStage(no,stageNo);const c=COMPANIES.find(x=>x.no===no);const mainArea=document.getElementById('co-main-area');if(mainArea&&c)mainArea.innerHTML=renderCompanyPage(c);setTimeout(()=>{const tabs=document.getElementById('inner-tabs-'+no);if(tabs){const st=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));if(st)switchInner(st,'progress-'+no,'inner-tabs-'+no);}},0);toast(`St.${stageNo} ${STAGES[stageNo-1]?.name||''} に設定しました`);}
 function renderCompanyPage(c){
+  // LS上書きがあれば適用
+  const _ov=LS.get('co_info_'+c.no);if(Object.keys(_ov).length>0)c={...c,..._ov};
   const contract=getContract(c.no);const[cls]=contractInfo(contract);const plans=LS.get('plans_'+c.no);
   const health=getHealthScore(c);const hColor=health>=7?'var(--ok)':health>=5?'var(--warn)':'var(--ng)';
   const gradRate=c.sent>0?Math.round(c.grad/c.sent*100):null;const gradColor=gradRate===100?'var(--ok)':gradRate!=null&&gradRate>=50?'var(--warn)':'var(--ng)';
@@ -769,7 +829,95 @@ function renderCompanyPage(c){
   const savedSuccess=plans.success!=null?plans.success:c.success;
   const contractOptions=['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(opt=>`<option value="${opt}" ${opt===contract?'selected':''}>${opt}</option>`).join('');
   const selCls=cls.replace('tag-','sel-');
-  return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div><div class="co-kpi-row"><div class="co-kpi"><div class="co-kpi-label">健全スコア</div><div class="co-kpi-val" style="color:${hColor}">${health}</div><div class="co-kpi-sub">/10</div></div><div class="co-kpi"><div class="co-kpi-label">企業進捗</div><div class="co-kpi-val" style="color:${stageData?.color||'#888'};font-size:26px">St.${stage}</div><div class="co-kpi-sub">${stageData?.month||'—'}</div></div><div class="co-kpi"><div class="co-kpi-label">派遣人数</div><div class="co-kpi-val" style="color:var(--accent)">${c.sent}</div><div class="co-kpi-sub">名（1期）</div></div><div class="co-kpi"><div class="co-kpi-label">卒業率</div><div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div><div class="co-kpi-sub">${c.grad}/${c.sent}名</div></div><div class="co-kpi"><div class="co-kpi-label">企業満足度</div><div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div><div class="co-kpi-sub">/10</div></div></div><div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel"><div class="panel-title">基本情報</div>${infoRow('代表者',c.rep)}${infoRow('住所',c.addr)}${infoRow('年間単価','¥'+(c.price||0).toLocaleString())}${infoRow('1期コース',c.course1||'—')}${infoRow('2期コース',c.course2||'—')}${infoRow('AI研修',c.ai||'—')}${infoRow('プレイフルキャンプ',c.camp||'—')}${(()=>{
+  return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div><div class="co-kpi-row"><div class="co-kpi"><div class="co-kpi-label">健全スコア</div><div class="co-kpi-val" style="color:${hColor}">${health}</div><div class="co-kpi-sub">/10</div></div><div class="co-kpi"><div class="co-kpi-label">企業進捗</div><div class="co-kpi-val" style="color:${stageData?.color||'#888'};font-size:26px">St.${stage}</div><div class="co-kpi-sub">${stageData?.month||'—'}</div></div><div class="co-kpi"><div class="co-kpi-label">派遣人数</div><div class="co-kpi-val" style="color:var(--accent)">${c.sent}</div><div class="co-kpi-sub">名（1期）</div></div><div class="co-kpi"><div class="co-kpi-label">卒業率</div><div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div><div class="co-kpi-sub">${c.grad}/${c.sent}名</div></div><div class="co-kpi"><div class="co-kpi-label">企業満足度</div><div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div><div class="co-kpi-sub">/10</div></div></div><div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel" id="co-basic-panel-${c.no}">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--border)">
+    <div class="panel-title" style="margin:0;border:none;padding:0">基本情報</div>
+    <div style="display:flex;gap:6px">
+      <button id="co-edit-toggle-${c.no}"
+        onclick="toggleCoEdit(${c.no})"
+        style="padding:5px 14px;font-size:11px;font-weight:700;border:1px solid var(--accent);border-radius:6px;background:var(--accent-lt);color:var(--accent);cursor:pointer">
+        ✏ 編集
+      </button>
+      <button id="co-edit-save-${c.no}"
+        onclick="saveCoInfo(${c.no})"
+        style="display:none;padding:5px 14px;font-size:11px;font-weight:700;border:none;border-radius:6px;background:var(--accent);color:#fff;cursor:pointer">
+        💾 保存
+      </button>
+      <button id="co-edit-cancel-${c.no}"
+        onclick="toggleCoEdit(${c.no})"
+        style="display:none;padding:5px 14px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--td);cursor:pointer">
+        キャンセル
+      </button>
+    </div>
+  </div>
+  <!-- 表示モード -->
+  <div id="co-view-${c.no}">
+    ${infoRow('企業名（正式）', (()=>{const ov=LS.get('co_info_'+c.no);return ov.name||c.name;})()||'—')}
+    ${infoRow('企業名（略称）', (()=>{const ov=LS.get('co_info_'+c.no);return ov.short||c.short;})()||'—')}
+    ${infoRow('代表者', (()=>{const ov=LS.get('co_info_'+c.no);return ov.rep||c.rep;})()||'—')}
+    ${infoRow('住所', (()=>{const ov=LS.get('co_info_'+c.no);return ov.addr||c.addr;})()||'—')}
+    ${infoRow('年間単価', '¥'+((()=>{const ov=LS.get('co_info_'+c.no);return ov.price||c.price||0;})()).toLocaleString())}
+    ${infoRow('CS担当', (()=>{const ov=LS.get('co_info_'+c.no);return ov.cs||c.cs;})()||'—')}
+    ${infoRow('1期コース', (()=>{const ov=LS.get('co_info_'+c.no);return ov.course1||c.course1;})()||'—')}
+    ${infoRow('2期コース', (()=>{const ov=LS.get('co_info_'+c.no);return ov.course2||c.course2;})()||'—')}
+    ${infoRow('AI研修', (()=>{const ov=LS.get('co_info_'+c.no);return ov.ai||c.ai;})()||'—')}
+    ${infoRow('プレイフルキャンプ', (()=>{const ov=LS.get('co_info_'+c.no);return ov.camp||c.camp;})()||'—')}
+  </div>
+  <!-- 編集モード -->
+  <div id="co-edit-${c.no}" style="display:none">
+    ${(()=>{
+      const ov = LS.get('co_info_'+c.no);
+      function editRow(label, field, val, type='text', opts=null){
+        const inputId = 'co-edit-'+field+'-'+c.no;
+        if(opts){
+          return `<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-size:11px;color:var(--td);width:110px;flex-shrink:0">${label}</span>
+            <select id="${inputId}" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;color:var(--t1);background:var(--surface);outline:none"
+              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+              ${opts.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+            </select>
+          </div>`;
+        }
+        if(type==='textarea'){
+          return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--td);margin-bottom:6px">${label}</div>
+            <textarea id="${inputId}" class="plan-textarea" rows="2"
+              style="font-size:12px">${esc(val||'')}</textarea>
+          </div>`;
+        }
+        return `<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);align-items:center">
+          <span style="font-size:11px;color:var(--td);width:110px;flex-shrink:0">${label}</span>
+          <input id="${inputId}" type="${type}" value="${esc(val||'')}"
+            style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;color:var(--t1);background:var(--surface);outline:none;box-sizing:border-box"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+        </div>`;
+      }
+      return editRow('企業名（正式）','name', ov.name||c.name)
+           + editRow('企業名（略称）','short', ov.short||c.short)
+           + editRow('代表者','rep', ov.rep||c.rep)
+           + editRow('住所','addr', ov.addr||c.addr)
+           + editRow('年間単価','price', ov.price||c.price||0, 'number')
+           + editRow('CS担当','cs', ov.cs||c.cs)
+           + editRow('1期コース','course1', ov.course1||c.course1, 'text',
+               ['リーダー育成','事業共創','両方実施','—'])
+           + editRow('2期コース','course2', ov.course2||c.course2, 'text',
+               ['リーダー育成','事業共創','両方実施','—'])
+           + editRow('AI研修','ai', ov.ai||c.ai, 'text',
+               ['未検討','検討中','内諾','失注'])
+           + editRow('プレイフルキャンプ','camp', ov.camp||c.camp, 'text',
+               ['未検討','体験会参加','内諾','失注'])
+           + `<div style="margin-top:10px;display:flex;gap:8px">
+               <button onclick="saveCoInfo(${c.no})"
+                 style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+                 💾 保存する
+               </button>
+               <button onclick="resetCoInfo(${c.no})"
+                 style="padding:10px 16px;background:var(--surface2);color:var(--td);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">
+                 初期化
+               </button>
+             </div>`;
+    })()}
+  </div>${(()=>{
   const recOpts = ['未設定','選抜','公募'];
   const labOpts = ['未設定','労務外','労務内','両立'];
   const saved = LS.get('dispatch_'+c.no);
@@ -3244,3 +3392,17 @@ renderOverview();
 </script>
 </body>
 </html>
+function toggleCoEdit(no){
+  const viewEl    = document.getElementById('co-view-'+no);
+  const editEl    = document.getElementById('co-edit-'+no);
+  const toggleBtn = document.getElementById('co-edit-toggle-'+no);
+  const saveBtn   = document.getElementById('co-edit-save-'+no);
+  const cancelBtn = document.getElementById('co-edit-cancel-'+no);
+  if(!viewEl||!editEl) return;
+  const isEditing = editEl.style.display !== 'none';
+  viewEl.style.display    = isEditing ? 'block' : 'none';
+  editEl.style.display    = isEditing ? 'none'  : 'block';
+  if(toggleBtn) toggleBtn.style.display = isEditing ? 'block' : 'none';
+  if(saveBtn)   saveBtn.style.display   = isEditing ? 'none'  : 'block';
+  if(cancelBtn) cancelBtn.style.display = isEditing ? 'none'  : 'block';
+}
