@@ -261,6 +261,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
     <div class="nav-tab active" id="ntab-overview" onclick="switchMainTab('overview')">🏠 概要ダッシュボード</div>
     <div class="nav-tab" id="ntab-company" onclick="switchMainTab('company')">🏢 企業カルテ</div>
     <div class="nav-tab" id="ntab-onboarding" onclick="switchMainTab('onboarding')">📋 オンボーディング</div>
+    <div class="nav-tab" id="ntab-onboarding-all" onclick="switchMainTab('onboarding-all')">📊 オンボ一覧</div>
     <div class="nav-tab" id="ntab-meetings" onclick="switchMainTab('meetings')">📅 定例面談</div>
     <div class="nav-tab" id="ntab-survey" onclick="switchMainTab('survey')">📊 アンケート分析</div>
     <div class="nav-tab" id="ntab-milestone" onclick="switchMainTab('milestone')">🗓 マイルストーン</div>
@@ -269,7 +270,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
 </nav>
 <div class="app" id="app-company" style="display:none"></div>
 <div id="page-overview" class="page active" style="padding:28px 36px 80px"></div>
-<div id="page-board" class="page" style="padding:28px 36px 80px"></div>
+<div id="page-board" class="page" style="padding:28px 36px 80
+<div id="page-onboarding-all" class="page" style="display:none;padding:28px 36px 80px"></div>px"></div>
 <div id="page-milestone" class="page" style="padding:28px 36px 80px"></div>
 <div id="toast"></div>
 <script>
@@ -663,11 +665,13 @@ function switchMainTab(tab){
   document.getElementById('page-overview').style.display=tab==='overview'?'block':'none';
   document.getElementById('page-board').style.display=tab==='board'?'block':'none';
   document.getElementById('page-milestone').style.display=tab==='milestone'?'block':'none';
+  document.getElementById('page-onboarding-all').style.display=tab==='onboarding-all'?'block':'none';
   document.getElementById('app-company').style.display=['company','onboarding','meetings','survey'].includes(tab)?'flex':'none';
-  ['overview','company','onboarding','meetings','survey','board','milestone'].forEach(t=>{const btn=document.getElementById('ntab-'+t);if(btn)btn.classList.toggle('active',t===tab);});
+  ['overview','company','onboarding','meetings','survey','board','milestone','onboarding-all'].forEach(t=>{const btn=document.getElementById('ntab-'+t);if(btn)btn.classList.toggle('active',t===tab);});
   currentMainTab=tab;
   if(tab==='board'){renderBoard();return;}
   if(tab==='milestone'){renderMilestonePage();return;}
+  if(tab==='onboarding-all'){renderOnboardingAll();return;}
   if(tab==='survey'){
     // サイドバー付きレイアウトで全体サマリーを左、企業別を右に
     renderSurveyLayout();
@@ -776,6 +780,20 @@ function getOnboLabel(no, taskId){
   return (ov && ov[taskId]) ? ov[taskId] : null;
 }
 
+
+// タスクのメタ情報（担当・期日）を取得
+function getOnboMeta(no, taskId){
+  const meta = LS.get('onbo_meta_'+no);
+  return meta[taskId] || {owner:'', due:''};
+}
+
+// タスクのメタ情報を保存
+function saveOnboMeta(no, taskId, field, value){
+  const meta = LS.get('onbo_meta_'+no);
+  if(!meta[taskId]) meta[taskId] = {owner:'', due:''};
+  meta[taskId][field] = value;
+  LS.set('onbo_meta_'+no, meta);
+}
 function getOnboTasks(no, phaseId){
   const phase   = ONBO_PHASES.find(p=>p.id===phaseId);
   if(!phase) return [];
@@ -837,7 +855,7 @@ function renameOnboTask(no, phaseId, taskId, newLabel){
 
 function resetOnboFull(no){
   if(!confirm('カスタム項目・削除・名前変更・チェックをすべてリセットしますか？')) return;
-  ['onbo_','onbo_custom_','onbo_del_','onbo_label_'].forEach(k=>{
+  ['onbo_','onbo_custom_','onbo_del_','onbo_label_','onbo_meta_'].forEach(k=>{
     localStorage.removeItem('neo_ps_'+k+no);
   });
   rerenderOnbo(no);
@@ -2087,8 +2105,14 @@ function renderCoMilestone(no){
         <div style="font-size:11px;color:var(--td);margin-top:4px">${done} / ${total} 完了</div>
       </div>
       <div style="text-align:center">
-        <div style="font-size:9px;color:var(--td);margin-bottom:4px">ヒーロージャーニー</div>
-        <div style="font-size:11px;font-weight:700;color:var(--ok);font-family:'Space Mono',monospace">${esc(d.journey||'—')}</div>
+        <div style="font-size:9px;color:var(--td);margin-bottom:4px">ステージ</div>
+        <div style="font-size:18px;font-weight:700;color:var(--accent);font-family:'Bebas Neue',sans-serif">St.${getStage(no)}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--td);margin-bottom:4px">契約状況</div>
+        <div style="font-size:13px;font-weight:700;font-family:'Space Mono',monospace">
+          ${(()=>{const[cls,lbl]=contractInfo(getContract(no));return`<span class="contract-tag ${cls}" style="font-size:11px">${lbl}</span>`})()}
+        </div>
       </div>
     </div>
     ${nextPending?`<div style="padding:10px 14px;background:var(--warn-lt);border:1px solid var(--warn);border-radius:7px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
@@ -2748,6 +2772,229 @@ function showSurveyCompany(no){
 }
 
 
+function renderOnboardingAll(){
+  const page = document.getElementById('page-onboarding-all');
+  if(!page) return;
+
+  // ── フィルター状態 ──
+  const filterPhase    = window._onboFilterPhase  || 'all';
+  const filterStatus   = window._onboFilterStatus || 'all';
+  const filterCompany  = window._onboFilterCo     || '';
+
+  // ── KPI集計（全社） ──
+  let totalTasks=0, totalDone=0;
+  const companyStats = COMPANIES.map(c=>{
+    const done  = LS.get('onbo_'+c.no);
+    let cTotal=0, cDone=0;
+    ONBO_PHASES.forEach(p=>{
+      const tasks = getOnboTasks(c.no, p.id);
+      cTotal += tasks.length;
+      tasks.forEach(t=>{ if(done[t.id]) cDone++; });
+    });
+    totalTasks += cTotal;
+    totalDone  += cDone;
+    const pct = cTotal > 0 ? Math.round(cDone/cTotal*100) : 0;
+    return {c, cTotal, cDone, pct};
+  });
+
+  const pctAll = totalTasks>0 ? Math.round(totalDone/totalTasks*100) : 0;
+  const completed = companyStats.filter(s=>s.pct===100).length;
+  const inProgress = companyStats.filter(s=>s.pct>0&&s.pct<100).length;
+  const notStarted = companyStats.filter(s=>s.pct===0).length;
+
+  // ── フィルターバー ──
+  const phaseFilters = [
+    {id:'all', label:'全フェーズ', color:'#64748b'},
+    ...ONBO_PHASES.map(p=>({id:p.id, label:p.title.replace(/^[①-⑨]\s*/,''), color:p.color}))
+  ].map(f=>`
+    <button onclick="window._onboFilterPhase='${f.id}';renderOnboardingAll()"
+      style="padding:5px 12px;font-size:11px;font-weight:${filterPhase===f.id?'700':'400'};
+        border-radius:6px;border:1px solid ${filterPhase===f.id?f.color:'var(--border)'};
+        background:${filterPhase===f.id?f.color+'22':'var(--surface2)'};
+        color:${filterPhase===f.id?f.color:'var(--td)'};cursor:pointer;white-space:nowrap">
+      ${f.label}
+    </button>`).join('');
+
+  const statusFilters = [
+    {id:'all',      label:'すべて',    color:'#64748b'},
+    {id:'done',     label:'✅ 完了',   color:'#059669'},
+    {id:'progress', label:'🔄 進行中', color:'#1a56db'},
+    {id:'none',     label:'⬜ 未着手', color:'#94a3b8'},
+  ].map(f=>`
+    <button onclick="window._onboFilterStatus='${f.id}';renderOnboardingAll()"
+      style="padding:5px 12px;font-size:11px;font-weight:${filterStatus===f.id?'700':'400'};
+        border-radius:6px;border:1px solid ${filterStatus===f.id?f.color:'var(--border)'};
+        background:${filterStatus===f.id?f.color+'22':'var(--surface2)'};
+        color:${filterStatus===f.id?f.color:'var(--td)'};cursor:pointer;white-space:nowrap">
+      ${f.label}
+    </button>`).join('');
+
+  // ── フェーズ別タスクテーブルを生成 ──
+  const phasesToShow = filterPhase==='all'
+    ? ONBO_PHASES
+    : ONBO_PHASES.filter(p=>p.id===filterPhase);
+
+  // フィルタリングした企業リスト
+  let filteredStats = companyStats;
+  if(filterStatus==='done')     filteredStats = filteredStats.filter(s=>s.pct===100);
+  if(filterStatus==='progress') filteredStats = filteredStats.filter(s=>s.pct>0&&s.pct<100);
+  if(filterStatus==='none')     filteredStats = filteredStats.filter(s=>s.pct===0);
+  if(filterCompany) filteredStats = filteredStats.filter(s=>
+    s.c.short.toLowerCase().includes(filterCompany.toLowerCase()) ||
+    s.c.name.toLowerCase().includes(filterCompany.toLowerCase())
+  );
+
+  // ── フェーズ別テーブル ──
+  const phaseTables = phasesToShow.map(phase=>{
+    const tasks = [
+      // 標準タスク（全社共通）
+      ...phase.tasks.map(t=>({id: phase.id+':'+t, label: t, isStandard: true}))
+    ];
+
+    // 各企業のタスク状況（カスタム含む）
+    const rows = filteredStats.map(({c})=>{
+      const done  = LS.get('onbo_'+c.no);
+      const meta  = LS.get('onbo_meta_'+c.no);
+      const cTasks = getOnboTasks(c.no, phase.id);
+      const pDone  = cTasks.filter(t=>done[t.id]).length;
+      const pctP   = cTasks.length>0 ? Math.round(pDone/cTasks.length*100) : 0;
+
+      const cells = cTasks.map(t=>{
+        const isDone  = !!done[t.id];
+        const tmeta   = (meta && meta[t.id]) || {};
+        const owner   = tmeta.owner || '';
+        const due     = tmeta.due   || '';
+        let dueColor  = 'var(--td)';
+        let dueIcon   = '';
+        if(due && !isDone){
+          const today = new Date(); today.setHours(0,0,0,0);
+          const diff  = Math.ceil((new Date(due)-today)/(1000*60*60*24));
+          if(diff < 0)      { dueColor='var(--ng)';   dueIcon='⚠'; }
+          else if(diff <= 2){ dueColor='var(--warn)';  dueIcon='⏰'; }
+          else              { dueColor='var(--ok)';    dueIcon=''; }
+        }
+        return `<td style="padding:6px 8px;text-align:center;border-right:1px solid var(--border);vertical-align:middle;min-width:80px">
+          <div onclick="toggleOnboByIdAndRefresh(${c.no},'${t.id}')"
+            style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;width:100%">
+            <div style="width:22px;height:22px;border-radius:5px;border:2px solid ${isDone?'var(--ok)':'var(--border)'};
+              background:${isDone?'var(--ok)':'transparent'};display:flex;align-items:center;justify-content:center;
+              font-size:13px;color:#fff;font-weight:700;flex-shrink:0">${isDone?'✓':''}</div>
+            ${owner?`<div style="font-size:9px;color:var(--accent);max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤${esc(owner)}</div>`:''}
+            ${due?`<div style="font-size:9px;color:${dueColor};font-family:'Space Mono',monospace">${dueIcon}${esc(due.slice(5))}</div>`:''}
+          </div>
+        </td>`;
+      }).join('');
+
+      const pBar = `<div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-top:3px">
+        <div style="width:${pctP}%;height:100%;background:${pctP===100?'var(--ok)':'var(--accent)'};border-radius:2px"></div>
+      </div>`;
+
+      return `<tr style="border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+        <td style="padding:8px 12px;border-right:1px solid var(--border);min-width:120px;position:sticky;left:0;background:var(--surface);z-index:1">
+          <div style="font-size:12px;font-weight:700;color:var(--t1)">${esc(c.short)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+            <span style="font-size:10px;color:${pctP===100?'var(--ok)':'var(--td)'}">
+              ${pDone}/${cTasks.length}
+            </span>
+            ${pBar}
+          </div>
+        </td>
+        ${cells}
+      </tr>`;
+    }).join('');
+
+    // タスク列ヘッダー
+    // 全社共通のタスク名（カスタム含まずシンプルに）
+    const taskHeaders = phase.tasks.map(t=>`
+      <th style="padding:6px 8px;font-size:10px;font-weight:700;color:${phase.color};
+        border-right:1px solid var(--border);min-width:80px;max-width:100px;
+        writing-mode:vertical-rl;text-orientation:mixed;height:80px;vertical-align:bottom;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        ${esc(t)}
+      </th>`).join('');
+
+    return `<div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:10px 14px;
+        background:${phase.color}11;border-left:4px solid ${phase.color};border-radius:0 8px 8px 0">
+        <div style="font-size:14px;font-weight:700;color:${phase.color}">${esc(phase.title)}</div>
+        <div style="font-size:11px;color:var(--td)">
+          ${filteredStats.filter(({c})=>getOnboTasks(c.no,phase.id).filter(t=>LS.get('onbo_'+c.no)[t.id]).length===getOnboTasks(c.no,phase.id).length&&getOnboTasks(c.no,phase.id).length>0).length}/${filteredStats.length}社 完了
+        </div>
+      </div>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
+        <table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:var(--surface2);border-bottom:2px solid var(--border)">
+              <th style="padding:8px 12px;text-align:left;border-right:1px solid var(--border);
+                position:sticky;left:0;background:var(--surface2);z-index:2;min-width:120px;font-size:10px;color:var(--td)">
+                企業
+              </th>
+              ${taskHeaders}
+            </tr>
+          </thead>
+          <tbody>${rows || '<tr><td colspan="99" style="padding:20px;text-align:center;color:var(--td)">該当する企業がありません</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  page.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;margin-bottom:4px">📊 オンボーディング一覧</div>
+      <div style="font-size:13px;color:var(--td)">全企業のオンボーディング進捗をフェーズ別に確認できます</div>
+    </div>
+
+    <!-- KPIバー -->
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      ${[
+        {label:'全体進捗', val:pctAll+'%', color:'var(--accent)', sub:`${totalDone}/${totalTasks}タスク`},
+        {label:'✅ 完了', val:completed+'社', color:'var(--ok)', sub:'全タスク完了'},
+        {label:'🔄 進行中', val:inProgress+'社', color:'var(--accent)', sub:'一部完了'},
+        {label:'⬜ 未着手', val:notStarted+'社', color:'var(--td)', sub:'チェックなし'},
+      ].map(k=>`<div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;line-height:1;color:${k.color}">${k.val}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--t1);margin-top:4px">${k.label}</div>
+        <div style="font-size:10px;color:var(--td);margin-top:2px">${k.sub}</div>
+      </div>`).join('')}
+    </div>
+
+    <!-- フィルターバー -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-size:10px;font-weight:700;color:var(--td);width:60px;flex-shrink:0">フェーズ</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${phaseFilters}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-size:10px;font-weight:700;color:var(--td);width:60px;flex-shrink:0">進捗状況</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${statusFilters}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:10px;font-weight:700;color:var(--td);width:60px;flex-shrink:0">企業名</span>
+        <input type="text" value="${esc(filterCompany)}" placeholder="企業名で絞り込み..."
+          oninput="window._onboFilterCo=this.value;renderOnboardingAll()"
+          style="flex:1;max-width:240px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--t1);background:var(--surface2);outline:none"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+        <button onclick="window._onboFilterPhase='all';window._onboFilterStatus='all';window._onboFilterCo='';renderOnboardingAll()"
+          style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--td);cursor:pointer">
+          リセット
+        </button>
+      </div>
+    </div>
+
+    <!-- フェーズ別テーブル -->
+    ${phaseTables}
+  `;
+}
+
+// テーブルからのトグル（再描画）
+function toggleOnboByIdAndRefresh(no, taskId){
+  const done = LS.get('onbo_'+no);
+  done[taskId] = !done[taskId];
+  LS.set('onbo_'+no, done);
+  renderOnboardingAll();
+  toast(done[taskId]?'✅ 完了':'↩ 未完了に戻しました');
+}
+
 function renderMilestonePage(){
   const page = document.getElementById('page-milestone');
   const defs = MILESTONE_DATA.defs;
@@ -2796,8 +3043,10 @@ function renderMilestonePage(){
   const tbody = rows.map(c=>{
     const d = byNo[String(c.no)];
     const contract = getContract(c.no);
-    const journey = d?.journey || '';
-    const journeyColor = journey.includes('11.')||journey.includes('12.')?'var(--ok)':journey.includes('10.')||journey.includes('9.')?'var(--accent)':journey.includes('7.')||journey.includes('8.')?'var(--warn)':'var(--td)';
+    // journey は使わずステージ番号と契約状況を表示
+    const stage    = getStage(c.no);
+    const stageLabel = `St.${stage}`;
+    const stageColor = stage>=11?'var(--ok)':stage>=9?'var(--accent)':stage>=7?'var(--warn)':'var(--td)';
     const msDone = d ? d.milestones.filter(m=>m.status==='done').length : 0;
     const msTotal = d ? d.milestones.length : 0;
     const pctCo = msTotal>0 ? Math.round(msDone/msTotal*100) : 0;
@@ -2825,7 +3074,7 @@ function renderMilestonePage(){
         <div style="font-size:11px;font-weight:700">${esc(c.short)}</div>
         <div style="display:flex;align-items:center;gap:5px;margin-top:3px">
           <span class="cs-tag ${tagCls}" style="font-size:8px">${tagLabel}</span>
-          <span style="font-size:9px;color:${journeyColor};font-family:'Space Mono',monospace">${esc(journey.replace('11.契約完了','✅').replace('9.','St.9'))}</span>
+          <span style="font-size:9px;color:${stageColor};font-family:'Space Mono',monospace">${stageLabel}</span>
         </div>
         <div style="margin-top:4px;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden">
           <div style="width:${pctCo}%;height:100%;background:${pctCo===100?'var(--ok)':pctCo>=50?'var(--accent)':'var(--warn)'}"></div>
