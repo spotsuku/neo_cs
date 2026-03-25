@@ -698,38 +698,63 @@ const LS = {
 const LSdb = {
   _saving: {},
 
-  // Supabaseに保存（debounce: 連続更新をまとめる）
-  save(key, value){
-    clearTimeout(this._saving[key]);
-    this._saving[key] = setTimeout(async ()=>{
-      try {
-        await fetch('/api/db', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({key, value})
-        });
-      } catch(e) {
-        // Supabase保存失敗 → LocalStorageのみで継続
-        console.warn('[LSdb] save failed:', key, e.message);
+  // API呼び出し共通
+  async _call(body){
+    try {
+      const res = await fetch('/api/db', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({}));
+        throw new Error(err.error || res.status);
       }
-    }, 800); // 800ms後に保存（連続操作をまとめる）
+      return await res.json();
+    } catch(e) {
+      console.warn('[LSdb]', body.action||'save', 'failed:', e.message);
+      return null;
+    }
   },
 
-  // Supabaseから全データを取得してLocalStorageに同期
+  // 保存（debounce 600ms）
+  save(key, value){
+    clearTimeout(this._saving[key]);
+    this._saving[key] = setTimeout(()=>{
+      this._call({key, value});
+    }, 600);
+  },
+
+  // 即時保存（debounceなし）
+  saveNow(key, value){
+    return this._call({key, value});
+  },
+
+  // 削除
+  del(key){
+    return this._call({action:'del', key});
+  },
+
+  // 全データ取得してLocalStorageに展開
   async loadAll(){
-    try {
-      const res  = await fetch('/api/db/all');
-      if(!res.ok) throw new Error('loadAll failed: '+res.status);
-      const data = await res.json();
-      if(data && data.rows){
-        data.rows.forEach(({key, value})=>{
-          localStorage.setItem('neo_ps_'+key, JSON.stringify(value));
-        });
-        console.log('[LSdb] loaded', data.rows.length, 'keys from Supabase');
-      }
-    } catch(e) {
-      console.warn('[LSdb] loadAll failed (offline mode):', e.message);
+    const data = await this._call({action:'all'});
+    if(data && data.rows){
+      data.rows.forEach(({key, value})=>{
+        localStorage.setItem('neo_ps_'+key, JSON.stringify(value));
+      });
+      console.log('[LSdb] loaded', data.rows.length, 'keys from Supabase');
+    } else {
+      console.warn('[LSdb] loadAll: no data or offline');
     }
+  },
+
+  // デバッグ用: ブラウザコンソールで LSdb.status() を実行して確認
+  async status(){
+    console.log('=== LSdb Status ===');
+    const lsKeys = Object.keys(localStorage).filter(k=>k.startsWith('neo_ps_'));
+    console.log('LocalStorage keys:', lsKeys.length, lsKeys);
+    const data = await this._call({action:'all'});
+    console.log('Supabase rows:', data?.rows?.length ?? 'error', data?.rows?.map(r=>r.key));
   }
 };
 const STAGES=[
@@ -1041,7 +1066,9 @@ function renameOnboTask(no, phaseId, taskId, newLabel){
 function resetOnboFull(no){
   if(!confirm('カスタム項目・削除・名前変更・チェックをすべてリセットしますか？')) return;
   ['onbo_','onbo_custom_','onbo_del_','onbo_label_','onbo_meta_'].forEach(k=>{
-    localStorage.removeItem('neo_ps_'+k+no);
+    const fullKey = k+no;
+    localStorage.removeItem('neo_ps_'+fullKey);
+    LSdb.del(fullKey);
   });
   rerenderOnbo(no);
   toast('🔄 オンボーディングを完全リセットしました');
@@ -3388,7 +3415,16 @@ function renderOverview(){
   document.getElementById('page-overview').innerHTML=html;
 }
 function goToCompany(no){currentCompanyNo=no;switchMainTab('company');}
-renderOverview();
+
+// ── 起動: Supabaseからデータをロードしてから描画 ──
+(async function init(){
+  try {
+    await LSdb.loadAll();
+  } catch(e) {
+    console.warn('[init] Supabase load failed, using local cache:', e.message);
+  }
+  renderOverview();
+})();
 </script>
 </body>
 </html>
