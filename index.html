@@ -494,7 +494,8 @@ function applyPresetMs(no, msId){
 
 function addCustomMsFromForm(no){
   const label = document.getElementById('ms-custom-label-'+no)?.value?.trim();
-  const date  = document.getElementById('ms-custom-date-'+no)?.value?.trim() || '随時';
+  const rawDate = document.getElementById('ms-custom-date-'+no)?.value?.trim() || '';
+  const date  = formatMsDate(rawDate) || '随時';
   const type  = document.getElementById('ms-custom-type-'+no)?.value || 'action';
   const desc  = document.getElementById('ms-custom-desc-'+no)?.value?.trim() || '';
   if(!label){ toast('ラベルを入力してください'); return; }
@@ -506,6 +507,42 @@ function addCustomMsFromForm(no){
 
 // 企業進捗タブ全体を再描画
 // マイルストーン内容のインライン編集を保存
+// 「6/23」「8月」「随時」などをtype="date"用のYYYY-MM-DDに変換
+function parseMsDate(raw){
+  if(!raw) return '';
+  raw = raw.trim();
+  // すでにYYYY-MM-DD形式ならそのまま返す
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const year = new Date().getFullYear();
+  // 「6/23」→ YYYY-06-23
+  const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if(slashMatch) {
+    const m = String(slashMatch[1]).padStart(2,'0');
+    const d = String(slashMatch[2]).padStart(2,'0');
+    return `${year}-${m}-${d}`;
+  }
+  // 「6月」→ YYYY-06-01
+  const monthMatch = raw.match(/^(\d{1,2})月$/);
+  if(monthMatch) {
+    const m = String(monthMatch[1]).padStart(2,'0');
+    return `${year}-${m}-01`;
+  }
+  // それ以外（随時・未定など）は空
+  return '';
+}
+
+// YYYY-MM-DD → 「6/23」形式に変換（保存時）
+function formatMsDate(isoDate){
+  if(!isoDate) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(isoDate)){
+    const [, m, d] = isoDate.split('-');
+    // 1日の場合は「N月」表示
+    if(d==='01') return `${parseInt(m)}月`;
+    return `${parseInt(m)}/${parseInt(d)}`;
+  }
+  return isoDate;
+}
+
 function saveMsEdit(no, msId, field, value){
   const ov = getMsOverrides(no);
   if(!ov[msId]) {
@@ -547,7 +584,7 @@ function commitMsEdit(no, msId){
   const typeEl  = document.getElementById(`ms-type-${no}-${msId}`);
 
   if(labelEl) saveMsEdit(no, msId, 'label', labelEl.value.trim() || labelEl.placeholder);
-  if(dateEl)  saveMsEdit(no, msId, 'date',  dateEl.value.trim());
+  if(dateEl)  saveMsEdit(no, msId, 'date',  formatMsDate(dateEl.value.trim()));
   if(descEl)  saveMsEdit(no, msId, 'desc',  descEl.value.trim());
   if(typeEl)  saveMsEdit(no, msId, 'type',  typeEl.value);
 
@@ -2279,9 +2316,10 @@ function renderProgressTab(no){
               <div style="display:flex;gap:6px">
                 <div style="flex:1">
                   <div style="font-size:9px;color:var(--td);font-weight:700;margin-bottom:3px">日付・時期</div>
-                  <input id="ms-date-${no}-${m.id}" type="text" value="${esc(m.date)}" placeholder="例: 6/23, 8月"
-                    style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--t1);background:var(--surface);outline:none;box-sizing:border-box;font-family:'Space Mono',monospace"
+                  <input id="ms-date-${no}-${m.id}" type="date" value="${parseMsDate(m.date)}"
+                    style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--t1);background:var(--surface);outline:none;box-sizing:border-box;font-family:'Space Mono',monospace;cursor:pointer"
                     onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                  <div style="font-size:9px;color:var(--td);margin-top:3px">現在: <span style="color:var(--t2);font-weight:600">${esc(m.date)||'未設定'}</span></div>
                 </div>
                 <div style="flex:1">
                   <div style="font-size:9px;color:var(--td);font-weight:700;margin-bottom:3px">種別</div>
@@ -2386,7 +2424,7 @@ function renderProgressTab(no){
             </div>
             <div>
               <div style="font-size:10px;color:var(--td);font-weight:700;margin-bottom:4px">日付・時期</div>
-              <input id="ms-custom-date-${no}" class="meeting-date-input" style="width:100%" placeholder="例：4月、6/15">
+              <input id="ms-custom-date-${no}" type="date" class="meeting-date-input" style="width:100%;cursor:pointer">
             </div>
             <div>
               <div style="font-size:10px;color:var(--td);font-weight:700;margin-bottom:4px">種別</div>
