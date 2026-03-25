@@ -2795,10 +2795,10 @@ function renderOnboardingAll(){
     return {c, cTotal, cDone, pct: cTotal>0 ? Math.round(cDone/cTotal*100) : 0};
   });
 
-  const completed   = companyStats.filter(s=>s.pct===100).length;
-  const inProgress  = companyStats.filter(s=>s.pct>0&&s.pct<100).length;
-  const notStarted  = companyStats.filter(s=>s.pct===0).length;
-  const pctAll      = totalTasks>0 ? Math.round(totalDone/totalTasks*100) : 0;
+  const completed  = companyStats.filter(s=>s.pct===100).length;
+  const inProgress = companyStats.filter(s=>s.pct>0&&s.pct<100).length;
+  const notStarted = companyStats.filter(s=>s.pct===0).length;
+  const pctAll     = totalTasks>0 ? Math.round(totalDone/totalTasks*100) : 0;
 
   // ── フィルタリング ──
   let filtered = [...companyStats];
@@ -2808,10 +2808,11 @@ function renderOnboardingAll(){
   if(filterCo) filtered = filtered.filter(s=>
     s.c.short.includes(filterCo)||s.c.name.includes(filterCo));
 
+  const phase = ONBO_PHASES.find(p=>p.id===filterPhase) || ONBO_PHASES[0];
+
   // ── フェーズタブ ──
   const phaseTabs = ONBO_PHASES.map(p=>{
     const active = filterPhase===p.id;
-    // フェーズ完了社数
     const pDoneCount = filtered.filter(({c})=>{
       const tasks = getOnboTasks(c.no, p.id);
       const done  = LS.get('onbo_'+c.no);
@@ -2822,61 +2823,119 @@ function renderOnboardingAll(){
         border-radius:8px 8px 0 0;border:1px solid ${active?p.color:'var(--border)'};
         border-bottom:${active?'2px solid '+p.color:'1px solid var(--border)'};
         background:${active?p.color+'18':'var(--surface2)'};
-        color:${active?p.color:'var(--td)'};cursor:pointer;white-space:nowrap;
-        margin-bottom:-1px">
+        color:${active?p.color:'var(--td)'};cursor:pointer;white-space:nowrap;margin-bottom:-1px">
       ${esc(p.title)}
       <span style="font-size:10px;margin-left:6px;opacity:.7">${pDoneCount}/${filtered.length}</span>
     </button>`;
   }).join('');
 
-  // ── 選択中フェーズのテーブル ──
-  const phase = ONBO_PHASES.find(p=>p.id===filterPhase) || ONBO_PHASES[0];
+  // ── 共通期日の取得（フェーズ×タスク単位でLS管理）──
+  const phaseDueKey = 'onbo_phase_due';
+  const phaseDues = LS.get(phaseDueKey);  // {phaseId_taskId: 'YYYY-MM-DD'}
 
-  // 全企業のタスクを結合（標準+カスタム）
-  // ヘッダーは標準タスクのみ（シンプルに）
-  const stdTasks = phase.tasks;
+  // タスクリスト
+  const allTasks = filtered.length>0
+    ? getOnboTasks(filtered[0].c.no, phase.id)
+    : phase.tasks.map(t=>({id:phase.id+':'+t, label:t}));
 
+  // ── 期日の色・表示テキスト ──
+  function getDueDisplay(dueStr){
+    if(!dueStr) return {color:'var(--td)', text:'', icon:'', bg:'transparent'};
+    const diff = Math.ceil((new Date(dueStr)-new Date().setHours(0,0,0,0))/86400000);
+    if(diff < 0)      return {color:'var(--ng)',   text:dueStr.slice(5), icon:'⚠', bg:'#fee2e2'};
+    if(diff <= 3)     return {color:'var(--warn)',  text:dueStr.slice(5), icon:'⏰', bg:'#fef3c7'};
+    if(diff <= 7)     return {color:'#059669',      text:dueStr.slice(5), icon:'',  bg:'#d1fae5'};
+    return              {color:'var(--td)',          text:dueStr.slice(5), icon:'',  bg:'var(--surface2)'};
+  }
+
+  // ── タスクヘッダー ──
+  const thCells = allTasks.map(t=>{
+    const dueVal = phaseDues[phase.id+'::'+t.id] || '';
+    const {color, text, icon, bg} = getDueDisplay(dueVal);
+    return `<th style="padding:0;font-weight:700;
+      border-right:1px solid var(--border);
+      min-width:108px;max-width:130px;vertical-align:bottom;text-align:center">
+      <!-- タスク名 -->
+      <div style="padding:8px 8px 6px;font-size:11px;font-weight:700;
+        color:var(--surface);background:${phase.color};
+        line-height:1.5;min-height:44px;
+        display:flex;align-items:center;justify-content:center;
+        word-break:break-all;text-align:center">
+        ${esc(t.label)}
+      </div>
+      <!-- 共通期日入力 -->
+      <div style="padding:5px 6px;background:${bg};border-top:1px solid ${dueVal?color+'44':'var(--border)'}">
+        <input type="date" value="${esc(dueVal)}"
+          title="共通期日（全社共通）"
+          onchange="saveOnboPhaseTaskDue('${esc(phase.id)}','${esc(t.id)}',this.value);renderOnboardingAll()"
+          style="width:100%;padding:3px 5px;border:1px solid ${dueVal?color:'var(--border)'};
+            border-radius:4px;font-size:10px;color:${dueVal?color:'var(--td)'};
+            background:transparent;outline:none;cursor:pointer;font-family:'Space Mono',monospace;
+            font-weight:${dueVal?'700':'400'}"
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='${dueVal?color:'var(--border)'}'">
+        ${dueVal&&icon?`<div style="font-size:9px;color:${color};font-weight:700;margin-top:2px;text-align:center">${icon} ${getDueDisplay(dueVal).text}</div>`:''}
+      </div>
+    </th>`;
+  }).join('');
+
+  // ── テーブル行 ──
   const tableRows = filtered.map(({c})=>{
     const done  = LS.get('onbo_'+c.no);
-    const meta  = LS.get('onbo_meta_'+c.no);
     const tasks = getOnboTasks(c.no, phase.id);
     const pDone = tasks.filter(t=>done[t.id]).length;
     const pct   = tasks.length>0 ? Math.round(pDone/tasks.length*100) : 0;
 
     const cells = tasks.map(t=>{
-      const isDone = !!done[t.id];
-      const tm     = (meta&&meta[t.id])||{};
-      const owner  = tm.owner||'';
-      const due    = tm.due||'';
-      let dueColor='var(--td)', dueIcon='';
-      if(due&&!isDone){
-        const diff = Math.ceil((new Date(due)-new Date().setHours(0,0,0,0))/(86400000));
-        if(diff<0){dueColor='var(--ng)';dueIcon='⚠';}
-        else if(diff<=2){dueColor='var(--warn)';dueIcon='⏰';}
-        else{dueColor='var(--ok)';}
+      const isDone  = !!done[t.id];
+      // 共通期日を使用（個別期日があれば個別優先）
+      const meta    = LS.get('onbo_meta_'+c.no);
+      const indivDue = meta&&meta[t.id]&&meta[t.id].due ? meta[t.id].due : null;
+      const commonDue = phaseDues[phase.id+'::'+t.id] || null;
+      const due     = indivDue || commonDue || '';
+      const owner   = (meta&&meta[t.id]&&meta[t.id].owner) ? meta[t.id].owner : '';
+
+      let cellBg = 'transparent';
+      let dueNode = '';
+      if(due && !isDone){
+        const {color, text, icon, bg} = getDueDisplay(due);
+        cellBg = bg;
+        if(icon) dueNode = `<div style="font-size:9px;color:${color};font-weight:700">${icon}</div>`;
       }
-      return `<td style="padding:8px 8px;text-align:center;border-right:1px solid var(--border);vertical-align:middle;width:100px">
-        <div onclick="toggleOnboByIdAndRefresh(${c.no},'${esc(t.id)}')" style="cursor:pointer">
-          <div style="width:22px;height:22px;border-radius:5px;border:2px solid ${isDone?'var(--ok)':'var(--border)'};
-            background:${isDone?'var(--ok)':'transparent'};margin:0 auto 3px;
+
+      return `<td style="padding:6px 4px;text-align:center;
+        border-right:1px solid var(--border);vertical-align:middle;
+        background:${isDone?'var(--ok-lt)':cellBg}">
+        <div onclick="toggleOnboByIdAndRefresh(${c.no},'${esc(t.id)}')"
+          style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div style="width:22px;height:22px;border-radius:5px;
+            border:2px solid ${isDone?'var(--ok)':'var(--border)'};
+            background:${isDone?'var(--ok)':'transparent'};
             display:flex;align-items:center;justify-content:center;
             font-size:13px;color:#fff;font-weight:700">${isDone?'✓':''}</div>
-          ${owner?`<div style="font-size:9px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">👤${esc(owner)}</div>`:''}
-          ${due?`<div style="font-size:9px;color:${dueColor};font-family:'Space Mono',monospace">${dueIcon}${esc(due.slice(5))}</div>`:''}
+          ${owner?`<div style="font-size:9px;color:var(--accent);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤${esc(owner)}</div>`:''}
+          ${dueNode}
         </div>
       </td>`;
     }).join('');
 
+    const nameLen = c.short.length;
+    const nameFontSize = nameLen > 8 ? '10px' : nameLen > 5 ? '11px' : '12px';
+
     return `<tr style="border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--surface2)'"
       onmouseout="this.style.background=''">
-      <td style="padding:8px 12px;border-right:2px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:1;min-width:72px;max-width:72px">
+      <td style="padding:6px 10px;border-right:2px solid var(--border);
+        position:sticky;left:0;background:var(--surface);z-index:1;
+        width:1%;white-space:nowrap">
         <button onclick="selectCompany(${c.no});switchMainTab('onboarding')"
-          style="background:none;border:none;cursor:pointer;text-align:left;padding:0;width:100%">
-          <div style="font-size:11px;font-weight:700;color:var(--accent)">${esc(c.short)}</div>
-          <div style="font-size:9px;color:var(--td);margin-top:1px">${pDone}/${tasks.length}</div>
-          <div style="height:3px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-top:3px">
-            <div style="width:${pct}%;height:100%;background:${pct===100?'var(--ok)':'var(--accent)'};border-radius:2px"></div>
+          style="background:none;border:none;cursor:pointer;text-align:left;padding:0">
+          <div style="font-size:${nameFontSize};font-weight:700;color:var(--accent)">${esc(c.short)}</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+            <span style="font-size:9px;color:var(--td)">${pDone}/${tasks.length}</span>
+            <div style="width:36px;height:3px;background:var(--surface3);border-radius:2px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:${pct===100?'var(--ok)':'var(--accent)'};border-radius:2px"></div>
+            </div>
           </div>
         </button>
       </td>
@@ -2884,67 +2943,31 @@ function renderOnboardingAll(){
     </tr>`;
   }).join('');
 
-  // タスクヘッダー（縦書き）
-  const allTasks = filtered.length>0
-    ? getOnboTasks(filtered[0].c.no, phase.id)
-    : phase.tasks.map(t=>({id:phase.id+':'+t, label:t}));
-
-  // 全企業の期日データを集めてタスクごとの最早・最遅期日を取得
-  const taskDueSummary = {};
-  allTasks.forEach(t=>{
-    const dues = filtered.map(({c})=>{
-      const m = LS.get('onbo_meta_'+c.no);
-      return m&&m[t.id]&&m[t.id].due ? m[t.id].due : null;
-    }).filter(Boolean).sort();
-    taskDueSummary[t.id] = dues.length>0 ? dues[0] : null; // 最も早い期日
-  });
-
-  const thCells = allTasks.map(t=>{
-    const earliestDue = taskDueSummary[t.id];
-    let dueColor = 'var(--td)', dueText = '';
-    if(earliestDue){
-      const diff = Math.ceil((new Date(earliestDue)-new Date().setHours(0,0,0,0))/86400000);
-      if(diff<0)      { dueColor='var(--ng)';   dueText=earliestDue.slice(5)+' ⚠'; }
-      else if(diff<=3){ dueColor='var(--warn)';  dueText=earliestDue.slice(5)+' ⏰'; }
-      else            { dueColor='var(--ok)';    dueText=earliestDue.slice(5); }
-    }
-    return `<th style="padding:8px 8px 10px;font-size:10px;font-weight:700;
-      color:${phase.color};border-right:1px solid var(--border);
-      min-width:100px;max-width:120px;
-      vertical-align:bottom;text-align:center">
-      <div style="font-size:10px;font-weight:700;color:${phase.color};
-        line-height:1.4;word-break:break-all;margin-bottom:4px">
-        ${esc(t.label)}
-      </div>
-      ${dueText?`<div style="font-size:9px;color:${dueColor};
-        font-family:'Space Mono',monospace;font-weight:600;
-        padding:2px 5px;border-radius:3px;background:${dueColor}18;
-        white-space:nowrap">${dueText}</div>`:'<div style="height:18px"></div>'}
-    </th>`;
-  }).join('');
-
   page.innerHTML = `
     <div style="margin-bottom:16px">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px">📊 オンボーディング一覧</div>
-      <div style="font-size:13px;color:var(--td);margin-top:4px">フェーズ別タスクの進捗を全企業横断で確認・チェックできます</div>
+      <div style="font-size:13px;color:var(--td);margin-top:4px">
+        フェーズ別タスクの進捗を全企業横断で確認・チェックできます
+        <span style="margin-left:12px;font-size:11px;color:var(--td)">💡 ヘッダーの日付欄に共通期日を設定できます</span>
+      </div>
     </div>
 
     <!-- KPIカード -->
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       ${[
-        {label:'全体進捗', val:pctAll+'%',       color:'var(--accent)', sub:totalDone+'/'+totalTasks+'タスク'},
-        {label:'✅ 完了',  val:completed+'社',   color:'var(--ok)',     sub:'全タスク完了'},
-        {label:'🔄 進行中',val:inProgress+'社',  color:'#1a56db',       sub:'一部完了'},
-        {label:'⬜ 未着手',val:notStarted+'社',  color:'var(--td)',     sub:'チェックなし'},
+        {label:'全体進捗', val:pctAll+'%',      color:'var(--accent)', sub:totalDone+'/'+totalTasks+'タスク'},
+        {label:'✅ 完了',  val:completed+'社',  color:'var(--ok)',     sub:'全タスク完了'},
+        {label:'🔄 進行中',val:inProgress+'社', color:'#1a56db',       sub:'一部完了'},
+        {label:'⬜ 未着手',val:notStarted+'社', color:'var(--td)',     sub:'チェックなし'},
       ].map(k=>`<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
         <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;line-height:1;color:${k.color}">${k.val}</div>
         <div style="font-size:11px;font-weight:700;color:var(--t1);margin-top:3px">${k.label}</div>
-        <div style="font-size:9px;color:var(--td);margin-top:1px">${k.sub}</div>
+        <div style="font-size:10px;color:var(--td);margin-top:1px">${k.sub}</div>
       </div>`).join('')}
     </div>
 
     <!-- フィルターバー -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:0px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:0">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span style="font-size:10px;font-weight:700;color:var(--td);flex-shrink:0">進捗</span>
         ${[
@@ -2956,30 +2979,31 @@ function renderOnboardingAll(){
           style="padding:4px 10px;font-size:11px;border-radius:5px;
             border:1px solid ${filterStatus===f.id?f.color:'var(--border)'};
             background:${filterStatus===f.id?f.color+'22':'var(--surface2)'};
-            color:${filterStatus===f.id?f.color:'var(--td)'};cursor:pointer">
-          ${f.label}</button>`).join('')}
+            color:${filterStatus===f.id?f.color:'var(--td)'};cursor:pointer">${f.label}</button>`).join('')}
         <input type="text" value="${esc(filterCo)}" placeholder="🔍 企業名で絞込..."
           oninput="window._onboFilterCo=this.value;renderOnboardingAll()"
-          style="margin-left:auto;width:160px;padding:5px 10px;border:1px solid var(--border);
-            border-radius:6px;font-size:12px;background:var(--surface2);color:var(--t1);outline:none"
+          style="margin-left:auto;width:160px;padding:5px 10px;
+            border:1px solid var(--border);border-radius:6px;
+            font-size:12px;background:var(--surface2);color:var(--t1);outline:none"
           onfocus="this.style.borderColor='var(--accent)'"
           onblur="this.style.borderColor='var(--border)'">
       </div>
     </div>
 
     <!-- フェーズタブ -->
-    <div style="display:flex;gap:4px;overflow-x:auto;padding-top:16px;border-bottom:1px solid var(--border);margin-bottom:16px">
+    <div style="display:flex;gap:4px;overflow-x:auto;padding-top:16px;
+      border-bottom:1px solid var(--border);margin-bottom:16px">
       ${phaseTabs}
     </div>
 
-    <!-- タスクテーブル -->
+    <!-- テーブル -->
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
       <table style="width:max-content;min-width:100%;border-collapse:collapse">
         <thead>
-          <tr style="background:var(--surface2);border-bottom:2px solid var(--border)">
-            <th style="padding:8px 12px;text-align:left;border-right:2px solid var(--border);
-              position:sticky;left:0;background:var(--surface2);z-index:2;min-width:72px;max-width:72px;
-              font-size:10px;color:var(--td)">
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="padding:8px 10px;text-align:left;border-right:2px solid var(--border);
+              position:sticky;left:0;background:var(--surface2);z-index:2;
+              width:1%;white-space:nowrap;font-size:10px;color:var(--td)">
               企業 (${filtered.length}社)
             </th>
             ${thCells}
@@ -2990,10 +3014,17 @@ function renderOnboardingAll(){
         </tbody>
       </table>
     </div>
-    <div style="font-size:10px;color:var(--td);margin-top:8px;text-align:right">
-      💡 企業名をクリックすると詳細ページへ移動できます
+    <div style="font-size:10px;color:var(--td);margin-top:8px">
+      💡 企業名クリックで詳細へ ／ ヘッダーの日付欄に共通期日を設定すると全社に適用されます（個別設定が優先）
     </div>
   `;
+}
+
+// フェーズ×タスクの共通期日を保存
+function saveOnboPhaseTaskDue(phaseId, taskId, dueVal){
+  const d = LS.get('onbo_phase_due');
+  d[phaseId+'::'+taskId] = dueVal;
+  LS.set('onbo_phase_due', d);
 }
 
 function toggleOnboByIdAndRefresh(no, taskId){
