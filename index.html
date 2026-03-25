@@ -801,7 +801,17 @@ function switchMainTab(tab){
   currentMainTab=tab;
   if(tab==='board'){renderBoard();return;}
   if(tab==='milestone'){renderMilestonePage();return;}
-  if(tab==='onboarding-all'){renderOnboardingAll();return;}  // async // async（awaitなし・バックグラウンドで動作）
+  if(tab==='onboarding-all'){
+    // loadAll完了待機後に描画（初回のみ）
+    if(!LSdb._loaded){
+      const pg = document.getElementById('page-onboarding-all');
+      if(pg) pg.innerHTML = '<div style="padding:60px;text-align:center;color:var(--td)"><div style="font-size:24px;margin-bottom:12px">⏳</div><div style="font-size:14px;font-weight:700;color:var(--t2)">データを読み込んでいます...</div></div>';
+      (async()=>{ let w=0; while(!LSdb._loaded&&w<5000){await new Promise(r=>setTimeout(r,100));w+=100;} renderOnboardingAll(); })();
+    } else {
+      renderOnboardingAll();
+    }
+    return;
+  } // async（awaitなし・バックグラウンドで動作）
   if(tab==='survey'){
     // サイドバー付きレイアウトで全体サマリーを左、企業別を右に
     renderSurveyLayout();
@@ -3105,11 +3115,9 @@ function showSurveyCompany(no){
 }
 
 
-async function renderOnboardingAll(){
+function renderOnboardingAll(){
   const page = document.getElementById('page-onboarding-all');
   if(!page) return;
-
-  // ページ起動時の1回のみloadAll済み。ここでは呼ばない（競合防止）
 
   const filterPhase  = window._onboFilterPhase  || 'p1';
   const filterStatus = window._onboFilterStatus || 'all';
