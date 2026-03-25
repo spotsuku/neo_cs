@@ -828,7 +828,7 @@ let sbFilter='all';
 function setSbFilter(btn,filter){document.querySelectorAll('.sb-filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');sbFilter=filter;filterSidebar(document.getElementById('sb-search-input')?.value||'');}
 function filterSidebar(q){const items=document.querySelectorAll('.sb-item');const lower=q.toLowerCase();items.forEach(item=>{const name=(item.dataset.name||'').toLowerCase();const contract=item.dataset.contract||'';const status=item.dataset.status||'';let show=name.indexOf(lower)>=0;if(sbFilter==='active')show=show&&contract!=='D：非継続';if(sbFilter==='new')show=show&&status==='新規契約';if(sbFilter==='disc')show=show&&contract==='D：非継続';item.style.display=show?'':'none';});}
 function renderSidebarList(cos,activeNo){return cos.map(c=>{const contract=getContract(c.no);const[cls,label]=contractInfo(contract);const health=getHealthScore(c);const hColor=health>=7?'#059669':health>=5?'#d97706':'#dc2626';const[bg,fg]=avatarColor(c.name);const stage=getStage(c.no);return`<div class="sb-item ${c.no===activeNo?'active':''}" onclick="selectCompany(${c.no})" id="sb-item-${c.no}" data-name="${c.short.toLowerCase()}" data-contract="${contract}" data-status="${c.status}"><div class="sb-av" style="background:${fg};color:${bg}">${c.short[0]}</div><div class="sb-info"><div class="sb-name">${esc(c.short)}</div><div class="sb-meta">${c.course2||c.course1||'—'} · St.${stage}</div></div><div class="sb-right"><div class="health-dot" style="background:${hColor}"></div><span class="contract-tag ${cls}">${label}</span></div></div>`;}).join('');}
-function selectCompany(no){currentCompanyNo=no;document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));const sb=document.getElementById('sb-item-'+no);if(sb){sb.classList.add('active');sb.scrollIntoView({block:'nearest'});}const mainArea=document.getElementById('co-main-area');if(mainArea)mainArea.innerHTML=renderTabContent(currentMainTab,no);}
+function selectCompany(no){currentCompanyNo=no;setTimeout(()=>setupOnboDelegate(no),100);document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));const sb=document.getElementById('sb-item-'+no);if(sb){sb.classList.add('active');sb.scrollIntoView({block:'nearest'});}const mainArea=document.getElementById('co-main-area');if(mainArea)mainArea.innerHTML=renderTabContent(currentMainTab,no);}
 function getHealthScore(c){let score=5;const contract=getContract(c.no);if(contract==='S：契約書締結'||contract==='A：契約中')score+=2;if(contract==='B：内諾確認済')score+=1;if(contract==='D：非継続')score-=2;if(c.ent_sat!=null&&c.ent_sat>=8)score+=1;if(c.ent_sat!=null&&c.ent_sat<6)score-=1;const meetings=LS.getArr('meetings_'+c.no);if(meetings.length>=3)score+=1;return Math.max(1,Math.min(10,score));}
 function renderTabContent(tab,no){const c=COMPANIES.find(x=>x.no===no);if(!c)return'';switch(tab){case'company':return renderCompanyPage(c);case'onboarding':return renderOnboardingPage(c);case'meetings':return renderMeetingsPage(c);case'survey':return renderSurveyPage(c);default:return'';}}
 function infoRow(label,val){return`<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--td);width:110px;flex-shrink:0">${esc(label)}</span><span style="font-size:12px;color:var(--t1);font-weight:500">${esc(val||'—')}</span></div>`;}
@@ -1204,12 +1204,21 @@ function renderOnboardingPage(c){
         <!-- 操作ボタン -->
         <div class="onbo-task-actions" style="display:flex;gap:2px;padding:0 6px;flex-shrink:0;opacity:0;transition:opacity .15s"
           onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">
-                   <button onclick="startGlobalRename('${esc(phase.id)}','${esc(t.id)}','${esc(t.label.replace(/'/g,String.fromCharCode(39)))}',${no})"
+          <button
+            data-action="rename-global"
+            data-phase-id="${esc(phase.id)}"
+            data-task-id="${esc(t.id)}"
+            data-task-label="${esc(t.label)}"
+            data-company-no="${no}"
             title="名前変更（全社共通）"
             style="padding:3px 7px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--td);cursor:pointer;line-height:1.4"
             onmouseover="this.style.background='var(--accent-lt)';this.style.color='var(--accent)'"
             onmouseout="this.style.background='var(--surface)';this.style.color='var(--td)'">✏</button>
-          <button onclick="if(confirm('全社共通タスクを削除しますか？全企業のチェックも削除されます。')){deleteGlobalTask('${esc(phase.id)}','${esc(t.id)}');rerenderOnboSmart(${no});}"
+          <button
+            data-action="delete-global"
+            data-phase-id="${esc(phase.id)}"
+            data-task-id="${esc(t.id)}"
+            data-company-no="${no}"
             title="削除（全社共通）"
             style="padding:3px 7px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--td);cursor:pointer;line-height:1.4"
             onmouseover="this.style.background='var(--ng-lt)';this.style.color='var(--ng)'"
@@ -1220,13 +1229,19 @@ function renderOnboardingPage(c){
 
     // タスク追加フォーム
     const addForm = `<div style="display:flex;gap:6px;padding:8px 12px;border-top:1px dashed var(--border)">
-      <input id="onbo-add-${no}-${phase.id}" type="text"
+      <input
+        class="onbo-add-input"
+        data-phase-id="${phase.id}"
+        data-company-no="${no}"
+        type="text"
         placeholder="+ タスクを追加..."
         style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--t1);background:var(--surface2);outline:none;font-family:'Noto Sans JP',sans-serif"
         onfocus="this.style.borderColor='var(--accent)'"
-        onblur="this.style.borderColor='var(--border)'"
-        onkeydown="if(event.key==='Enter'){addOnboTaskAndRefresh(${no},'${phase.id}',this.value);this.value=''}">
-      <button onclick="addOnboTaskAndRefresh(${no},'${phase.id}',document.getElementById('onbo-add-${no}-${phase.id}').value);document.getElementById('onbo-add-${no}-${phase.id}').value=''"
+        onblur="this.style.borderColor='var(--border)'">
+      <button
+        data-action="add-global"
+        data-phase-id="${phase.id}"
+        data-company-no="${no}"
         style="padding:6px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">＋</button>
     </div>`;
 
@@ -1316,6 +1331,84 @@ function addOnboTaskAndRefresh(no, phaseId, label){
 }
 
 // オンボーディングページ再描画
+// ── オンボーディングページのイベントデリゲーション ──
+function setupOnboDelegate(no){
+  const area = document.getElementById('co-main-area');
+  if(!area || area._ondelegated) return;
+  area._ondelegated = true;
+
+  area.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+
+    const action  = btn.dataset.action;
+    const phaseId = btn.dataset.phaseId;
+    const taskId  = btn.dataset.taskId;
+    const compNo  = parseInt(btn.dataset.companyNo);
+
+    if(action === 'delete-global'){
+      if(confirm('全社共通タスクを削除しますか？\n全企業のチェックも削除されます。')){
+        deleteGlobalTask(phaseId, taskId);
+        rerenderOnboSmart(compNo);
+        toast('🗑 タスクを削除しました（全社共通）');
+      }
+    }
+    else if(action === 'rename-global'){
+      const label = btn.dataset.taskLabel;
+      const safeId = taskId.replace(/[:#]/g,'-');
+      const labelEl = document.getElementById('onbo-label-'+compNo+'-'+safeId);
+      if(labelEl) startGlobalRenameEl(phaseId, taskId, label, compNo, labelEl);
+    }
+    else if(action === 'add-global'){
+      // 同じ行のinputを探す
+      const input = btn.closest('div').querySelector('.onbo-add-input');
+      if(input && input.value.trim()){
+        addGlobalTaskFromList(phaseId, input.value.trim());
+        input.value = '';
+        rerenderOnboSmart(compNo);
+        setupOnboDelegate(compNo);
+      }
+    }
+  });
+
+  // Enterキー追加
+  area.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter') return;
+    const input = e.target.closest('.onbo-add-input');
+    if(!input) return;
+    const phaseId = input.dataset.phaseId;
+    const compNo  = parseInt(input.dataset.companyNo);
+    if(input.value.trim()){
+      addGlobalTaskFromList(phaseId, input.value.trim());
+      input.value = '';
+      rerenderOnboSmart(compNo);
+      setupOnboDelegate(compNo);
+    }
+  });
+}
+
+function startGlobalRenameEl(phaseId, taskId, currentLabel, no, labelEl){
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentLabel;
+  input.style.cssText = "width:100%;padding:3px 6px;border:1px solid var(--accent);border-radius:4px;font-size:12px;color:var(--t1);background:var(--surface);outline:none;font-family:'Noto Sans JP',sans-serif";
+  const save = ()=>{
+    const v = input.value.trim();
+    if(v && v !== currentLabel){
+      renameGlobalTask(phaseId, taskId, v);
+      toast('✏ タスク名を変更しました（全社共通）');
+    }
+    rerenderOnboSmart(no);
+    setupOnboDelegate(no);
+  };
+  input.onblur = save;
+  input.onkeydown = e=>{ if(e.key==='Enter') input.blur(); if(e.key==='Escape') rerenderOnboSmart(no); };
+  labelEl.innerHTML = '';
+  labelEl.appendChild(input);
+  input.focus();
+  input.select();
+}
+
 function rerenderOnbo(no){
   const c = COMPANIES.find(x=>x.no===no);
   const area = document.getElementById('co-main-area');
@@ -1327,8 +1420,10 @@ function rerenderOnboSmart(no){
   const area = document.getElementById('co-main-area');
   if(area){
     rerenderOnbo(no);
+    // デリゲーション再設定（innerHTML更新後）
+    area._ondelegated = false;
+    setupOnboDelegate(no);
   }
-  // オンボ一覧ページが開いていれば再描画しない（チェックは toggleOnboByIdAndRefresh が担当）
 }
 
 // idベースのトグル（カスタム項目対応）
@@ -3348,40 +3443,7 @@ function renderOnboardingAll(){
       ${phaseTabs}
     </div>
 
-    <!-- タスク管理パネル（全社共通） -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:700;color:var(--t2);flex-shrink:0">📝 タスク管理（全社共通）</span>
-        <div style="display:flex;gap:6px;flex:1;flex-wrap:wrap">
-          ${getGlobalTasks(phase.id).map((t,i)=>`
-            <div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;
-              background:var(--surface2);border:1px solid var(--border);border-radius:6px;
-              font-size:11px;color:var(--t2)">
-              <span id="gtask-label-${phase.id}-${i}">${esc(t.label)}</span>
-              <button onclick="startGlobalRenameFromList('${esc(phase.id)}',${i},'${esc(t.id)}','${esc(t.label.replace(/'/g,String.fromCharCode(39)))}')"
-                style="border:none;background:none;cursor:pointer;color:var(--td);padding:0 2px;font-size:11px"
-                title="名前変更">✏</button>
-              <button onclick="if(confirm('削除しますか？全社のチェックも削除されます。')){deleteGlobalTask('${esc(phase.id)}','${esc(t.id)}');renderOnboardingAll();}"
-                style="border:none;background:none;cursor:pointer;color:var(--td);padding:0 2px;font-size:11px"
-                title="削除"
-                onmouseover="this.style.color='var(--ng)'"
-                onmouseout="this.style.color='var(--td)'">✕</button>
-            </div>`).join('')}
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <input id="new-global-task-${phase.id}" type="text" placeholder="+ タスクを追加..."
-            style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;
-              color:var(--t1);background:var(--surface2);outline:none;width:180px"
-            onfocus="this.style.borderColor='var(--accent)'"
-            onblur="this.style.borderColor='var(--border)'"
-            onkeydown="if(event.key==='Enter'){addGlobalTaskFromList('${phase.id}',this.value);this.value=''}">
-          <button onclick="addGlobalTaskFromList('${phase.id}',document.getElementById('new-global-task-${phase.id}').value);document.getElementById('new-global-task-${phase.id}').value=''"
-            style="padding:5px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">
-            ＋ 追加
-          </button>
-        </div>
-      </div>
-    </div>
+    <div id="task-mgmt-panel-${phase.id}"></div>
 
     <!-- テーブル -->
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
@@ -3405,6 +3467,92 @@ function renderOnboardingAll(){
       💡 企業名クリックで詳細へ ／ ヘッダーの日付欄に共通期日を設定すると全社に適用されます（個別設定が優先）
     </div>
   `;
+
+  // タスク管理パネルをDOMで構築（テンプレートリテラル内のクォート問題を回避）
+  setTimeout(()=>buildTaskMgmtPanel(phase.id), 0);
+}
+
+function buildTaskMgmtPanel(phaseId){
+  const el = document.getElementById('task-mgmt-panel-'+phaseId);
+  if(!el) return;
+  el.innerHTML = '';
+
+  const tasks = getGlobalTasks(phaseId);
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px';
+
+  const inner = document.createElement('div');
+  inner.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+
+  const lbl = document.createElement('span');
+  lbl.style.cssText = 'font-size:11px;font-weight:700;color:var(--t2);flex-shrink:0';
+  lbl.textContent = '📝 タスク管理（全社共通）';
+  inner.appendChild(lbl);
+
+  const chipsWrap = document.createElement('div');
+  chipsWrap.style.cssText = 'display:flex;gap:6px;flex:1;flex-wrap:wrap';
+
+  tasks.forEach((t, i)=>{
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--t2)';
+
+    const labelSpan = document.createElement('span');
+    labelSpan.id = 'gtask-label-'+phaseId+'-'+i;
+    labelSpan.textContent = t.label;
+    chip.appendChild(labelSpan);
+
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = '✏';
+    renameBtn.title = '名前変更';
+    renameBtn.style.cssText = 'border:none;background:none;cursor:pointer;color:var(--td);padding:0 2px;font-size:11px';
+    renameBtn.addEventListener('click', ()=>startGlobalRenameFromList(phaseId, i, t.id, t.label));
+    chip.appendChild(renameBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '✕';
+    delBtn.title = '削除';
+    delBtn.style.cssText = 'border:none;background:none;cursor:pointer;color:var(--td);padding:0 2px;font-size:11px';
+    delBtn.addEventListener('mouseover', ()=>{ delBtn.style.color='var(--ng)'; });
+    delBtn.addEventListener('mouseout',  ()=>{ delBtn.style.color='var(--td)'; });
+    delBtn.addEventListener('click', ()=>{
+      if(confirm('削除しますか？全社のチェックも削除されます。')){
+        deleteGlobalTask(phaseId, t.id);
+        renderOnboardingAll();
+      }
+    });
+    chip.appendChild(delBtn);
+    chipsWrap.appendChild(chip);
+  });
+  inner.appendChild(chipsWrap);
+
+  const formWrap = document.createElement('div');
+  formWrap.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = '+ タスクを追加...';
+  input.id = 'new-global-task-'+phaseId;
+  input.style.cssText = 'padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--t1);background:var(--surface2);outline:none;width:180px';
+  input.addEventListener('focus', ()=>{ input.style.borderColor='var(--accent)'; });
+  input.addEventListener('blur',  ()=>{ input.style.borderColor='var(--border)'; });
+  input.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ addGlobalTaskFromList(phaseId, input.value); input.value=''; }
+  });
+  formWrap.appendChild(input);
+
+  const addBtn = document.createElement('button');
+  addBtn.textContent = '＋ 追加';
+  addBtn.style.cssText = 'padding:5px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0';
+  addBtn.addEventListener('click', ()=>{
+    addGlobalTaskFromList(phaseId, input.value);
+    input.value = '';
+  });
+  formWrap.appendChild(addBtn);
+  inner.appendChild(formWrap);
+
+  wrap.appendChild(inner);
+  el.appendChild(wrap);
 }
 
 // フェーズ×タスクの共通期日を保存
