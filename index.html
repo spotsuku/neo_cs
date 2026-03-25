@@ -880,7 +880,7 @@ function renderCompanyPage(c){
   const savedSuccess=plans.success!=null?plans.success:c.success;
   const contractOptions=['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(opt=>`<option value="${opt}" ${opt===contract?'selected':''}>${opt}</option>`).join('');
   const selCls=cls.replace('tag-','sel-');
-  return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div><div class="co-kpi-row"><div class="co-kpi"><div class="co-kpi-label">健全スコア</div><div class="co-kpi-val" style="color:${hColor}">${health}</div><div class="co-kpi-sub">/10</div></div><div class="co-kpi"><div class="co-kpi-label">企業進捗</div><div class="co-kpi-val" style="color:${stageData?.color||'#888'};font-size:26px">St.${stage}</div><div class="co-kpi-sub">${stageData?.month||'—'}</div></div><div class="co-kpi"><div class="co-kpi-label">派遣人数</div><div class="co-kpi-val" style="color:var(--accent)">${c.sent}</div><div class="co-kpi-sub">名（1期）</div></div><div class="co-kpi"><div class="co-kpi-label">卒業率</div><div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div><div class="co-kpi-sub">${c.grad}/${c.sent}名</div></div><div class="co-kpi"><div class="co-kpi-label">企業満足度</div><div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div><div class="co-kpi-sub">/10</div></div></div><div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel" id="co-basic-panel-${c.no}">
+  return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div><div class="co-kpi-row"><div class="co-kpi"><div class="co-kpi-label">健全スコア</div><div class="co-kpi-val" style="color:${hColor}">${health}</div><div class="co-kpi-sub">/10</div></div><div class="co-kpi"><div class="co-kpi-label">企業進捗</div><div class="co-kpi-val" style="color:${stageData?.color||'#888'};font-size:26px">St.${stage}</div><div class="co-kpi-sub">${stageData?.month||'—'}</div></div><div class="co-kpi"><div class="co-kpi-label">派遣人数</div><div class="co-kpi-val" style="color:var(--accent)">${c.sent}</div><div class="co-kpi-sub">名（1期）</div></div><div class="co-kpi"><div class="co-kpi-label">卒業率</div><div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div><div class="co-kpi-sub">${c.grad}/${c.sent}名</div></div><div class="co-kpi"><div class="co-kpi-label">企業満足度</div><div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div><div class="co-kpi-sub">/10</div></div></div><div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div><div class="inner-tab" onclick="switchInner(this,'theme-${c.no}','inner-tabs-${c.no}')">🎯 出題テーマ</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel" id="co-basic-panel-${c.no}">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--border)">
     <div class="panel-title" style="margin:0;border:none;padding:0">基本情報</div>
     <div style="display:flex;gap:6px">
@@ -994,7 +994,7 @@ function renderCompanyPage(c){
     </div>
     <textarea id="lab-note-${c.no}" onchange="saveDispatch(${c.no})" class="plan-textarea" rows="1" placeholder="備考（例：業務時間外で参加、一部部門のみ労務内など）" style="min-height:40px;font-size:11px;margin-left:118px;width:calc(100% - 118px)">${esc(labNote)}</textarea>
   </div>`;
-})()}</div><div class="panel"><div class="panel-title">企業アンケートスコア（3Q）</div><div style="display:flex;gap:12px;margin-bottom:16px">${scoreBox(c.ent_sat,'満足度')}${scoreBox(c.ent_grow,'成長実感')}${scoreBox(c.ent_recommend,'おすすめ度')}</div><div class="panel-title" style="margin-top:12px">AI研修 / プレイフルキャンプ</div><div style="display:flex;gap:10px"><div style="flex:1;padding:10px;background:var(--surface2);border-radius:7px;text-align:center"><div style="font-size:10px;color:var(--td);margin-bottom:4px">AI研修</div><div style="font-size:13px;font-weight:700;color:${c.ai==='内諾'?'var(--ok)':c.ai==='失注'?'var(--ng)':'var(--warn)'}">${esc(c.ai||'未検討')}</div></div><div style="flex:1;padding:10px;background:var(--surface2);border-radius:7px;text-align:center"><div style="font-size:10px;color:var(--td);margin-bottom:4px">プレイフルキャンプ</div><div style="font-size:13px;font-weight:700;color:${c.camp==='体験会参加'||c.camp==='内諾'?'var(--ok)':'var(--td)'}">${esc(c.camp||'未検討')}</div></div></div></div></div></div><div class="inner-content" id="plan-${c.no}"><div class="grid2"><div><div class="plan-section"><div class="plan-label">長期ビジョン（1〜3年後のサクセス状態）</div><textarea class="plan-textarea" id="plan-vision-${c.no}" rows="4">${esc(savedVision)}</textarea></div><div class="plan-section"><div class="plan-label">短期ゴール（直近3ヶ月）</div><textarea class="plan-textarea" id="plan-goal-${c.no}" rows="3">${esc(savedGoal)}</textarea></div></div><div><div class="plan-section"><div class="plan-label">伴走方針・アクション</div><textarea class="plan-textarea" id="plan-escort-${c.no}" rows="5">${esc(savedEscort)}</textarea></div><div class="plan-section"><div class="plan-label">1年後のサクセス定義</div><textarea class="plan-textarea" id="plan-success-${c.no}" rows="4">${esc(savedSuccess)}</textarea></div></div></div><button class="plan-save-btn" onclick="savePlan(${c.no})">💾 アカウントプランを保存</button></div><div class="inner-content" id="contacts-${c.no}">${renderContacts(c)}</div><div class="inner-content" id="leader-${c.no}">${renderLeaderTab(c.no)}</div><div class="inner-content" id="progress-${c.no}">${renderProgressTab(c.no)}</div><div class="inner-content" id="actionlog-${c.no}">${renderActionLogTab(c.no)}</div></div>`;
+})()}</div><div class="panel"><div class="panel-title">企業アンケートスコア（3Q）</div><div style="display:flex;gap:12px;margin-bottom:16px">${scoreBox(c.ent_sat,'満足度')}${scoreBox(c.ent_grow,'成長実感')}${scoreBox(c.ent_recommend,'おすすめ度')}</div><div class="panel-title" style="margin-top:12px">AI研修 / プレイフルキャンプ</div><div style="display:flex;gap:10px"><div style="flex:1;padding:10px;background:var(--surface2);border-radius:7px;text-align:center"><div style="font-size:10px;color:var(--td);margin-bottom:4px">AI研修</div><div style="font-size:13px;font-weight:700;color:${c.ai==='内諾'?'var(--ok)':c.ai==='失注'?'var(--ng)':'var(--warn)'}">${esc(c.ai||'未検討')}</div></div><div style="flex:1;padding:10px;background:var(--surface2);border-radius:7px;text-align:center"><div style="font-size:10px;color:var(--td);margin-bottom:4px">プレイフルキャンプ</div><div style="font-size:13px;font-weight:700;color:${c.camp==='体験会参加'||c.camp==='内諾'?'var(--ok)':'var(--td)'}">${esc(c.camp||'未検討')}</div></div></div></div></div></div><div class="inner-content" id="plan-${c.no}"><div class="grid2"><div><div class="plan-section"><div class="plan-label">長期ビジョン（1〜3年後のサクセス状態）</div><textarea class="plan-textarea" id="plan-vision-${c.no}" rows="4">${esc(savedVision)}</textarea></div><div class="plan-section"><div class="plan-label">短期ゴール（直近3ヶ月）</div><textarea class="plan-textarea" id="plan-goal-${c.no}" rows="3">${esc(savedGoal)}</textarea></div></div><div><div class="plan-section"><div class="plan-label">伴走方針・アクション</div><textarea class="plan-textarea" id="plan-escort-${c.no}" rows="5">${esc(savedEscort)}</textarea></div><div class="plan-section"><div class="plan-label">1年後のサクセス定義</div><textarea class="plan-textarea" id="plan-success-${c.no}" rows="4">${esc(savedSuccess)}</textarea></div></div></div><button class="plan-save-btn" onclick="savePlan(${c.no})">💾 アカウントプランを保存</button></div><div class="inner-content" id="contacts-${c.no}">${renderContacts(c)}</div><div class="inner-content" id="leader-${c.no}">${renderLeaderTab(c.no)}</div><div class="inner-content" id="progress-${c.no}">${renderProgressTab(c.no)}</div><div class="inner-content" id="actionlog-${c.no}">${renderActionLogTab(c.no)}</div><div class="inner-content" id="theme-${c.no}">${renderThemeTab(c.no)}</div></div>`;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2345,6 +2345,271 @@ function saveLeaderAll(no){
   if(progEl) d.prog_detail = progEl.value;
   LS.set('leader_'+no, d);
   toast('💾 リーダー育成情報を保存しました');
+}
+
+function renderThemeTab(no){
+  const saved = LS.get('theme_'+no);
+  const checked  = saved.checked  || '';   // '' | 'ok' | 'ng' | 'review'
+  const adminComment = saved.admin_comment || '';
+  const division = saved.division || '';   // '新規事業創出型' | '既存事業リニューアル型'
+
+  // チェック状態の定義
+  const checkStates = [
+    {val:'',       label:'未確認',         color:'var(--td)',     bg:'var(--surface2)'},
+    {val:'review', label:'🔍 確認中',      color:'var(--warn)',   bg:'var(--warn-lt)'},
+    {val:'ok',     label:'✅ チェック済',  color:'var(--ok)',     bg:'var(--ok-lt)'},
+    {val:'ng',     label:'❌ 要修正',      color:'var(--ng)',     bg:'var(--ng-lt)'},
+  ];
+  const curState = checkStates.find(s=>s.val===checked) || checkStates[0];
+
+  // 項目定義
+  const fields = [
+    {
+      key:'division',
+      label:'【項目0】テーマ出題区分',
+      type:'radio',
+      options:['新規事業創出型','既存事業リニューアル型'],
+      descs:{
+        '新規事業創出型':'地域課題や社会変化を起点に、将来的な事業化を目指す新規ビジネスの種を創出する',
+        '既存事業リニューアル型':'既存事業の価値・意味・届け方を再定義し、次の成長や共感につなげる',
+      }
+    },
+    {
+      key:'title',
+      label:'【項目1】テーマタイトル（30文字以内）',
+      type:'text',
+      placeholder:'若者が「自分ごと」として挑戦したくなる表現にしてください。\nNG：〇〇社のマーケティング施策を立案してください。',
+      maxlen:30,
+    },
+    {
+      key:'summary',
+      label:'【項目2】テーマ概要（背景や想い | 200〜300文字）',
+      type:'textarea',
+      rows:5,
+      placeholder:'なぜこのテーマに取り組むのか。企業としての課題意識、地域との関係性、今このタイミングで取り組む理由について記述してください。',
+    },
+    {
+      key:'who',
+      label:'【項目3-①】Who | 誰のための取り組みか',
+      type:'textarea',
+      rows:2,
+      placeholder:'例：地域住民・若者・顧客・自治体・特定の生活者など',
+    },
+    {
+      key:'pain',
+      label:'【項目3-②】Pain | Whoが抱えている本質的な課題',
+      type:'textarea',
+      rows:3,
+      placeholder:'表面的な不便さではなく、構造的な課題を記述してください。',
+    },
+    {
+      key:'what',
+      label:'【項目3-③】What | 解決したいこと・実現したいこと',
+      type:'textarea',
+      rows:3,
+      placeholder:'この課題に対して何を実現したいか。',
+    },
+    {
+      key:'result',
+      label:'【項目4】想定する成果',
+      type:'textarea',
+      rows:3,
+      placeholder:'本テーマを通じて、企業として最終的に得たい成果を明確にしてください。',
+    },
+    {
+      key:'impl',
+      label:'【項目5】実装・検証レベルの想定',
+      type:'textarea',
+      rows:2,
+      placeholder:'例：新規アイデアや構想レベル / 小規模PoCや実証まで行う / 社会実装を視野に入れる',
+    },
+    {
+      key:'resource',
+      label:'【項目6】提供可能なリソース',
+      type:'textarea',
+      rows:4,
+      placeholder:'・人：担当部署 / 伴走者 / 意思決定者の関与度\n・場所：施設 / 地域 / 実証フィールド\n・予算：成果をあげるための投資可否',
+    },
+    {
+      key:'after',
+      label:'【項目7】終了後のアクション（想定）',
+      type:'textarea',
+      rows:3,
+      placeholder:'例：社内ベンチャーとして継続 / 応募者の挑戦へ出資 / 自社内でプロジェクト継続など',
+    },
+  ];
+
+  // フィールドHTML生成
+  const fieldsHtml = fields.map(f=>{
+    const val = saved[f.key] || '';
+    if(f.type==='radio'){
+      const opts = f.options.map(opt=>`
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:8px;
+          border:1px solid ${val===opt?'var(--accent)':'var(--border)'};
+          background:${val===opt?'var(--accent-lt)':'var(--surface2)'};
+          cursor:pointer;margin-bottom:6px">
+          <input type="radio" name="theme-div-${no}" value="${esc(opt)}"
+            ${val===opt?'checked':''}
+            onchange="saveThemeField(${no},'division',this.value)"
+            style="margin-top:3px;accent-color:var(--accent)">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:${val===opt?'var(--accent)':'var(--t1)'}">${esc(opt)}</div>
+            <div style="font-size:11px;color:var(--td);margin-top:3px;line-height:1.6">${esc(f.descs[opt]||'')}</div>
+          </div>
+        </label>`).join('');
+      return `<div class="plan-section">
+        <div class="plan-label">${esc(f.label)}</div>
+        ${opts}
+      </div>`;
+    }
+    if(f.type==='text'){
+      const len = val.length;
+      const overLimit = f.maxlen && len > f.maxlen;
+      return `<div class="plan-section">
+        <div class="plan-label" style="display:flex;align-items:center;justify-content:space-between">
+          <span>${esc(f.label)}</span>
+          <span style="font-size:10px;color:${overLimit?'var(--ng)':'var(--td)'}">
+            ${len}${f.maxlen?'/'+f.maxlen:''}文字
+          </span>
+        </div>
+        <input type="text" id="theme-${f.key}-${no}"
+          value="${esc(val)}"
+          placeholder="${esc((f.placeholder||'').split('\n')[0])}"
+          maxlength="${f.maxlen||200}"
+          oninput="updateThemeCharCount(${no},'${f.key}',this.value,${f.maxlen||200})"
+          onchange="saveThemeField(${no},'${f.key}',this.value)"
+          style="width:100%;padding:8px 12px;border:1px solid ${overLimit?'var(--ng)':'var(--border)'};
+            border-radius:7px;font-size:13px;color:var(--t1);background:var(--surface);
+            outline:none;box-sizing:border-box;font-family:'Noto Sans JP',sans-serif;line-height:1.5"
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='var(--border)'">
+        ${f.placeholder&&f.placeholder.includes('\n')?`<div style="font-size:10px;color:var(--td);margin-top:4px">${esc(f.placeholder.split('\n').slice(1).join(' '))}</div>`:''}
+      </div>`;
+    }
+    // textarea
+    return `<div class="plan-section">
+      <div class="plan-label">${esc(f.label)}</div>
+      <textarea id="theme-${f.key}-${no}"
+        class="plan-textarea"
+        rows="${f.rows||3}"
+        placeholder="${esc(f.placeholder||'')}"
+        onchange="saveThemeField(${no},'${f.key}',this.value)">${esc(val)}</textarea>
+    </div>`;
+  }).join('');
+
+  // チェック状態セレクター
+  const checkSelector = checkStates.map(s=>`
+    <button onclick="saveThemeField(${no},'checked','${s.val}');rerenderThemeTab(${no})"
+      style="padding:7px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;
+        border:1px solid ${checked===s.val?s.color:'var(--border)'};
+        background:${checked===s.val?s.bg:'var(--surface2)'};
+        color:${checked===s.val?s.color:'var(--td)'}">
+      ${esc(s.label)}
+    </button>`).join('');
+
+  return `<div style="padding:4px 0 80px">
+
+    <!-- ステータスバー -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;
+      border-radius:10px;margin-bottom:20px;
+      background:${curState.bg};border:1px solid ${curState.color}22">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:24px">${checked==='ok'?'✅':checked==='ng'?'❌':checked==='review'?'🔍':'📋'}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${curState.color}">出題テーマ　${curState.label}</div>
+          <div style="font-size:11px;color:var(--td);margin-top:2px">NEO福岡 プロジェクト共創コース テーマ出題フォーマット</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${checkSelector}
+      </div>
+    </div>
+
+    <!-- 基準ガイド（折りたたみ） -->
+    <details style="margin-bottom:16px">
+      <summary style="cursor:pointer;padding:10px 14px;background:var(--surface2);border-radius:8px;
+        font-size:12px;font-weight:700;color:var(--t2);list-style:none;display:flex;align-items:center;gap:8px">
+        📌 テーマ採択基準・NGチェックリスト（クリックで展開）
+      </summary>
+      <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:0 0 8px 8px;margin-top:2px">
+        <div style="font-size:11px;color:var(--t2);line-height:1.9">
+          <div style="font-weight:700;color:var(--accent);margin-bottom:8px">必ず満たすべき基準</div>
+          <div>① テーマが「地域」のためのものであること</div>
+          <div style="color:var(--td);margin-left:16px;margin-bottom:6px">→ 企業利益だけでなく地域活性化と中期の自社利益がつながっていること</div>
+          <div>② 企業の既存サービス拡大が「目的」ではなく課題解決の「手段」になっていること</div>
+          <div style="color:var(--td);margin-left:16px;margin-bottom:6px">→ 既存サービスを活用した新しいソリューション創出が前提</div>
+          <div>③ 若者が"当事者"として関われる余地があること</div>
+          <div style="color:var(--td);margin-left:16px;margin-bottom:12px">→ 単なる営業代行・広告制作要員にならないこと</div>
+          <div style="font-weight:700;color:var(--ng);margin-bottom:8px">NGテーマ・NG行動</div>
+          <div style="color:var(--ng)">・既に正解が分かっていて、お金や作業者がいれば解決するもの</div>
+          <div style="color:var(--ng)">・PJTリーダーに意思決定権が全くない</div>
+          <div style="color:var(--ng)">・PJTへの質問に1週間以上返信しない</div>
+          <div style="color:var(--ng)">・リスクを恐れて新しいことを結局否定してしまう</div>
+          <div style="color:var(--ng)">・社内政治で物事が動かなくなる、顔色を伺う</div>
+        </div>
+      </div>
+    </details>
+
+    <!-- 入力フォーム -->
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-title">📝 出題テーマ 入力フォーム</div>
+      ${fieldsHtml}
+      <button class="plan-save-btn" onclick="saveThemeAll(${no})">💾 すべて保存する</button>
+    </div>
+
+    <!-- 事務局コメント -->
+    <div class="panel">
+      <div class="panel-title">💬 事務局コメント</div>
+      <textarea id="theme-admin-${no}"
+        class="plan-textarea"
+        rows="4"
+        placeholder="事務局からのフィードバック、修正依頼、確認事項など..."
+        style="border-color:${adminComment?'var(--accent-lt)':'var(--border)'}"
+        onchange="saveThemeField(${no},'admin_comment',this.value)">${esc(adminComment)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="saveThemeField(${no},'admin_comment',document.getElementById('theme-admin-${no}').value);toast('💬 コメントを保存しました')"
+          style="padding:8px 20px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">
+          💾 コメント保存
+        </button>
+        ${adminComment?`<div style="font-size:11px;color:var(--td);align-self:center">最終更新: ${esc(saved.admin_updated||'—')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function saveThemeField(no, field, value){
+  const d = LS.get('theme_'+no);
+  d[field] = value;
+  if(field==='admin_comment') d.admin_updated = new Date().toLocaleString('ja-JP');
+  LS.set('theme_'+no, d);
+}
+
+function saveThemeAll(no){
+  const d = LS.get('theme_'+no);
+  const fields = ['title','summary','who','pain','what','result','impl','resource','after'];
+  fields.forEach(f=>{
+    const el = document.getElementById('theme-'+f+'-'+no);
+    if(el) d[f] = el.value;
+  });
+  LS.set('theme_'+no, d);
+  toast('💾 出題テーマを保存しました');
+}
+
+function saveThemeChecked(no, val){
+  const d = LS.get('theme_'+no);
+  d.checked = val;
+  LS.set('theme_'+no, d);
+  rerenderThemeTab(no);
+}
+
+function rerenderThemeTab(no){
+  const el = document.getElementById('theme-'+no);
+  if(el) el.innerHTML = renderThemeTab(no);
+}
+
+function updateThemeCharCount(no, field, value, maxlen){
+  // リアルタイム文字カウント更新（input要素の親のspan）
+  saveThemeField(no, field, value);
 }
 
 function renderActionLogTab(no){
