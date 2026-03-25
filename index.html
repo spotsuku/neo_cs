@@ -736,6 +736,8 @@ const LSdb = {
   },
 
   // 全データ取得してLocalStorageに展開
+  _loaded: false,  // loadAll完了フラグ
+
   async loadAll(){
     const data = await this._call({action:'all'});
     if(data && data.rows){
@@ -746,6 +748,7 @@ const LSdb = {
     } else {
       console.warn('[LSdb] loadAll: no data or offline');
     }
+    this._loaded = true;  // 成功・失敗に関わらず完了フラグを立てる
   },
 
   // デバッグ用: ブラウザコンソールで LSdb.status() を実行して確認
@@ -791,7 +794,7 @@ function switchMainTab(tab){
   currentMainTab=tab;
   if(tab==='board'){renderBoard();return;}
   if(tab==='milestone'){renderMilestonePage();return;}
-  if(tab==='onboarding-all'){renderOnboardingAll();return;}
+  if(tab==='onboarding-all'){renderOnboardingAll();return;}  // async // async（awaitなし・バックグラウンドで動作）
   if(tab==='survey'){
     // サイドバー付きレイアウトで全体サマリーを左、企業別を右に
     renderSurveyLayout();
@@ -2985,9 +2988,12 @@ function showSurveyCompany(no){
 }
 
 
-function renderOnboardingAll(){
+async function renderOnboardingAll(){
   const page = document.getElementById('page-onboarding-all');
   if(!page) return;
+
+  // 毎回Supabaseから最新データを同期してから描画
+  await LSdb.loadAll();
 
   const filterPhase  = window._onboFilterPhase  || 'p1';
   const filterStatus = window._onboFilterStatus || 'all';
@@ -3422,12 +3428,11 @@ function goToCompany(no){currentCompanyNo=no;switchMainTab('company');}
     await LSdb.loadAll();
   } catch(e) {
     console.warn('[init] Supabase load failed, using local cache:', e.message);
+    LSdb._loaded = true;  // 失敗時もフラグを立てて続行
   }
   renderOverview();
 })();
-</script>
-</body>
-</html>
+
 function toggleCoEdit(no){
   const viewEl    = document.getElementById('co-view-'+no);
   const editEl    = document.getElementById('co-edit-'+no);
@@ -3442,4 +3447,6 @@ function toggleCoEdit(no){
   if(saveBtn)   saveBtn.style.display   = isEditing ? 'none'  : 'block';
   if(cancelBtn) cancelBtn.style.display = isEditing ? 'none'  : 'block';
 }
-
+</script>
+</body>
+</html>
