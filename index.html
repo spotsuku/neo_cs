@@ -2855,7 +2855,7 @@ function renderOnboardingAll(){
         else if(diff<=2){dueColor='var(--warn)';dueIcon='⏰';}
         else{dueColor='var(--ok)';}
       }
-      return `<td style="padding:5px 6px;text-align:center;border-right:1px solid var(--border);vertical-align:middle;width:88px">
+      return `<td style="padding:8px 8px;text-align:center;border-right:1px solid var(--border);vertical-align:middle;width:100px">
         <div onclick="toggleOnboByIdAndRefresh(${c.no},'${esc(t.id)}')" style="cursor:pointer">
           <div style="width:22px;height:22px;border-radius:5px;border:2px solid ${isDone?'var(--ok)':'var(--border)'};
             background:${isDone?'var(--ok)':'transparent'};margin:0 auto 3px;
@@ -2870,11 +2870,11 @@ function renderOnboardingAll(){
     return `<tr style="border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--surface2)'"
       onmouseout="this.style.background=''">
-      <td style="padding:8px 12px;border-right:2px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:1;min-width:110px">
+      <td style="padding:8px 12px;border-right:2px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:1;min-width:72px;max-width:72px">
         <button onclick="selectCompany(${c.no});switchMainTab('onboarding')"
           style="background:none;border:none;cursor:pointer;text-align:left;padding:0;width:100%">
-          <div style="font-size:12px;font-weight:700;color:var(--accent)">${esc(c.short)}</div>
-          <div style="font-size:10px;color:var(--td);margin-top:1px">${pDone}/${tasks.length}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--accent)">${esc(c.short)}</div>
+          <div style="font-size:9px;color:var(--td);margin-top:1px">${pDone}/${tasks.length}</div>
           <div style="height:3px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-top:3px">
             <div style="width:${pct}%;height:100%;background:${pct===100?'var(--ok)':'var(--accent)'};border-radius:2px"></div>
           </div>
@@ -2889,15 +2889,39 @@ function renderOnboardingAll(){
     ? getOnboTasks(filtered[0].c.no, phase.id)
     : phase.tasks.map(t=>({id:phase.id+':'+t, label:t}));
 
-  const thCells = allTasks.map(t=>`
-    <th style="padding:6px 6px 10px;font-size:10px;font-weight:700;
+  // 全企業の期日データを集めてタスクごとの最早・最遅期日を取得
+  const taskDueSummary = {};
+  allTasks.forEach(t=>{
+    const dues = filtered.map(({c})=>{
+      const m = LS.get('onbo_meta_'+c.no);
+      return m&&m[t.id]&&m[t.id].due ? m[t.id].due : null;
+    }).filter(Boolean).sort();
+    taskDueSummary[t.id] = dues.length>0 ? dues[0] : null; // 最も早い期日
+  });
+
+  const thCells = allTasks.map(t=>{
+    const earliestDue = taskDueSummary[t.id];
+    let dueColor = 'var(--td)', dueText = '';
+    if(earliestDue){
+      const diff = Math.ceil((new Date(earliestDue)-new Date().setHours(0,0,0,0))/86400000);
+      if(diff<0)      { dueColor='var(--ng)';   dueText=earliestDue.slice(5)+' ⚠'; }
+      else if(diff<=3){ dueColor='var(--warn)';  dueText=earliestDue.slice(5)+' ⏰'; }
+      else            { dueColor='var(--ok)';    dueText=earliestDue.slice(5); }
+    }
+    return `<th style="padding:8px 8px 10px;font-size:10px;font-weight:700;
       color:${phase.color};border-right:1px solid var(--border);
-      min-width:88px;max-width:88px;
-      writing-mode:vertical-rl;text-orientation:mixed;
-      height:72px;vertical-align:bottom;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-      ${esc(t.label)}
-    </th>`).join('');
+      min-width:100px;max-width:120px;
+      vertical-align:bottom;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:${phase.color};
+        line-height:1.4;word-break:break-all;margin-bottom:4px">
+        ${esc(t.label)}
+      </div>
+      ${dueText?`<div style="font-size:9px;color:${dueColor};
+        font-family:'Space Mono',monospace;font-weight:600;
+        padding:2px 5px;border-radius:3px;background:${dueColor}18;
+        white-space:nowrap">${dueText}</div>`:'<div style="height:18px"></div>'}
+    </th>`;
+  }).join('');
 
   page.innerHTML = `
     <div style="margin-bottom:16px">
@@ -2915,7 +2939,7 @@ function renderOnboardingAll(){
       ].map(k=>`<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
         <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;line-height:1;color:${k.color}">${k.val}</div>
         <div style="font-size:11px;font-weight:700;color:var(--t1);margin-top:3px">${k.label}</div>
-        <div style="font-size:10px;color:var(--td);margin-top:1px">${k.sub}</div>
+        <div style="font-size:9px;color:var(--td);margin-top:1px">${k.sub}</div>
       </div>`).join('')}
     </div>
 
@@ -2954,7 +2978,7 @@ function renderOnboardingAll(){
         <thead>
           <tr style="background:var(--surface2);border-bottom:2px solid var(--border)">
             <th style="padding:8px 12px;text-align:left;border-right:2px solid var(--border);
-              position:sticky;left:0;background:var(--surface2);z-index:2;min-width:110px;
+              position:sticky;left:0;background:var(--surface2);z-index:2;min-width:72px;max-width:72px;
               font-size:10px;color:var(--td)">
               企業 (${filtered.length}社)
             </th>
