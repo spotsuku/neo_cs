@@ -1070,21 +1070,8 @@ function renameGlobalTask(phaseId, taskId, newLabel){
 }
 
 function getOnboTasks(no, phaseId){
-  const phase   = ONBO_PHASES.find(p=>p.id===phaseId);
-  if(!phase) return [];
-  const deleted = getOnboDeleted(no);
-  const custom  = getOnboCustom(no);
-  const base = phase.tasks
-    .filter(t=>!deleted.includes(phaseId+':'+t))
-    .map(t=>({
-      id: phaseId+':'+t,
-      label: getOnboLabel(no, phaseId+':'+t) || t,
-      isCustom: false
-    }));
-  const customItems = (custom[phaseId]||[])
-    .filter(i=>!i.deleted)
-    .map(i=>({id: phaseId+':#'+i.id, label: i.label, isCustom: true}));
-  return [...base, ...customItems];
+  // マスターデータを返す（企業個別カスタムは廃止・全社共通）
+  return getGlobalTasks(phaseId);
 }
 
 function addOnboTask(no, phaseId, label){
@@ -1183,7 +1170,7 @@ function renderOnboardingPage(c){
   // 全タスク数・完了数を集計（カスタム対応）
   let totalTasks = 0, doneTasks = 0;
   ONBO_PHASES.forEach(p=>{
-    const tasks = getOnboTasks(no, p.id);
+    const tasks = getGlobalTasks(p.id);
     totalTasks += tasks.length;
     tasks.forEach(t=>{ if(done[t.id]) doneTasks++; });
   });
@@ -1205,7 +1192,7 @@ function renderOnboardingPage(c){
         <div onclick="toggleOnboById(${no},'${esc(t.id)}')"
           style="display:flex;align-items:center;gap:10px;flex:1;padding:9px 12px;cursor:pointer;min-width:0">
           <div class="onbo-task-check">${isDone?'✓':''}</div>
-          <div class="onbo-task-label" style="flex:1;min-width:0;word-break:break-all" id="onbo-label-${no}-${esc(t.id.replace(/[:#]/g,'-'))}">${esc(label)}</div>
+          <div class="onbo-task-label" style="flex:1;min-width:0;word-break:break-all" id="onbo-label-${no}-${esc(t.id.replace(/[:# ]/g,'-'))}">${esc(label)}</div>
         </div>
         <!-- 操作ボタン -->
         <div class="onbo-task-actions" style="display:flex;gap:2px;padding:0 6px;flex-shrink:0;opacity:0;transition:opacity .15s"
@@ -3230,7 +3217,7 @@ function renderOnboardingAll(){
     const done = LS.get('onbo_'+c.no);
     let cTotal=0, cDone=0;
     ONBO_PHASES.forEach(p=>{
-      const tasks = getOnboTasks(c.no, p.id);
+      const tasks = getGlobalTasks(p.id);
       cTotal += tasks.length;
       tasks.forEach(t=>{ if(done[t.id]) cDone++; });
     });
@@ -3258,7 +3245,7 @@ function renderOnboardingAll(){
   const phaseTabs = ONBO_PHASES.map(p=>{
     const active = filterPhase===p.id;
     const pDoneCount = filtered.filter(({c})=>{
-      const tasks = getOnboTasks(c.no, p.id);
+      const tasks = getGlobalTasks(p.id);
       const done  = LS.get('onbo_'+c.no);
       return tasks.length>0 && tasks.every(t=>done[t.id]);
     }).length;
@@ -3278,9 +3265,8 @@ function renderOnboardingAll(){
   const phaseDues = LS.get(phaseDueKey);  // {phaseId_taskId: 'YYYY-MM-DD'}
 
   // タスクリスト
-  const allTasks = filtered.length>0
-    ? getOnboTasks(filtered[0].c.no, phase.id)
-    : phase.tasks.map(t=>({id:phase.id+':'+t, label:t}));
+  // マスターデータから直接取得（特定企業への依存なし）
+  const allTasks = getGlobalTasks(phase.id);
 
   // ── 期日の色・表示テキスト ──
   function getDueDisplay(dueStr){
@@ -3326,7 +3312,7 @@ function renderOnboardingAll(){
   // ── テーブル行 ──
   const tableRows = filtered.map(({c})=>{
     const done  = LS.get('onbo_'+c.no);
-    const tasks = getOnboTasks(c.no, phase.id);
+    const tasks = getGlobalTasks(phase.id);
     const pDone = tasks.filter(t=>done[t.id]).length;
     const pct   = tasks.length>0 ? Math.round(pDone/tasks.length*100) : 0;
 
