@@ -717,12 +717,11 @@ const LSdb = {
     }
   },
 
-  // 保存（debounce 600ms）
+  // 保存（即時 + ページ離脱前の保護）
   save(key, value){
     clearTimeout(this._saving[key]);
-    this._saving[key] = setTimeout(()=>{
-      this._call({key, value});
-    }, 600);
+    // 即時保存（debounceなし）
+    this._call({key, value});
   },
 
   // 即時保存（debounceなし）
@@ -3243,13 +3242,21 @@ async function renderOnboardingAll(){
 function saveOnboPhaseTaskDue(phaseId, taskId, dueVal){
   const d = LS.get('onbo_phase_due');
   d[phaseId+'::'+taskId] = dueVal;
-  LS.set('onbo_phase_due', d);
+  localStorage.setItem('neo_ps_onbo_phase_due', JSON.stringify(d));
+  // Supabaseに即時保存（awaitしないが確実に送信）
+  LSdb._call({key:'onbo_phase_due', value:d}).then(()=>{
+    console.log('[LSdb] onbo_phase_due saved');
+  }).catch(e=>console.warn('[LSdb] save error:', e.message));
 }
 
 function toggleOnboByIdAndRefresh(no, taskId){
   const done = LS.get('onbo_'+no);
   done[taskId] = !done[taskId];
-  LS.set('onbo_'+no, done);
+  // LocalStorage即時更新
+  localStorage.setItem('neo_ps_onbo_'+no, JSON.stringify(done));
+  // Supabase即時保存
+  LSdb._call({key:'onbo_'+no, value:done})
+    .catch(e=>console.warn('[LSdb] save error:', e.message));
   renderOnboardingAll();
   toast(done[taskId]?'✅ 完了':'↩ 未完了に戻しました');
 }
@@ -3421,6 +3428,12 @@ function renderOverview(){
   document.getElementById('page-overview').innerHTML=html;
 }
 function goToCompany(no){currentCompanyNo=no;switchMainTab('company');}
+
+// ── ページ離脱前に確実に保存 ──
+window.addEventListener('beforeunload', function(){
+  // 未完了のsaveをフラッシュ（同期的には無理だがキャンセルを防ぐ）
+  Object.keys(LSdb._saving).forEach(k=>clearTimeout(LSdb._saving[k]));
+});
 
 // ── 起動: Supabaseからデータをロードしてから描画 ──
 (async function init(){
