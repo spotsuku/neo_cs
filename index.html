@@ -1087,7 +1087,7 @@ function resetOnboFull(no){
 function addOnboTaskAndRefresh(no, phaseId, label){
   if(!label||!label.trim()) return;
   addOnboTask(no, phaseId, label);
-  rerenderOnbo(no);
+  rerenderOnboSmart(no);
   toast('✅ タスクを追加しました');
 }
 
@@ -1130,7 +1130,7 @@ function renderOnboardingPage(c){
             style="padding:3px 7px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--td);cursor:pointer;line-height:1.4"
             onmouseover="this.style.background='var(--accent-lt)';this.style.color='var(--accent)'"
             onmouseout="this.style.background='var(--surface)';this.style.color='var(--td)'">✏</button>
-          <button onclick="if(confirm('削除しますか？')){deleteOnboTask(${no},'${esc(phase.id)}','${esc(t.id)}',${t.isCustom});rerenderOnbo(${no});}"
+          <button onclick="if(confirm('削除しますか？')){deleteOnboTask(${no},'${esc(phase.id)}','${esc(t.id)}',${t.isCustom});rerenderOnboSmart(${no});}"
             title="削除"
             style="padding:3px 7px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--td);cursor:pointer;line-height:1.4"
             onmouseover="this.style.background='var(--ng-lt)';this.style.color='var(--ng)'"
@@ -1213,6 +1213,15 @@ function rerenderOnbo(no){
   if(c && area) area.innerHTML = renderOnboardingPage(c);
 }
 
+// co-main-area があればindividual再描画、なければ何もしない
+function rerenderOnboSmart(no){
+  const area = document.getElementById('co-main-area');
+  if(area){
+    rerenderOnbo(no);
+  }
+  // オンボ一覧ページが開いていれば再描画しない（チェックは toggleOnboByIdAndRefresh が担当）
+}
+
 // idベースのトグル（カスタム項目対応）
 function toggleOnboById(no, taskId){
   const done = LS.get('onbo_'+no);
@@ -1240,10 +1249,10 @@ function startRenameOnbo(no, phaseId, taskId, currentLabel){
       renameOnboTask(no, phaseId, taskId, v);
       toast('✏ 名前を変更しました');
     }
-    rerenderOnbo(no);
+    rerenderOnboSmart(no);
   };
   input.onblur  = save;
-  input.onkeydown = e=>{ if(e.key==='Enter') input.blur(); if(e.key==='Escape') rerenderOnbo(no); };
+  input.onkeydown = e=>{ if(e.key==='Enter') input.blur(); if(e.key==='Escape') rerenderOnboSmart(no); };
 
   labelEl.innerHTML = '';
   labelEl.appendChild(input);
@@ -2270,9 +2279,11 @@ function saveWeeklyLogAndRefresh(no){
   const weekEl = document.getElementById('wlog-week-'+no);
   if(weekEl) weekEl.value = '';
   toast('💾 アクションログを保存しました');
-  // タブを再描画
-  const el = document.getElementById('actionlog-'+no);
-  if(el) el.innerHTML = renderActionLogTab(no);
+  // タブを再描画（存在する場合のみ）
+  try {
+    const el = document.getElementById('actionlog-'+no);
+    if(el) el.innerHTML = renderActionLogTab(no);
+  } catch(e) { console.warn('actionlog refresh:', e.message); }
 }
 
 function renderCoMilestone(no){
