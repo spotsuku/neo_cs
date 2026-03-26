@@ -267,6 +267,24 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
     <div class="nav-tab" id="ntab-milestone" onclick="switchMainTab('milestone')">🗓 マイルストーン</div>
     <div class="nav-tab" id="ntab-board" onclick="switchMainTab('board')">📌 ボードビュー</div>
   </div>
+  <!-- グローバルフィルター + 年度切り替え -->
+  <div style="display:flex;align-items:center;gap:4px;padding:0 10px;border-left:1px solid rgba(255,255,255,.15);flex-shrink:0">
+    <span style="font-size:9px;color:rgba(255,255,255,.5);white-space:nowrap;margin-right:2px">表示</span>
+    <button id="gf-btn-active" onclick="setGlobalFilter('active')"
+      style="padding:3px 8px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.25);color:#fff;font-weight:700;cursor:pointer;font-size:10px;white-space:nowrap">継続</button>
+    <button id="gf-btn-all" onclick="setGlobalFilter('all')"
+      style="padding:3px 8px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-weight:400;cursor:pointer;font-size:10px;white-space:nowrap">全社</button>
+    <button id="gf-btn-disc" onclick="setGlobalFilter('disc')"
+      style="padding:3px 8px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-weight:400;cursor:pointer;font-size:10px;white-space:nowrap">非継続</button>
+  </div>
+  <!-- 年度切り替え -->
+  <div style="display:flex;align-items:center;gap:4px;padding:0 10px;border-left:1px solid rgba(255,255,255,.15);flex-shrink:0">
+    <span style="font-size:9px;color:rgba(255,255,255,.5);white-space:nowrap;margin-right:2px">年度</span>
+    <button id="fy-btn-2026" onclick="showFiscalYearManager()"
+      style="padding:3px 8px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.25);color:#fff;font-weight:700;cursor:pointer;font-size:10px;white-space:nowrap">2026</button>
+    <button id="fy-btn-2025" onclick="showFiscalYearManager()"
+      style="padding:3px 8px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-weight:400;cursor:pointer;font-size:10px;white-space:nowrap">2025</button>
+  </div>
   <!-- 操作ユーザー選択（常時表示） -->
   <div style="display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid rgba(255,255,255,.15);flex-shrink:0">
     <span style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap">👤 操作者</span>
@@ -416,11 +434,13 @@ const MS_STATUS_LABELS = {
   done:'実施完了', ready:'準備完了', wip:'調整中', skip:'非対象', pending:'未着手'
 };
 const MS_STATUS_OPTIONS = [
-  {value:'done',  label:'✅ 実施完了', color:'var(--ok)'},
-  {value:'ready', label:'🔵 準備完了', color:'#3b82f6'},
-  {value:'wip',   label:'🟡 調整中',   color:'var(--warn)'},
-  {value:'skip',  label:'⬜ 非対象',   color:'var(--td)'},
-  {value:'pending',label:'⬜ 未着手',  color:'#94a3b8'},
+  {value:'done',    label:'✅ 実施完了', color:'var(--ok)'},
+  {value:'attend',  label:'🙋 出席',     color:'#0891b2'},
+  {value:'absent',  label:'🙅 欠席',     color:'var(--ng)'},
+  {value:'ready',   label:'🔵 準備完了', color:'#3b82f6'},
+  {value:'wip',     label:'🟡 調整中',   color:'var(--warn)'},
+  {value:'skip',    label:'⬜ 非対象',   color:'var(--td)'},
+  {value:'pending', label:'⬜ 未着手',   color:'#94a3b8'},
 ];
 
 function getMsOverrides(no){
@@ -776,15 +796,16 @@ function saveOnboComment(no, taskId, comment){
 
 // ⑥ 三段階チェック切り替え（0→1→2→0）
 function cycleOnboCheck(no, taskId, taskLabel){
-  const done = LS.get('onbo_'+no);
+  const done = LS.get(fyKey('onbo_'+no));
   const cur = done[taskId];
   const curState = getCheckState(cur);
   const next = (curState.val + 1) % 3;
   done[taskId] = next;
   // ログ記録
   addOnboLog(no, taskId, taskLabel, curState.val, next);
-  localStorage.setItem('neo_ps_onbo_'+no, JSON.stringify(done));
-  LSdb._call({key:'onbo_'+no, value:done})
+  const onboKey = fyKey('onbo_'+no);
+  localStorage.setItem('neo_ps_'+onboKey, JSON.stringify(done));
+  LSdb._call({key:onboKey, value:done})
     .catch(e=>console.warn('[LSdb] save error:', e.message));
   renderOnboardingAll();
   const nextState = getCheckState(next);
@@ -800,6 +821,76 @@ function saveOnboOwner(no, taskId, ownerId){
   meta[taskId].owner   = u?.name || '';
   meta[taskId].ownerId = ownerId;
   LS.set('onbo_meta_'+no, meta);
+}
+
+// ━━━ グローバルフィルター & 年度管理 ━━━
+
+function getGlobalFilter(){ return window._globalFilter || 'active'; }
+function getFiscalYear(){ return window._fiscalYear || '2026'; }
+
+// フィルターに応じた企業リストを返す
+function getFilteredCompanies(){
+  const f = getGlobalFilter();
+  if(f==='disc') return COMPANIES.filter(c=>getContract(c.no)==='D：非継続');
+  if(f==='all')  return COMPANIES;
+  return COMPANIES.filter(c=>getContract(c.no)!=='D：非継続');
+}
+
+// 年度プレフィックス付きのLSキーを返す
+function fyKey(key){
+  const fy = getFiscalYear();
+  return fy === '2026' ? key : key + '_fy' + fy;
+}
+
+// グローバルフィルターを変更して全ページ再描画
+function setGlobalFilter(val){
+  window._globalFilter = val;
+  // _ovFilter も同期
+  window._ovFilter = val;
+  // 現在のタブを再描画
+  const tab = window.currentMainTab || 'overview';
+  if(tab==='overview') renderOverview();
+  else if(tab==='onboarding-all') renderOnboardingAll();
+  else if(tab==='milestone') renderMilestonePage();
+  else if(tab==='board') renderBoard();
+  // ナビバーのフィルターボタンを更新
+  updateGlobalFilterUI();
+}
+
+function setFiscalYear(fy){
+  if(!confirm(`年度を ${fy}年度 に切り替えますか？\n（データは各年度ごとに独立して保存されます）`)) return;
+  window._fiscalYear = fy;
+  // 年度変更後は全データを再読み込み
+  LSdb.loadAll().then(()=>{
+    const tab = window.currentMainTab || 'overview';
+    if(tab==='overview') renderOverview();
+    else if(tab==='onboarding-all') renderOnboardingAll();
+    else if(tab==='milestone') renderMilestonePage();
+    updateFiscalYearUI();
+    toast('📅 '+fy+'年度に切り替えました');
+  });
+}
+
+function updateGlobalFilterUI(){
+  ['active','all','disc'].forEach(v=>{
+    const btn = document.getElementById('gf-btn-'+v);
+    if(!btn) return;
+    const active = getGlobalFilter()===v;
+    btn.style.background = active ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.08)';
+    btn.style.color = active ? '#fff' : 'rgba(255,255,255,.6)';
+    btn.style.fontWeight = active ? '700' : '400';
+  });
+}
+
+function updateFiscalYearUI(){
+  ['2025','2026'].forEach(fy=>{
+    const btn = document.getElementById('fy-btn-'+fy);
+    if(!btn) return;
+    const active = getFiscalYear()===fy;
+    btn.style.background = active ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.08)';
+    btn.style.color = active ? '#fff' : 'rgba(255,255,255,.6)';
+    btn.style.fontWeight = active ? '700' : '400';
+  });
 }
 
 const ONBO_PHASES=[
@@ -825,6 +916,11 @@ const LS = {
     localStorage.setItem('neo_ps_'+k, JSON.stringify(v));
     LSdb.save(k, v);
   },
+  // 年度付きキーで保存・取得（オンボーディング・マイルストーン用）
+  getFy(k){ return this.get(fyKey(k)); },
+  setFy(k, v){ this.set(fyKey(k), v); },
+  getArrFy(k){ return this.getArr(fyKey(k)); },
+  setArrFy(k, v){ this.setArr(fyKey(k), v); },
   getArr(k){
     try{ return JSON.parse(localStorage.getItem('neo_ps_'+k)||'[]'); }
     catch(e){ return []; }
@@ -1212,7 +1308,7 @@ function deleteGlobalTask(phaseId, taskId){
   const tasks = getGlobalTasks(phaseId).filter(t=>t.id!==taskId);
   LS.set('onbo_tasks_'+phaseId, {list:tasks});
   COMPANIES.forEach(c=>{
-    const done = LS.get('onbo_'+c.no);
+    const done = LS.get(fyKey('onbo_'+c.no));
     if(done[taskId]!==undefined){ delete done[taskId]; LS.set('onbo_'+c.no, done); }
   });
 }
@@ -1251,7 +1347,7 @@ function deleteOnboTask(no, phaseId, taskId, isCustom){
     if(!d.list.includes(taskId)) d.list.push(taskId);
     LS.set('onbo_del_'+no, d);
   }
-  const done = LS.get('onbo_'+no);
+  const done = LS.get(fyKey('onbo_'+no));
   delete done[taskId];
   LS.set('onbo_'+no, done);
 }
@@ -1321,7 +1417,7 @@ function addOnboTaskAndRefresh(no, phaseId, label){
 
 function renderOnboardingPage(c){
   const no   = c.no;
-  const done = LS.get('onbo_'+no);
+  const done = LS.get(fyKey('onbo_'+no));
 
   // 全タスク数・完了数を集計（カスタム対応）
   let totalTasks = 0, doneTasks = 0;
@@ -1577,7 +1673,7 @@ function rerenderOnboSmart(no){
 
 // idベースのトグル（カスタム項目対応）
 function toggleOnboById(no, taskId){
-  const done = LS.get('onbo_'+no);
+  const done = LS.get(fyKey('onbo_'+no));
   done[taskId] = !done[taskId];
   LS.set('onbo_'+no, done);
   rerenderOnbo(no);
@@ -3657,7 +3753,7 @@ function showOnboCellMenu(e, no, taskId, taskLabel){
   const owner    = taskMeta.owner   || '';
   const users    = getUsers();
   const c        = COMPANIES.find(x=>x.no===no);
-  const done     = LS.get('onbo_'+no);
+  const done = LS.get(fyKey('onbo_'+no));
   const st       = getCheckState(done[taskId]);
 
   const userOpts = users.map(u=>`<option value="${esc(u.id)}" ${ownerId===u.id?'selected':''}>${esc(u.name)}</option>`).join('');
@@ -3943,8 +4039,8 @@ function renderOnboardingAll(){
 
   // ── KPI集計 ──
   let totalTasks=0, totalDone=0;
-  const companyStats = COMPANIES.map(c=>{
-    const done = LS.get('onbo_'+c.no);
+  const companyStats = getFilteredCompanies().map(c=>{
+    const done = LS.get(fyKey('onbo_'+c.no));
     let cTotal=0, cDone=0;
     ONBO_PHASES.forEach(p=>{
       const tasks = getGlobalTasks(p.id);
@@ -3976,7 +4072,7 @@ function renderOnboardingAll(){
     const active = filterPhase===p.id;
     const pDoneCount = filtered.filter(({c})=>{
       const tasks = getGlobalTasks(p.id);
-      const done  = LS.get('onbo_'+c.no);
+      const done  = LS.get(fyKey('onbo_'+c.no));
       return tasks.length>0 && tasks.every(t=>done[t.id]);
     }).length;
     return `<button onclick="window._onboFilterPhase='${p.id}';renderOnboardingAll()"
@@ -4041,7 +4137,7 @@ function renderOnboardingAll(){
 
   // ── テーブル行 ──
   const tableRows = filtered.map(({c})=>{
-    const done  = LS.get('onbo_'+c.no);
+    const done  = LS.get(fyKey('onbo_'+c.no));
     const tasks = getGlobalTasks(phase.id);
     const pDone = tasks.filter(t=>done[t.id]).length;
     const pct   = tasks.length>0 ? Math.round(pDone/tasks.length*100) : 0;
@@ -4334,6 +4430,124 @@ function toggleOnboByIdAndRefresh(no, taskId){
   cycleOnboCheck(no, taskId, t?.label || taskId);
 }
 
+function showMsHeaderEdit(msId, currentLabel, currentDate){
+  const overlay = document.getElementById('onbo-modal-overlay') || (() => {
+    const el = document.createElement('div');
+    el.id = 'onbo-modal-overlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+    el.addEventListener('click', e=>{ if(e.target===el) closeModal(); });
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:24px;width:420px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">📋 マイルストーン 全社共通設定</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--td);margin-bottom:5px">項目名</div>
+      <input id="ms-header-label" type="text" value="${esc(currentLabel)}"
+        style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'">
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--td);margin-bottom:5px">日程</div>
+      <input id="ms-header-date" type="date" value="${parseMsDate(currentDate)||''}"
+        style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box;cursor:pointer"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'">
+      <div style="font-size:10px;color:var(--td);margin-top:4px">現在: ${esc(currentDate)}</div>
+    </div>
+    <button onclick="(()=>{
+      const label = document.getElementById('ms-header-label').value.trim();
+      const dateRaw = document.getElementById('ms-header-date').value;
+      const date = dateRaw ? formatMsDate(dateRaw) : '';
+      const ov = LS.get('ms_global_overrides');
+      if(!ov['${esc(msId)}']) ov['${esc(msId)}'] = {};
+      if(label) ov['${esc(msId)}'].label = label;
+      if(date)  ov['${esc(msId)}'].date  = date;
+      LS.set('ms_global_overrides', ov);
+      closeModal();
+      renderMilestonePage();
+      toast('✅ マイルストーンを更新しました（全社共通）');
+    })()"
+      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+      💾 保存する（全社共通）
+    </button>
+  </div>`;
+  overlay.style.display = 'flex';
+}
+
+// 年度データ複製（2025 → 2026、またはその逆）
+function copyFiscalYearData(fromFy, toFy){
+  if(!confirm(`${fromFy}年度のデータを${toFy}年度にコピーしますか？\n（${toFy}年度の既存データは上書きされます）`)) return;
+
+  // onbo_N チェックデータをコピー
+  const COMPANIES_all = COMPANIES;
+  COMPANIES_all.forEach(c=>{
+    const fromKey = fromFy==='2026' ? 'onbo_'+c.no : 'onbo_'+c.no+'_fy'+fromFy;
+    const toKey   = toFy  ==='2026' ? 'onbo_'+c.no : 'onbo_'+c.no+'_fy'+toFy;
+    const data = LS.get(fromKey);
+    if(Object.keys(data).length > 0){
+      LS.set(toKey, data);
+    }
+  });
+
+  // onbo_tasks もコピー
+  ['p1','p2','p3','p4','p5'].forEach(pid=>{
+    const fromKey = fromFy==='2026' ? 'onbo_tasks_'+pid : 'onbo_tasks_'+pid+'_fy'+fromFy;
+    const toKey   = toFy  ==='2026' ? 'onbo_tasks_'+pid : 'onbo_tasks_'+pid+'_fy'+toFy;
+    const data = LS.get(fromKey);
+    if(data.list) LS.set(toKey, data);
+  });
+
+  toast(`✅ ${fromFy}年度 → ${toFy}年度 にコピーしました`);
+}
+
+function showFiscalYearManager(){
+  const modal_html = `
+    <div style="background:var(--surface);border-radius:14px;padding:24px;width:480px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:700">📅 年度管理</div>
+        <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:20px">
+        ${['2025','2026'].map(fy=>`
+          <div onclick="setFiscalYear('${fy}');closeModal()"
+            style="flex:1;padding:16px;border-radius:10px;text-align:center;cursor:pointer;
+              border:2px solid ${getFiscalYear()===fy?'var(--accent)':'var(--border)'};
+              background:${getFiscalYear()===fy?'var(--accent-lt)':'var(--surface2)'}">
+            <div style="font-size:24px;font-weight:700;color:${getFiscalYear()===fy?'var(--accent)':'var(--t2)'}">${fy}年度</div>
+            <div style="font-size:10px;color:var(--td);margin-top:4px">${fy}.4 〜 ${parseInt(fy)+1}.3</div>
+            ${getFiscalYear()===fy?'<div style="font-size:11px;color:var(--accent);font-weight:700;margin-top:6px">✅ 現在表示中</div>':''}
+          </div>`).join('')}
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px">📋 データコピー</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="copyFiscalYearData('2025','2026');closeModal()"
+            style="flex:1;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;color:var(--t2)">
+            2025年度 → 2026年度 にコピー
+          </button>
+          <button onclick="copyFiscalYearData('2026','2025');closeModal()"
+            style="flex:1;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;color:var(--t2)">
+            2026年度 → 2025年度 にコピー
+          </button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--td)">
+        ※ データコピーはオンボーディングのチェック状態とタスク定義を対象とします
+      </div>
+    </div>`;
+
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){ overlay=document.createElement('div'); overlay.id='onbo-modal-overlay'; overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px'; overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();}); document.body.appendChild(overlay); }
+  overlay.innerHTML = modal_html;
+  overlay.style.display = 'flex';
+}
+
 function renderMilestonePage(){
   const page = document.getElementById('page-milestone');
   const defs = MILESTONE_DATA.defs;
@@ -4361,22 +4575,26 @@ function renderMilestonePage(){
   const filterVal = window._msFilter || '';
   const typeFilter = window._msTypeFilter || '';
 
-  let rows = COMPANIES.filter(c=>byNo[String(c.no)]);
-  if(filterVal==='cont')  rows=rows.filter(c=>!['D：非継続'].includes(getContract(c.no)));
+  // グローバルフィルターを適用
+  let rows = getFilteredCompanies().filter(c=>byNo[String(c.no)]);
   if(filterVal==='new')   rows=rows.filter(c=>c.status==='新規契約');
-  if(filterVal==='disc')  rows=rows.filter(c=>getContract(c.no)==='D：非継続');
 
   const filteredDefs = typeFilter ? defs.filter(d=>d.type===typeFilter) : defs;
 
   // ── テーブルHTML ──
+  const msGlobalOv = LS.get('ms_global_overrides');
   const theadCols = filteredDefs.map(d=>{
-    // 全社で最もよく使われているオーバーライドラベルを取得
-    const overriddenLabels = COMPANIES.map(c=>{
-      const ov = getMsOverrides(c.no);
-      return ov[d.id]?.label;
-    }).filter(Boolean);
-    const displayLabel = overriddenLabels.length > 0 ? overriddenLabels[0] : d.label;
-    return `<th class="ms-type-${d.type}" title="${typeLabels[d.type]}">${esc(d.date)}<br><span style="font-size:9px">${esc(displayLabel)}</span></th>`;
+    const gOv = msGlobalOv[d.id] || {};
+    const displayLabel = gOv.label || d.label;
+    const displayDate  = gOv.date  || d.date;
+    const col = typeColors[d.type] || '#64748b';
+    return `<th class="ms-type-${d.type}" title="クリックで編集"
+      style="cursor:pointer;min-width:90px"
+      onclick="showMsHeaderEdit('${esc(d.id)}','${esc(displayLabel)}','${esc(displayDate)}')">
+      <div style="font-size:9px;color:${col};font-family:'Space Mono',monospace">${esc(displayDate)}</div>
+      <div style="font-size:10px;font-weight:700;line-height:1.4">${esc(displayLabel)}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.5)">${typeLabels[d.type]||''}</div>
+    </th>`;
   }).join('');
   
   const tbody = rows.map(c=>{
@@ -4396,7 +4614,7 @@ function renderMilestonePage(){
       if(!mEntry) return '<td></td>';
       const cur = getMsStatus(c.no, md.id);
       const selOpts = MS_STATUS_OPTIONS.map(o=>`<option value="${o.value}" ${cur.status===o.value?'selected':''}>${o.label}</option>`).join('');
-      const pipLabel = cur.raw==='未調整'||cur.raw==='未着手'?'—':esc(cur.raw);
+      const pipLabel = cur.raw==='未調整'||cur.raw==='未着手'||!cur.raw?'—':esc(cur.raw);
       const editedLabel = cur.label || md.label;
       return `<td style="text-align:center;padding:4px 6px">
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
@@ -4493,8 +4711,8 @@ function boardDrop(e,stageNo){e.preventDefault();e.currentTarget.classList.remov
 function renderOverview(){
   const el=document.getElementById('page-overview');if(el)el.style.display='block';
   const disc=COMPANIES.filter(c=>getContract(c.no)==='D：非継続');
-  const activeCos = (window._ovFilter||'active')==='disc' ? disc :
-                    (window._ovFilter||'active')==='all'  ? COMPANIES :
+  const activeCos = getGlobalFilter()==='disc' ? disc :
+                    getGlobalFilter()==='all'  ? COMPANIES :
                     COMPANIES.filter(c=>getContract(c.no)!=='D：非継続');
   const newCo=activeCos.filter(c=>c.status==='新規契約');
   const s_count=activeCos.filter(c=>getContract(c.no)==='S：契約書締結').length;
@@ -4506,8 +4724,8 @@ const html=`<div class="section-header"><div class="section-num">📊</div><div 
     ${[['active','継続企業'],['all','全社'],['disc','非継続']].map(([v,l])=>
       `<button onclick="window._ovFilter='${v}';renderOverview()"
         style="padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:none;
-          background:${(window._ovFilter||'active')===v?'var(--accent)':'transparent'};
-          color:${(window._ovFilter||'active')===v?'#fff':'var(--td)'}">
+          background:${getGlobalFilter()===v?'var(--accent)':'transparent'};
+          color:${getGlobalFilter()===v?'#fff':'var(--td)'}">
         ${l}
       </button>`
     ).join('')}
@@ -4515,8 +4733,8 @@ const html=`<div class="section-header"><div class="section-num">📊</div><div 
   <span style="font-family:'Space Mono';font-size:10px;color:var(--td)">NEO ACADEMIA 2期</span>
 </div></div><div class="ov-kpi-row"><div class="ov-kpi"><div class="ov-kpi-label">総パートナー数</div><div class="ov-kpi-val" style="color:var(--accent)">${COMPANIES.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">契約中（S+A）</div><div class="ov-kpi-val" style="color:var(--ok)">${s_count+a_count}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">新規契約</div><div class="ov-kpi-val" style="color:var(--purple)">${newCo.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">非継続</div><div class="ov-kpi-val" style="color:var(--ng)">${disc.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">企業平均満足度</div><div class="ov-kpi-val" style="color:${scColor(avg_sat)}">${avg_sat}</div><div class="ov-kpi-sub">/10</div></div><div class="ov-kpi"><div class="ov-kpi-label">年間売上（継続）</div><div class="ov-kpi-val" style="color:var(--ok);font-size:28px">¥${(total_rev/1000000).toFixed(0)}M</div><div class="ov-kpi-sub">継続企業合計</div></div></div><div class="section-header"><div class="section-num">1</div><div class="section-title">顧客健全マトリクス</div><div style="margin-left:auto;display:flex;gap:8px;font-size:10px;align-items:center"><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ok);display:inline-block"></span>健全</span><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--warn);display:inline-block"></span>要注意</span><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ng);display:inline-block"></span>リスク</span></div></div><div class="health-matrix"><table class="hm-table"><thead><tr><th>企業名</th><th>契約状況</th><th>ステータス</th><th>CS担当</th><th>コース</th><th>卒業率</th><th>企業満足</th><th>企業成長</th><th>健全スコア</th><th>面談数</th><th>操作</th></tr></thead><tbody>${COMPANIES.filter(c=>{
   const contract=getContract(c.no);
-  if((window._ovFilter||'active')==='disc') return contract==='D：非継続';
-  if((window._ovFilter||'active')==='active') return contract!=='D：非継続';
+  if(getGlobalFilter()==='disc') return contract==='D：非継続';
+  if(getGlobalFilter()==='active') return contract!=='D：非継続';
   return true; // all
 }).map(c=>{const contract=getContract(c.no);const[cls,label]=contractInfo(contract);const health=getHealthScore(c);const hColor=health>=7?'var(--ok)':health>=5?'var(--warn)':'var(--ng)';const gradRate=c.sent>0?Math.round(c.grad/c.sent*100)+'%':'—';const meetings=LS.getArr('meetings_'+c.no).length;return`<tr class="${c.status==='新規契約'?'is-new':''}"><td><span class="co-name-cell" onclick="goToCompany(${c.no})">${esc(c.short)}</span></td><td><span class="cs-tag ${cls}">${label}</span></td><td style="font-size:11px;color:var(--td)">${esc(c.status)}</td><td style="font-size:11px">${esc(c.cs)||'—'}</td><td style="font-size:11px">${esc(c.course2||c.course1||'—')}</td><td style="font-weight:700;font-size:13px">${gradRate}</td><td><span class="score-pill" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</span></td><td><span class="score-pill" style="color:${scColor(c.ent_grow)}">${c.ent_grow!=null?c.ent_grow:'—'}</span></td><td><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill" style="width:${health*10}%;background:${hColor}"></div></div><span style="font-family:'Bebas Neue';font-size:16px;color:${hColor}">${health}</span></div></td><td style="font-size:12px;font-weight:700;color:${meetings>=3?'var(--ok)':meetings>=1?'var(--warn)':'var(--td)'}">${meetings}</td><td><button onclick="goToCompany(${c.no})" style="font-size:10px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);cursor:pointer" onmouseover="this.style.background='var(--accent-lt)';this.style.color='var(--accent)'" onmouseout="this.style.background='var(--surface2)';this.style.color=''">詳細 →</button></td></tr>`;}).join('')}</tbody></table></div><div class="section-header"><div class="section-num">2</div><div class="section-title">契約ステータス分布</div></div><div class="grid3"><div class="panel"><div class="panel-title">契約状況</div>${['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(ct=>{const count=COMPANIES.filter(c=>getContract(c.no)===ct).length;const[cls,label]=contractInfo(ct);return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><span class="cs-tag ${cls}">${label}</span><div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="width:${Math.round(count/COMPANIES.length*100)}%;height:100%;background:${cls==='tag-s'?'var(--ok)':cls==='tag-a'?'var(--accent)':cls==='tag-d'?'var(--ng)':'var(--warn)'}"></div></div><span style="font-family:'Bebas Neue';font-size:20px;width:28px;text-align:right">${count}</span></div>`;}).join('')}</div><div class="panel"><div class="panel-title">コース別分布（2期）</div>${['リーダー育成','事業共創',''].map(ct=>{const label=ct||'未定';const count=COMPANIES.filter(c=>(c.course2||'')===ct).length;if(!count)return'';const colors={'リーダー育成':'var(--accent)','事業共創':'var(--ok)','未定':'var(--td)'};return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:${colors[label]||'var(--td)'};font-weight:700;width:90px">${label}</span><div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="width:${Math.round(count/COMPANIES.length*100)}%;height:100%;background:${colors[label]||'var(--td)'}"></div></div><span style="font-family:'Bebas Neue';font-size:20px;width:28px;text-align:right">${count}</span></div>`;}).join('')}</div><div class="panel"><div class="panel-title">要注意・フォローアップ</div>${COMPANIES.filter(c=>getContract(c.no)==='C：社内調整中'||(c.ent_sat!=null&&c.ent_sat<7)).slice(0,6).map(c=>{const risk=getContract(c.no)==='C：社内調整中'?'社内調整中':`満足度${c.ent_sat}`;return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;font-weight:600;flex:1;cursor:pointer;color:var(--accent)" onclick="goToCompany(${c.no})">${esc(c.short)}</span><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--warn-lt);color:var(--warn);font-weight:700">${risk}</span></div>`;}).join('')||'<div style="color:var(--td);font-size:12px">リスク企業なし</div>'}</div></div>`;
   document.getElementById('page-overview').innerHTML=html;
@@ -4538,9 +4756,10 @@ window.addEventListener('beforeunload', function(){
     LSdb._loaded = true;  // 失敗時もフラグを立てて続行
   }
   renderOverview();
-  switchMainTab('overview');  // 初期タブを確実に表示
-  // グローバルユーザーセレクトを初期化
+  switchMainTab('overview');
   initGlobalUserSelect();
+  updateGlobalFilterUI();
+  updateFiscalYearUI();
 })();
 
 function initGlobalUserSelect(){
