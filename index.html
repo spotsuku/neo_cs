@@ -4437,7 +4437,7 @@ function renderOverview(){
 const html=`<div class="section-header"><div class="section-num">📊</div><div class="section-title" style="font-family:'Bebas Neue';font-size:28px;letter-spacing:2px">パートナーサクセス概要ダッシュボード</div><div style="margin-left:auto;display:flex;gap:6px;align-items:center">
   <div style="display:flex;gap:4px;background:var(--surface2);border-radius:8px;padding:4px">
     ${[['active','継続企業'],['all','全社'],['disc','非継続']].map(([v,l])=>
-      `<button onclick="window.(window._ovFilter||'active')='${v}';renderOverview()"
+      `<button onclick="window._ovFilter='${v}';renderOverview()"
         style="padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:none;
           background:${(window._ovFilter||'active')===v?'var(--accent)':'transparent'};
           color:${(window._ovFilter||'active')===v?'#fff':'var(--td)'}">
