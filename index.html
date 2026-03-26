@@ -688,8 +688,15 @@ const ONBO_CHECK_STATES = [
 ];
 
 function getCheckState(val){
-  const v = val===true?2 : val===false?0 : (parseInt(val)||0);
-  return ONBO_CHECK_STATES[v] || ONBO_CHECK_STATES[0];
+  // true → 完了(2), false/null/undefined → 未着手(0), 数値 → そのまま
+  let v;
+  if(val === true)  v = 2;
+  else if(!val)     v = 0;  // false, null, undefined, 0 すべて未着手
+  else {
+    const n = parseInt(val);
+    v = isNaN(n) ? 0 : Math.min(2, Math.max(0, n));
+  }
+  return ONBO_CHECK_STATES[v];
 }
 
 // ② ユーザー管理
@@ -4254,15 +4261,10 @@ function saveOnboPhaseTaskDue(phaseId, taskId, dueVal){
 }
 
 function toggleOnboByIdAndRefresh(no, taskId){
-  const done = LS.get('onbo_'+no);
-  done[taskId] = !done[taskId];
-  // LocalStorage即時更新
-  localStorage.setItem('neo_ps_onbo_'+no, JSON.stringify(done));
-  // Supabase即時保存
-  LSdb._call({key:'onbo_'+no, value:done})
-    .catch(e=>console.warn('[LSdb] save error:', e.message));
-  renderOnboardingAll();
-  toast(done[taskId]?'✅ 完了':'↩ 未完了に戻しました');
+  // cycleOnboCheck に委譲（三段階チェック）
+  const tasks = getGlobalTasks(window._onboFilterPhase || 'p1');
+  const t = tasks.find(t=>t.id===taskId);
+  cycleOnboCheck(no, taskId, t?.label || taskId);
 }
 
 function renderMilestonePage(){
@@ -4422,23 +4424,23 @@ function boardDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag
 function boardDragLeave(e){e.currentTarget.classList.remove('drag-over');}
 function boardDrop(e,stageNo){e.preventDefault();e.currentTarget.classList.remove('drag-over');if(draggedCompanyNo!==null){setStage(draggedCompanyNo,stageNo);const c=COMPANIES.find(x=>x.no===draggedCompanyNo);toast(`${c?.short||''} → St.${stageNo} ${STAGES[stageNo-1]?.name||''}`);draggedCompanyNo=null;renderBoard();}}
 function renderOverview(){
+  const el=document.getElementById('page-overview');if(el)el.style.display='block';
   const disc=COMPANIES.filter(c=>getContract(c.no)==='D：非継続');
-  const activeCos = ovFilter==='disc' ? disc :
-                    ovFilter==='all'  ? COMPANIES :
+  const activeCos = (window._ovFilter||'active')==='disc' ? disc :
+                    (window._ovFilter||'active')==='all'  ? COMPANIES :
                     COMPANIES.filter(c=>getContract(c.no)!=='D：非継続');
   const newCo=activeCos.filter(c=>c.status==='新規契約');
   const s_count=activeCos.filter(c=>getContract(c.no)==='S：契約書締結').length;
   const a_count=activeCos.filter(c=>getContract(c.no)==='A：契約中').length;
   const total_rev=activeCos.reduce((s,c)=>s+(c.price||0),0);
   const avg_sat=(()=>{const v=activeCos.filter(c=>c.ent_sat!=null).map(c=>c.ent_sat);return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):'—';})();
-  const ovFilter = window._ovFilter || 'active'; // active=継続, all=全社, disc=非継続
 const html=`<div class="section-header"><div class="section-num">📊</div><div class="section-title" style="font-family:'Bebas Neue';font-size:28px;letter-spacing:2px">パートナーサクセス概要ダッシュボード</div><div style="margin-left:auto;display:flex;gap:6px;align-items:center">
   <div style="display:flex;gap:4px;background:var(--surface2);border-radius:8px;padding:4px">
     ${[['active','継続企業'],['all','全社'],['disc','非継続']].map(([v,l])=>
-      `<button onclick="window._ovFilter='${v}';renderOverview()"
+      `<button onclick="window.(window._ovFilter||'active')='${v}';renderOverview()"
         style="padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:none;
-          background:${ovFilter===v?'var(--accent)':'transparent'};
-          color:${ovFilter===v?'#fff':'var(--td)'}">
+          background:${(window._ovFilter||'active')===v?'var(--accent)':'transparent'};
+          color:${(window._ovFilter||'active')===v?'#fff':'var(--td)'}">
         ${l}
       </button>`
     ).join('')}
@@ -4446,8 +4448,8 @@ const html=`<div class="section-header"><div class="section-num">📊</div><div 
   <span style="font-family:'Space Mono';font-size:10px;color:var(--td)">NEO ACADEMIA 2期</span>
 </div></div><div class="ov-kpi-row"><div class="ov-kpi"><div class="ov-kpi-label">総パートナー数</div><div class="ov-kpi-val" style="color:var(--accent)">${COMPANIES.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">契約中（S+A）</div><div class="ov-kpi-val" style="color:var(--ok)">${s_count+a_count}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">新規契約</div><div class="ov-kpi-val" style="color:var(--purple)">${newCo.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">非継続</div><div class="ov-kpi-val" style="color:var(--ng)">${disc.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">企業平均満足度</div><div class="ov-kpi-val" style="color:${scColor(avg_sat)}">${avg_sat}</div><div class="ov-kpi-sub">/10</div></div><div class="ov-kpi"><div class="ov-kpi-label">年間売上（継続）</div><div class="ov-kpi-val" style="color:var(--ok);font-size:28px">¥${(total_rev/1000000).toFixed(0)}M</div><div class="ov-kpi-sub">継続企業合計</div></div></div><div class="section-header"><div class="section-num">1</div><div class="section-title">顧客健全マトリクス</div><div style="margin-left:auto;display:flex;gap:8px;font-size:10px;align-items:center"><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ok);display:inline-block"></span>健全</span><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--warn);display:inline-block"></span>要注意</span><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ng);display:inline-block"></span>リスク</span></div></div><div class="health-matrix"><table class="hm-table"><thead><tr><th>企業名</th><th>契約状況</th><th>ステータス</th><th>CS担当</th><th>コース</th><th>卒業率</th><th>企業満足</th><th>企業成長</th><th>健全スコア</th><th>面談数</th><th>操作</th></tr></thead><tbody>${COMPANIES.filter(c=>{
   const contract=getContract(c.no);
-  if(ovFilter==='disc') return contract==='D：非継続';
-  if(ovFilter==='active') return contract!=='D：非継続';
+  if((window._ovFilter||'active')==='disc') return contract==='D：非継続';
+  if((window._ovFilter||'active')==='active') return contract!=='D：非継続';
   return true; // all
 }).map(c=>{const contract=getContract(c.no);const[cls,label]=contractInfo(contract);const health=getHealthScore(c);const hColor=health>=7?'var(--ok)':health>=5?'var(--warn)':'var(--ng)';const gradRate=c.sent>0?Math.round(c.grad/c.sent*100)+'%':'—';const meetings=LS.getArr('meetings_'+c.no).length;return`<tr class="${c.status==='新規契約'?'is-new':''}"><td><span class="co-name-cell" onclick="goToCompany(${c.no})">${esc(c.short)}</span></td><td><span class="cs-tag ${cls}">${label}</span></td><td style="font-size:11px;color:var(--td)">${esc(c.status)}</td><td style="font-size:11px">${esc(c.cs)||'—'}</td><td style="font-size:11px">${esc(c.course2||c.course1||'—')}</td><td style="font-weight:700;font-size:13px">${gradRate}</td><td><span class="score-pill" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</span></td><td><span class="score-pill" style="color:${scColor(c.ent_grow)}">${c.ent_grow!=null?c.ent_grow:'—'}</span></td><td><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill" style="width:${health*10}%;background:${hColor}"></div></div><span style="font-family:'Bebas Neue';font-size:16px;color:${hColor}">${health}</span></div></td><td style="font-size:12px;font-weight:700;color:${meetings>=3?'var(--ok)':meetings>=1?'var(--warn)':'var(--td)'}">${meetings}</td><td><button onclick="goToCompany(${c.no})" style="font-size:10px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);cursor:pointer" onmouseover="this.style.background='var(--accent-lt)';this.style.color='var(--accent)'" onmouseout="this.style.background='var(--surface2)';this.style.color=''">詳細 →</button></td></tr>`;}).join('')}</tbody></table></div><div class="section-header"><div class="section-num">2</div><div class="section-title">契約ステータス分布</div></div><div class="grid3"><div class="panel"><div class="panel-title">契約状況</div>${['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(ct=>{const count=COMPANIES.filter(c=>getContract(c.no)===ct).length;const[cls,label]=contractInfo(ct);return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><span class="cs-tag ${cls}">${label}</span><div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="width:${Math.round(count/COMPANIES.length*100)}%;height:100%;background:${cls==='tag-s'?'var(--ok)':cls==='tag-a'?'var(--accent)':cls==='tag-d'?'var(--ng)':'var(--warn)'}"></div></div><span style="font-family:'Bebas Neue';font-size:20px;width:28px;text-align:right">${count}</span></div>`;}).join('')}</div><div class="panel"><div class="panel-title">コース別分布（2期）</div>${['リーダー育成','事業共創',''].map(ct=>{const label=ct||'未定';const count=COMPANIES.filter(c=>(c.course2||'')===ct).length;if(!count)return'';const colors={'リーダー育成':'var(--accent)','事業共創':'var(--ok)','未定':'var(--td)'};return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:${colors[label]||'var(--td)'};font-weight:700;width:90px">${label}</span><div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="width:${Math.round(count/COMPANIES.length*100)}%;height:100%;background:${colors[label]||'var(--td)'}"></div></div><span style="font-family:'Bebas Neue';font-size:20px;width:28px;text-align:right">${count}</span></div>`;}).join('')}</div><div class="panel"><div class="panel-title">要注意・フォローアップ</div>${COMPANIES.filter(c=>getContract(c.no)==='C：社内調整中'||(c.ent_sat!=null&&c.ent_sat<7)).slice(0,6).map(c=>{const risk=getContract(c.no)==='C：社内調整中'?'社内調整中':`満足度${c.ent_sat}`;return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;font-weight:600;flex:1;cursor:pointer;color:var(--accent)" onclick="goToCompany(${c.no})">${esc(c.short)}</span><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--warn-lt);color:var(--warn);font-weight:700">${risk}</span></div>`;}).join('')||'<div style="color:var(--td);font-size:12px">リスク企業なし</div>'}</div></div>`;
   document.getElementById('page-overview').innerHTML=html;
@@ -4469,6 +4471,7 @@ window.addEventListener('beforeunload', function(){
     LSdb._loaded = true;  // 失敗時もフラグを立てて続行
   }
   renderOverview();
+  switchMainTab('overview');  // 初期タブを確実に表示
   // グローバルユーザーセレクトを初期化
   initGlobalUserSelect();
 })();
