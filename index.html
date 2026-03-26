@@ -312,21 +312,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
     <button id="fy-btn-2025" onclick="showFiscalYearManager()"
       style="padding:3px 8px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-weight:400;cursor:pointer;font-size:10px;white-space:nowrap">2025</button>
   </div>
-  <!-- 操作ユーザー選択（常時表示） -->
-  <div style="display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid rgba(255,255,255,.15);flex-shrink:0">
-    <span style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap">👤 操作者</span>
-    <select id="global-user-select"
-      onchange="setCurrentUser(this.value)"
-      style="padding:4px 8px;border:1px solid rgba(255,255,255,.25);border-radius:6px;
-        font-size:11px;color:#fff;background:rgba(255,255,255,.12);outline:none;cursor:pointer;max-width:110px">
-      <option value="" style="background:#1e293b">未選択</option>
-    </select>
-    <button onclick="showUserManager()"
-      style="padding:4px 8px;border:1px solid rgba(255,255,255,.2);border-radius:5px;
-        background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);cursor:pointer;font-size:10px;white-space:nowrap">
-      ⚙ 管理
-    </button>
-  </div>
+  
 </nav>
 <!-- ユーザー情報バー（ログイン後表示） -->
 <div id="user-info-bar" style="display:none;background:#0a1628;border-bottom:1px solid #1e3a5f;
@@ -781,14 +767,8 @@ function getCurrentUser(){
 }
 
 function setCurrentUser(id){
-  const users = getUsers();
-  const u = users.find(u=>u.id===id);
-  LS.set('onbo_current_user', {id, name: u?.name||''});
-  // 全セレクトを同期
-  ['global-user-select','onbo-user-select'].forEach(elId=>{
-    const el = document.getElementById(elId);
-    if(el) el.value = id;
-  });
+  // Google認証に移行。currentUser を使うため、このメソッドはno-op
+  // onLoginSuccess() が currentUser をセットする
 }
 
 // ③ フェーズ名編集
@@ -812,14 +792,14 @@ function savePhaseName(phaseId, name){
 // ④ 変更ログ
 function addOnboLog(no, taskId, taskLabel, from, to){
   const logs = LS.getArr('onbo_log_'+no);
-  const user = LS.get('onbo_current_user');
+  // Googleログインユーザーを使用
   const fromState = getCheckState(from);
   const toState   = getCheckState(to);
   logs.unshift({
     taskId,
     taskLabel,
-    user:  user.name || '—',
-    userId: user.id  || '',
+    user:  currentUser?.name || currentUser?.email || '—',
+    userId: currentUser?.email || '',
     from:  fromState.val,
     to:    toState.val,
     fromLabel: fromState.label,
@@ -836,7 +816,8 @@ function saveOnboComment(no, taskId, comment){
   if(!meta[taskId]) meta[taskId] = {};
   meta[taskId].comment = comment;
   meta[taskId].comment_ts = new Date().toLocaleString('ja-JP');
-  meta[taskId].comment_user = (LS.get('onbo_current_user').name || '—');
+  // Googleログインユーザーの名前を使用
+  meta[taskId].comment_user = currentUser?.name || currentUser?.email || '—';
   LS.set('onbo_meta_'+no, meta);
 }
 
@@ -860,12 +841,11 @@ function cycleOnboCheck(no, taskId, taskLabel){
 
 // ⑦ 担当者設定
 function saveOnboOwner(no, taskId, ownerId){
-  const meta  = LS.get('onbo_meta_'+no);
+  const meta = LS.get('onbo_meta_'+no);
   if(!meta[taskId]) meta[taskId] = {};
-  const users = getUsers();
-  const u = users.find(u=>u.id===ownerId);
-  meta[taskId].owner   = u?.name || '';
-  meta[taskId].ownerId = ownerId;
+  // ownerId はメールアドレス、owner は表示名
+  meta[taskId].owner   = currentUser?.name || currentUser?.email || ownerId;
+  meta[taskId].ownerId = ownerId || currentUser?.email || '';
   LS.set('onbo_meta_'+no, meta);
 }
 
@@ -4399,7 +4379,11 @@ function showOnboCellMenu(e, no, taskId, taskLabel){
   const done = LS.get(fyKey('onbo_'+no));
   const st       = getCheckState(done[taskId]);
 
-  const userOpts = users.map(u=>`<option value="${esc(u.id)}" ${ownerId===u.id?'selected':''}>${esc(u.name)}</option>`).join('');
+  // ログイン済みユーザー自身を担当者としてセット
+  const loginUser = currentUser;
+  const userOpts = loginUser
+    ? `<option value="${esc(loginUser.email)}" ${ownerId===loginUser.email?'selected':''} selected>${esc(loginUser.name||loginUser.email)}</option>`
+    : '<option value="">未設定</option>';
 
   showModal(`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -4427,13 +4411,23 @@ function showOnboCellMenu(e, no, taskId, taskLabel){
 
     <!-- 担当者 -->
     <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:6px">👤 担当者</div>
-      <select id="cell-owner-${no}-${taskId}" onchange="saveOnboOwner(${no},'${taskId}',this.value)"
-        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;
-          font-size:13px;color:var(--t1);background:var(--surface2);outline:none;cursor:pointer">
-        <option value="">未設定</option>
-        ${userOpts}
-      </select>
+      <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px">👤 担当者</div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+        ${taskMeta.owner
+          ? `<div style="flex:1">
+              <div style="font-size:13px;font-weight:700;color:var(--t1)">${esc(taskMeta.owner)}</div>
+              <div style="font-size:10px;color:var(--td);margin-top:2px">${esc(taskMeta.ownerId||'')}</div>
+            </div>
+            <button onclick="saveOnboOwner(${no},'${taskId}','');renderOnboardingAll();"
+              style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--td);cursor:pointer;font-size:10px">
+              解除
+            </button>`
+          : `<div style="flex:1;color:var(--td);font-size:12px">未設定</div>`}
+        ${loginUser ? `<button onclick="saveOnboOwner(${no},'${taskId}','${esc(loginUser.email||'')}');closeModal();renderOnboardingAll();toast('👤 担当者を設定しました');"
+          style="padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+          自分を担当者に
+        </button>` : '<div style="font-size:11px;color:var(--td)">ログインが必要です</div>'}
+      </div>
     </div>
 
     <!-- コメント -->
@@ -5588,10 +5582,7 @@ window.addEventListener('beforeunload', function(){
 })();
 
 function initGlobalUserSelect(){
-  const sel = document.getElementById('global-user-select');
-  if(!sel) return;
-  sel.innerHTML = '<option value="" style="background:#1e293b">未選択</option>' +
-    getUsers().map(u=>`<option value="${esc(u.id)}" style="background:#1e293b;color:#fff" ${getCurrentUser()===u.id?'selected':''}>${esc(u.name)}</option>`).join('');
+  // Google認証に移行したため、セレクトUIは不要（no-op）
 }
 
 // ━━━ 企業情報編集 ━━━
