@@ -2850,13 +2850,21 @@ function renderMembersTab(no){
       return `<div style="flex:1;padding:10px;background:var(--surface2);border-radius:8px;text-align:center">
         <div style="font-size:10px;color:var(--td);font-weight:700;margin-bottom:8px">${label}</div>
         ${s ? `
-          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:6px">
             ${[{k:'sat',l:'満足度'},{k:'grow',l:'成長'},{k:'fun',l:'楽しさ'},{k:'rec',l:'おすすめ'}].map(({k,l})=>`
               <div style="text-align:center">
                 <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:${scColor(s[k])}">${s[k]||'—'}</div>
                 <div style="font-size:9px;color:var(--td)">${l}</div>
               </div>`).join('')}
-          </div>` :
+          </div>
+          ${s.sat_comment||s.grow_comment||s.free_comment ? `<details style="margin-top:4px">
+            <summary style="font-size:9px;color:var(--td);cursor:pointer;list-style:none">💬 コメントを見る</summary>
+            <div style="margin-top:4px;font-size:10px;color:var(--t2);background:var(--surface);border-radius:5px;padding:6px 8px;line-height:1.7;text-align:left">
+              ${s.sat_comment?`<div><span style="color:var(--accent);font-weight:700">満足：</span>${esc(s.sat_comment)}</div>`:''}
+              ${s.grow_comment?`<div><span style="color:var(--ok);font-weight:700">成長：</span>${esc(s.grow_comment)}</div>`:''}
+              ${s.free_comment?`<div><span style="color:var(--td);font-weight:700">自由記述：</span>${esc(s.free_comment)}</div>`:''}
+            </div>
+          </details>` : ''}` :
           `<div style="color:var(--td);font-size:11px;padding:8px 0">未実施</div>`}
       </div>`;
     }).join('');
@@ -5692,6 +5700,8 @@ window.addEventListener('beforeunload', function(){
   updateFiscalYearUI();
   // MB_SURVEYから選抜生データを自動投入（初回のみ）
   setTimeout(initMembersFromSurvey, 1000);
+  // やずや2025年度選抜生データを緊急復元
+  setTimeout(restoreYazuya2025Once, 1500);
 })();
 
 function initGlobalUserSelect(){
@@ -5828,6 +5838,199 @@ function initMembersFromSurvey(){
     }
   }
   if(count > 0) toast('🎓 '+count+'名の選抜生データを自動登録しました');
+}
+
+// ━━━ やずや2025年度 選抜生データ緊急復元（1Q/2Q/3Q完全版） ━━━
+function restoreYazuya2025Once(){
+  // 既に復元済みなら何もしない
+  if(localStorage.getItem('neo_ps_yazuya2025_restored_v2')) return;
+
+  const members = [
+  {
+    "name": "森山稜平",
+    "dept": "",
+    "role": "",
+    "recruit_type": "選抜",
+    "motivation": "広告制作という仕事上、出来ないこと、難しいこと人を動かすことが多くあり壁にぶつかることがある。その時に出来ない理由ではなくどうやったらできるのかを考えるようにもうすでになっている。今後もこの考え方を忘れないようにしていきたい。",
+    "skills": {
+      "leadership": 4,
+      "communication": 5,
+      "problem_solving": 3,
+      "creativity": 3,
+      "teamwork": 4
+    },
+    "lecture_surveys": [],
+    "term_surveys": [
+      {
+        "term": "q1",
+        "sat": 10.0,
+        "grow": 10.0,
+        "fun": 10.0,
+        "rec": 10.0,
+        "playful": 6.0,
+        "sat_comment": "普段会えないようなその道のプロの話を実践を交えて聞けたことで講義の内容がより深みのあるものだったから",
+        "grow_comment": "仕事でも出来ないと諦めることが減った",
+        "rec_comment": "他の会社の方ともっと触れ合わないと、新たなことに触れないと成長が止まる",
+        "free_comment": ""
+      },
+      {
+        "term": "q2",
+        "sat": 8.0,
+        "grow": 8.0,
+        "fun": 8.0,
+        "rec": null,
+        "playful": 7.0,
+        "sat_comment": "できないことも1学期のインプットが活きて前に進めることができた",
+        "grow_comment": "課題は難しく、専門分野ではなかったからこそ勉強した",
+        "free_comment": "他、記入欄で記載したため特になし"
+      },
+      {
+        "term": "q3",
+        "sat": 9.0,
+        "grow": 10.0,
+        "fun": 9.0,
+        "rec": null,
+        "sat_comment": "講義や活動内容についてはかなり満足しています。ただ社会人である以上、仕事との調整がかなり難しい部分があり時間的な拘束時間の長さは正直感じた。また、企業側のアワードの課題提出についてはアカデミア生との熱力に差があるところもあったのは否めない。",
+        "grow_comment": "仕事の進み具合が劇的に良くなったと感じるため。"
+      }
+    ],
+    "_grow_skill": "傾聴力",
+    "_challenge_skill": "巻き込み力",
+    "_challenge_will": "はい",
+    "_leader": "はい",
+    "_step": "ステップ1. 授業に主体的に取り組んでいる",
+    "_sat_comment": "講義や活動内容についてはかなり満足しています。ただ社会人である以上、仕事との調整がかなり難しい部分があり時間的な拘束時間の長さは正直感じた。また、企業側のアワードの課題提出についてはアカデミア生との熱力に差があるところもあったのは否めない。",
+    "_grow_comment": "仕事の進み具合が劇的に良くなったと感じるため。",
+    "_grow_factor": "もともと自信はあったものの、他社・学生など環境が違う中でさらに磨かれた"
+  },
+  {
+    "name": "小西達也",
+    "dept": "",
+    "role": "",
+    "recruit_type": "選抜",
+    "motivation": "まずはプロジェクトマネジメントととして、プロジェクトを背負う覚悟と責任が変わった。 新たなプロジェクトを自ら作り、自ら実行し、やり切ること。 最終的に成果にも責任を持って社内プロジェクトを推進していく。  動員や物を買っていただくことについて、共感とアウトカムが重要であると感じた。 自分の挑戦への共",
+    "skills": {
+      "leadership": 3,
+      "communication": 5,
+      "problem_solving": 3,
+      "creativity": 3,
+      "teamwork": 4
+    },
+    "lecture_surveys": [],
+    "term_surveys": [
+      {
+        "term": "q1",
+        "sat": 9.0,
+        "grow": 10.0,
+        "fun": 10.0,
+        "rec": 8.0,
+        "playful": 10.0,
+        "sat_comment": "会社の研修では限界があり、いろいろな会社の人と関わりを持つことで見えてくるものがある。",
+        "grow_comment": "会社で出すアイデアが増えた。経営者視点を強く持つことができた。自分の業種以外のことでも積極的に情報を集めて会社内でも提案できた。\nまたそれを上司との面談でも褒めていただき、より自身に繋がった。",
+        "rec_comment": "雰囲気に合う人にはぜひ勧めたい。\nこの熱量で出来ない人もいると思うので、そういう意味で8にしました。",
+        "free_comment": ""
+      },
+      {
+        "term": "q2",
+        "sat": 10.0,
+        "grow": 10.0,
+        "fun": 10.0,
+        "rec": null,
+        "playful": 10.0,
+        "sat_comment": "オーリックさんのAWARD審査会で2位と本当にあとちょっとでした。三木校長から「一生懸命やったけど届かなかったこと、負けたことの経験が一生の財産になる」と仰っていただいたとき、自分は財産と呼べるかどうかはこれからの自分の行動次第だと感じました。\n特にそこから意識が変わり行動も変わったと思っています。",
+        "grow_comment": "1学期基本受け身だったのですが、リーダーとしてチームをまとめる。プロジェクトマネジメントの観点からも成長したと思っています。",
+        "free_comment": "いろいろと書きたいことはありますが、総じて自分が自信を持って成長できると言える聞かんでした！"
+      },
+      {
+        "term": "q3",
+        "sat": 10.0,
+        "grow": 10.0,
+        "fun": 10.0,
+        "rec": null,
+        "sat_comment": "本当に自分のマインドが変わり、行動も変わったため。",
+        "grow_comment": "プレイフルになった。賞をいただけたこともその実感につながった。"
+      }
+    ],
+    "_grow_skill": "傾聴力",
+    "_challenge_skill": "伝える力",
+    "_challenge_will": "はい",
+    "_leader": "はい",
+    "_step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている",
+    "_sat_comment": "本当に自分のマインドが変わり、行動も変わったため。",
+    "_grow_comment": "プレイフルになった。賞をいただけたこともその実感につながった。",
+    "_grow_factor": "他社の方がたくさんいる環境でやれたこと。"
+  },
+  {
+    "name": "小島直樹",
+    "dept": "",
+    "role": "",
+    "recruit_type": "選抜",
+    "motivation": "NEOで学んだことは、企画を成功させるために大切なことはリーダーが誰よりも熱をもってとりくむこと、チームのモチベーションをあげること、きつくてもやりきることなどです。今後自社の仕事で様々な企画やプロジェクトに経験させていただくときに、NEOで学んだ上記のことを忘れず取り組んでまいります。",
+    "skills": {
+      "leadership": 0,
+      "communication": 5,
+      "problem_solving": 0,
+      "creativity": 3,
+      "teamwork": 4
+    },
+    "lecture_surveys": [],
+    "term_surveys": [
+      {
+        "term": "q1",
+        "sat": 10.0,
+        "grow": 9.0,
+        "fun": 10.0,
+        "rec": 9.0,
+        "playful": 7.0,
+        "sat_comment": "自分にとっては普通に生きていたら出会わない環境とコミュニティと人だからです",
+        "grow_comment": "インプットはとてもできています。後は自分の課題はアウトプット！！！",
+        "rec_comment": "仕事終わりにNEOはハードな一面もあるので…そこを楽しくやれる人にはピッタリだなと！",
+        "free_comment": "ありがたい環境をいつも提供してくださってありがとうございます！一学期にあまり課外講義などに参加できなかった分、二学期以降はギア上げていきます🔥よろしくお願いします！"
+      },
+      {
+        "term": "q2",
+        "sat": 8.0,
+        "grow": 7.0,
+        "fun": 7.0,
+        "rec": null,
+        "playful": 7.0,
+        "sat_comment": "テーマが自分事しやすい年代ということが大きかったですが、隙があれば友人にアイデアの壁打ちしてました！それが個人的にはとてもよかったです。",
+        "grow_comment": "十分にチームの役に立てたか微妙です。ただ限られた時間でやれることはやりました！そしてチームメンバーのみなさまの資料作成などとても勉強になりました。",
+        "free_comment": "二学期は十分に時間を割けなかったことが課題だと感じると同時に、仕事や家庭との両立難しいと感じました！笑 両立されている方のお話など聞けたら嬉しいなとも感じました。三学期はもっとプレイフルに頑張ります！"
+      },
+      {
+        "term": "q3",
+        "sat": 8.0,
+        "grow": 7.0,
+        "fun": 8.0,
+        "rec": null,
+        "sat_comment": "普段できない貴重な経験ができたため。自分が心の底からやり切れたといえなかったことがマイナス点です。",
+        "grow_comment": "学びは多かったがリーダーを経験することができなかったため"
+      }
+    ],
+    "_grow_skill": "傾聴力",
+    "_challenge_skill": "伝える力",
+    "_challenge_will": "はい",
+    "_leader": "はい",
+    "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している",
+    "_sat_comment": "普段できない貴重な経験ができたため。自分が心の底からやり切れたといえなかったことがマイナス点です。",
+    "_grow_comment": "学びは多かったがリーダーを経験することができなかったため",
+    "_grow_factor": "西鉄のPJリーダー、NEOの応援団長の姿を見て自分のロールモデルになったため"
+  }
+];
+  const key = 'members_info_2_fy2025';
+  localStorage.setItem('neo_ps_'+key, JSON.stringify(members));
+
+  // Supabaseにも保存
+  LSdb._call({key: key, value: members})
+    .then(()=>console.log('[restore] やずや2025年度選抜生をSupabaseに保存しました（1Q/2Q/3Q完全版）'))
+    .catch(e=>console.warn('[restore] Supabase保存失敗:', e.message));
+
+  // 旧フラグも立てて重複実行を防ぐ
+  localStorage.setItem('neo_ps_yazuya2025_restored', '1');
+  localStorage.setItem('neo_ps_yazuya2025_restored_v2', '1');
+  console.log('[restore] やずや2025年度選抜生データを復元しました（3名・1Q/2Q/3Q全学期）');
+  toast('✅ やずや2025年度 選抜生データ（3名・3学期分）を復元しました');
 }
 
 function toggleCoEdit(no){
