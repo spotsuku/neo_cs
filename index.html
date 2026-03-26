@@ -735,7 +735,12 @@ function getPhaseName(phaseId){
 function savePhaseName(phaseId, name){
   const names = LS.get('onbo_phase_names');
   names[phaseId] = name.trim() || ONBO_PHASES.find(p=>p.id===phaseId)?.title || phaseId;
-  LS.set('onbo_phase_names', names);
+  // LocalStorageに即時保存
+  localStorage.setItem('neo_ps_onbo_phase_names', JSON.stringify(names));
+  // SupabaseにもdebounceなしでAPIを直接呼んで確実に保存
+  LSdb._call({key:'onbo_phase_names', value:names})
+    .then(r=>{ if(r) console.log('[phaseName] Supabase保存OK:', phaseId, names[phaseId]); })
+    .catch(e=>console.warn('[phaseName] 保存失敗:', e.message));
 }
 
 // ④ 変更ログ
@@ -3723,33 +3728,95 @@ function showOnboCellMenu(e, no, taskId, taskLabel){
 
 // フェーズ名編集モーダル
 function showPhaseNameEditor(){
-  const rows = ONBO_PHASES.map(p=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="font-size:11px;color:var(--td);width:60px;flex-shrink:0">${p.id}</div>
-      <input id="pname-${p.id}" type="text" value="${esc(getPhaseName(p.id))}"
-        style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;
-          font-size:13px;color:var(--t1);background:var(--surface2);outline:none"
-        onfocus="this.style.borderColor='var(--accent)'"
-        onblur="this.style.borderColor='var(--border)'">
-      <button onclick="savePhaseName('${p.id}',document.getElementById('pname-${p.id}').value);this.textContent='✅ 保存済'"
-        style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;
-          background:var(--surface2);color:var(--td);cursor:pointer;font-size:11px">保存</button>
-    </div>`).join('');
+  // DOM APIで構築（innerHTML/テンプレートリテラルのクォート問題を回避）
+  const container = document.createElement('div');
+  container.style.cssText = 'padding:4px';
 
-  showModal(`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:700">✏ フェーズ名編集</div>
-      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
-    </div>
-    <div style="font-size:11px;color:var(--td);margin-bottom:12px">各フェーズの表示名を変更できます</div>
-    ${rows}
-    <button onclick="renderOnboardingAll();closeModal();toast('✅ フェーズ名を更新しました')"
-      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;
-        font-size:13px;font-weight:700;cursor:pointer;margin-top:16px">
-      完了（一覧を更新）
-    </button>
-  `);
+  // ヘッダー
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px';
+  header.innerHTML = '<div style="font-size:16px;font-weight:700">✏ フェーズ名編集</div>';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)';
+  closeBtn.onclick = closeModal;
+  header.appendChild(closeBtn);
+  container.appendChild(header);
+
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-size:11px;color:var(--td);margin-bottom:12px';
+  hint.textContent = '各フェーズの表示名を変更できます（Enterで即時保存）';
+  container.appendChild(hint);
+
+  // 各フェーズの入力行
+  const inputs = {};
+  ONBO_PHASES.forEach(p => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)';
+
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:10px;color:var(--td);width:24px;flex-shrink:0;font-family:monospace';
+    label.textContent = p.id;
+    row.appendChild(label);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = getPhaseName(p.id);
+    input.style.cssText = 'flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;font-family:"Noto Sans JP",sans-serif';
+    input.onfocus = () => input.style.borderColor = 'var(--accent)';
+    input.onblur  = () => input.style.borderColor = 'var(--border)';
+    inputs[p.id] = input;
+    row.appendChild(input);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '保存';
+    saveBtn.style.cssText = 'padding:7px 14px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--td);cursor:pointer;font-size:12px;white-space:nowrap;font-family:"Noto Sans JP",sans-serif';
+    saveBtn.onclick = () => {
+      const v = input.value.trim();
+      if(!v) return;
+      savePhaseName(p.id, v);
+      saveBtn.textContent = '✅ 保存済';
+      saveBtn.style.color = 'var(--ok)';
+    };
+    input.onkeydown = e => { if(e.key === 'Enter') saveBtn.click(); };
+    row.appendChild(saveBtn);
+
+    container.appendChild(row);
+  });
+
+  // 完了ボタン
+  const doneBtn = document.createElement('button');
+  doneBtn.textContent = '完了（一覧に反映）';
+  doneBtn.style.cssText = 'width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;font-family:"Noto Sans JP",sans-serif';
+  doneBtn.onclick = () => {
+    // 未保存の入力を全て保存
+    ONBO_PHASES.forEach(p => {
+      const v = inputs[p.id]?.value?.trim();
+      if(v) savePhaseName(p.id, v);
+    });
+    renderOnboardingAll();
+    closeModal();
+    toast('✅ フェーズ名を更新しました');
+  };
+  container.appendChild(doneBtn);
+
+  // モーダルを直接構築（innerHTML不使用）
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'onbo-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.addEventListener('click', e => { if(e.target === overlay) closeModal(); });
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--surface);border-radius:14px;padding:24px;width:520px;max-width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)';
+  box.appendChild(container);
+  overlay.appendChild(box);
+  overlay.style.display = 'flex';
 }
+
 
 // ユーザー管理モーダル
 function showUserManager(){
