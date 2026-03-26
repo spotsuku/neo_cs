@@ -1787,6 +1787,7 @@ function setupOnboDelegate(no){
     const compNo  = parseInt(btn.dataset.companyNo);
 
     if(action === 'delete-global'){
+      if(!isAdmin()){ toast('⚠ 管理者のみタスクを削除できます'); return; }
       if(confirm('全社共通タスクを削除しますか？\n全企業のチェックも削除されます。')){
         deleteGlobalTask(phaseId, taskId);
         rerenderOnboSmart(compNo);
@@ -1800,6 +1801,7 @@ function setupOnboDelegate(no){
       if(labelEl) startGlobalRenameEl(phaseId, taskId, label, compNo, labelEl);
     }
     else if(action === 'add-global'){
+      if(!isAdmin()){ toast('⚠ 管理者のみタスクを追加できます'); return; }
       // 同じ行のinputを探す
       const input = btn.closest('div').querySelector('.onbo-add-input');
       if(input && input.value.trim()){
@@ -3079,13 +3081,12 @@ function _showMemberForm(no, mi, m){
       style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
       💾 保存する
     </button>
-    ${isEdit?`<button onclick="(()=>{if(!confirm('この選抜生を削除しますか？'))return;const ms=LS.getArr('members_info_'+${no});ms.splice(${mi},1);LS.setArr('members_info_'+${no},ms);closeModal();rerenderMembersTab(${no});toast('🗑 削除しました')})()"
+    ${isEdit && isAdmin() ? `<button onclick="deleteMemberWithBackup(${no},${mi})"
       style="width:100%;padding:10px;background:var(--surface2);color:var(--ng);border:1px solid var(--ng);border-radius:8px;font-size:12px;cursor:pointer;margin-top:8px">
-      🗑 この選抜生を削除
-    </button>`:''}
+      🗑 この選抜生を削除（管理者のみ）
+    </button>` : ''}
   `, '560px');
 }
-
 function selectSkill(key, val, prefix){
   if(!window._skillVals) window._skillVals = {};
   if(!window._skillVals[prefix]) window._skillVals[prefix] = {};
@@ -3220,6 +3221,106 @@ function editTermSurvey(no, mi){
 function rerenderMembersTab(no){
   const el = document.getElementById('members-'+no);
   if(el) el.innerHTML = renderMembersTab(no);
+}
+
+// ━━━ 選抜生情報 削除バックアップ & 復元 ━━━
+
+function deleteMemberWithBackup(no, mi){
+  if(!isAdmin()){ toast('⚠ 管理者のみ削除できます'); return; }
+  const members = LS.getArr(fyKey('members_info_'+no));
+  const target = members[mi];
+  if(!target){ toast('対象が見つかりません'); return; }
+
+  if(!confirm(`「${target.name||'不明'}」を削除しますか？\n削除後は復元できます。`)) return;
+
+  // 削除前にバックアップを保存
+  const backups = LS.getArr('members_deleted_backup');
+  backups.unshift({
+    no, mi,
+    data: target,
+    fy: getFiscalYear(),
+    deleted_by: currentUser?.name || currentUser?.email || '不明',
+    deleted_at: new Date().toLocaleString('ja-JP'),
+  });
+  // バックアップは最大50件
+  LS.setArr('members_deleted_backup', backups.slice(0, 50));
+
+  // 削除実行
+  members.splice(mi, 1);
+  LS.setArr(fyKey('members_info_'+no), members);
+
+  closeModal();
+  rerenderMembersTab(no);
+  toast('🗑 削除しました（復元可能）');
+}
+
+function showMemberRestoreDialog(){
+  if(!isAdmin()){ toast('⚠ 管理者のみ操作できます'); return; }
+  const backups = LS.getArr('members_deleted_backup');
+
+  // COMPANIES マップ
+  const coMap = {};
+  COMPANIES.forEach(c => coMap[c.no] = c.short);
+
+  const rows = backups.length > 0
+    ? backups.map((b, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <span style="font-size:13px;font-weight:700;color:var(--t1)">${esc(b.data?.name||'不明')}</span>
+            <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--accent-lt);color:var(--accent)">${esc(coMap[b.no]||'No.'+b.no)}</span>
+            <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--td)">${esc(b.fy||'')}年度</span>
+          </div>
+          <div style="font-size:10px;color:var(--td)">
+            削除: ${esc(b.deleted_by)} ／ ${esc(b.deleted_at)}
+          </div>
+        </div>
+        <button onclick="restoreMember(${i})"
+          style="padding:6px 16px;background:var(--ok);color:#fff;border:none;border-radius:6px;
+            font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
+          ↩ 復元
+        </button>
+      </div>`)
+      .join('')
+    : '<div style="padding:32px;text-align:center;color:var(--td);font-size:13px">削除済みの選抜生はありません</div>';
+
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:700">↩ 削除済み選抜生の復元</div>
+        <div style="font-size:11px;color:var(--td);margin-top:2px">最大50件まで保持されます</div>
+      </div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="max-height:60vh;overflow-y:auto">${rows}</div>
+  `, '540px');
+}
+
+function restoreMember(backupIdx){
+  const backups = LS.getArr('members_deleted_backup');
+  const b = backups[backupIdx];
+  if(!b){ toast('バックアップが見つかりません'); return; }
+
+  // 元の年度・企業に復元
+  const origFy = window._fiscalYear;
+  window._fiscalYear = b.fy || '2026';
+  const members = LS.getArr(fyKey('members_info_'+b.no));
+  members.push(b.data);
+  LS.setArr(fyKey('members_info_'+b.no), members);
+  window._fiscalYear = origFy;
+
+  // バックアップから削除
+  backups.splice(backupIdx, 1);
+  LS.setArr('members_deleted_backup', backups);
+
+  closeModal();
+
+  // 現在表示中の企業なら再描画
+  const el = document.getElementById('members-'+b.no);
+  if(el) rerenderMembersTab(b.no);
+
+  const coName = COMPANIES.find(c=>c.no===b.no)?.short || 'No.'+b.no;
+  toast(`✅ 「${b.data?.name||''}」を ${b.fy}年度 ${coName} に復元しました`);
 }
 
 function renderThemeTab(no){
@@ -4857,11 +4958,11 @@ function renderOnboardingAll(){
     <!-- 管理ツールバー -->
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;
       background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px">
-      <button onclick="showPhaseNameEditor()"
+      ${isAdmin() ? `<button onclick="showPhaseNameEditor()"
         style="padding:5px 14px;font-size:11px;border:1px solid var(--accent);border-radius:6px;
           background:var(--accent-lt);color:var(--accent);cursor:pointer;font-weight:700">
         ✏ フェーズ名編集
-      </button>
+      </button>` : ''}
       <button onclick="showOnboLog(null)"
         style="padding:5px 14px;font-size:11px;border:1px solid var(--border);border-radius:6px;
           background:var(--surface2);color:var(--t2);cursor:pointer">
@@ -4980,6 +5081,8 @@ function buildTaskMgmtPanel(phaseId){
     labelSpan.textContent = t.label;
     chip.appendChild(labelSpan);
 
+    if(!isAdmin()) { chipsWrap.appendChild(chip); return; } // 管理者以外は閲覧のみ
+
     const renameBtn = document.createElement('button');
     renameBtn.textContent = '✏';
     renameBtn.title = '名前変更';
@@ -5009,6 +5112,7 @@ function buildTaskMgmtPanel(phaseId){
   });
   inner.appendChild(chipsWrap);
 
+  if(isAdmin()){
   const formWrap = document.createElement('div');
   formWrap.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
 
@@ -5044,6 +5148,7 @@ function buildTaskMgmtPanel(phaseId){
   };
   formWrap.appendChild(addBtn);
   inner.appendChild(formWrap);
+  } // end if(isAdmin())
 
   wrap.appendChild(inner);
   el.appendChild(wrap);
@@ -5140,7 +5245,15 @@ function copyFiscalYearData(fromFy, toFy){
     if(data.list) LS.set(toKey, data);
   });
 
-  toast(`✅ ${fromFy}年度 → ${toFy}年度 にコピーしました`);
+  // members_info もコピー（年度独立）
+  COMPANIES.forEach(c=>{
+    const fromKey = fromFy==='2026' ? 'members_info_'+c.no : 'members_info_'+c.no+'_fy'+fromFy;
+    const toKey   = toFy  ==='2026' ? 'members_info_'+c.no : 'members_info_'+c.no+'_fy'+toFy;
+    const data = LS.getArr(fromKey);
+    if(data.length > 0) LS.setArr(toKey, data);
+  });
+
+  toast(`✅ ${fromFy}年度 → ${toFy}年度 にコピーしました（選抜生情報も含む）`);
 }
 
 function showFiscalYearManager(){
@@ -5163,7 +5276,7 @@ function showFiscalYearManager(){
       </div>
       <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:12px">
         <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px">📋 データコピー</div>
-        <div style="display:flex;gap:8px">
+        ${isAdmin() ? `<div style="display:flex;gap:8px">
           <button onclick="copyFiscalYearData('2025','2026');closeModal()"
             style="flex:1;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;color:var(--t2)">
             2025年度 → 2026年度 にコピー
@@ -5172,7 +5285,7 @@ function showFiscalYearManager(){
             style="flex:1;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;color:var(--t2)">
             2026年度 → 2025年度 にコピー
           </button>
-        </div>
+        </div>` : '<div style="padding:10px;background:var(--surface2);border-radius:7px;font-size:12px;color:var(--td);text-align:center">⚠ データコピーは管理者のみ操作できます</div>'}
       </div>
       <div style="font-size:10px;color:var(--td)">
         ※ データコピーはオンボーディングのチェック状態とタスク定義を対象とします
