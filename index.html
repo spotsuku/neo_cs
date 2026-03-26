@@ -661,6 +661,118 @@ const COMPANIES=[
 {no:28,name:"株式会社学思館",short:"学思館",contract:"A：契約中",status:"新規契約",course1:"",course2:"リーダー育成",recruit:"",labor:"",sent:0,grad:0,price:3000000,rep:"",addr:"",cs:"",ai:"未検討",camp:"未検討",vision:"",short_goal:"",escort:"",success:"",ent_sat:null,ent_grow:null,ent_recommend:null},
 {no:29,name:"株式会社ゼンリン",short:"ゼンリン",contract:"A：契約中",status:"新規契約",course1:"",course2:"リーダー育成",recruit:"",labor:"",sent:0,grad:0,price:3000000,rep:"",addr:"",cs:"",ai:"未検討",camp:"未検討",vision:"",short_goal:"",escort:"",success:"越境学習を通じて、派遣したアカデミア生が他社を巻き込んでプロジェクトを推進した学びを社内に伝播させる",ent_sat:null,ent_grow:null,ent_recommend:null}
 ];
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// オンボーディング拡張機能
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ① チェック状態の定義（0=未着手 / 1=着手中 / 2=完了）
+const ONBO_CHECK_STATES = [
+  {val:0, label:'未着手', icon:'□',  color:'#64748b', bg:'#f8fafc'},
+  {val:1, label:'着手中', icon:'◐',  color:'#d97706', bg:'#fef3c7'},
+  {val:2, label:'完了',   icon:'✓',  color:'#059669', bg:'#d1fae5'},
+];
+
+function getCheckState(val){
+  const v = val===true?2 : val===false?0 : (parseInt(val)||0);
+  return ONBO_CHECK_STATES[v] || ONBO_CHECK_STATES[0];
+}
+
+// ② ユーザー管理
+function getUsers(){
+  const saved = LS.get('onbo_users');
+  if(saved && Array.isArray(saved.list) && saved.list.length > 0) return saved.list;
+  return [{id:'u1', name:'古野絢太'},{id:'u2', name:'（未設定）'}];
+}
+
+function saveUsers(list){
+  LS.set('onbo_users', {list});
+}
+
+function getCurrentUser(){
+  return LS.get('onbo_current_user').id || '';
+}
+
+function setCurrentUser(id){
+  const users = getUsers();
+  const u = users.find(u=>u.id===id);
+  LS.set('onbo_current_user', {id, name: u?.name||''});
+  // ヘッダーのユーザー表示を更新
+  const el = document.getElementById('current-user-display');
+  if(el) el.textContent = u?.name || '未選択';
+}
+
+// ③ フェーズ名編集
+function getPhaseName(phaseId){
+  const names = LS.get('onbo_phase_names');
+  const phase = ONBO_PHASES.find(p=>p.id===phaseId);
+  return names[phaseId] || phase?.title || phaseId;
+}
+
+function savePhaseName(phaseId, name){
+  const names = LS.get('onbo_phase_names');
+  names[phaseId] = name.trim() || ONBO_PHASES.find(p=>p.id===phaseId)?.title || phaseId;
+  LS.set('onbo_phase_names', names);
+}
+
+// ④ 変更ログ
+function addOnboLog(no, taskId, taskLabel, from, to){
+  const logs = LS.getArr('onbo_log_'+no);
+  const user = LS.get('onbo_current_user');
+  const fromState = getCheckState(from);
+  const toState   = getCheckState(to);
+  logs.unshift({
+    taskId,
+    taskLabel,
+    user:  user.name || '—',
+    userId: user.id  || '',
+    from:  fromState.val,
+    to:    toState.val,
+    fromLabel: fromState.label,
+    toLabel:   toState.label,
+    ts: new Date().toLocaleString('ja-JP'),
+  });
+  // 最大50件
+  LS.setArr('onbo_log_'+no, logs.slice(0, 50));
+}
+
+// ⑤ コメント保存
+function saveOnboComment(no, taskId, comment){
+  const meta = LS.get('onbo_meta_'+no);
+  if(!meta[taskId]) meta[taskId] = {};
+  meta[taskId].comment = comment;
+  meta[taskId].comment_ts = new Date().toLocaleString('ja-JP');
+  meta[taskId].comment_user = (LS.get('onbo_current_user').name || '—');
+  LS.set('onbo_meta_'+no, meta);
+}
+
+// ⑥ 三段階チェック切り替え（0→1→2→0）
+function cycleOnboCheck(no, taskId, taskLabel){
+  const done = LS.get('onbo_'+no);
+  const cur = done[taskId];
+  const curState = getCheckState(cur);
+  const next = (curState.val + 1) % 3;
+  done[taskId] = next;
+  // ログ記録
+  addOnboLog(no, taskId, taskLabel, curState.val, next);
+  localStorage.setItem('neo_ps_onbo_'+no, JSON.stringify(done));
+  LSdb._call({key:'onbo_'+no, value:done})
+    .catch(e=>console.warn('[LSdb] save error:', e.message));
+  renderOnboardingAll();
+  const nextState = getCheckState(next);
+  toast(nextState.icon+' '+nextState.label+' に変更しました');
+}
+
+// ⑦ 担当者設定
+function saveOnboOwner(no, taskId, ownerId){
+  const meta  = LS.get('onbo_meta_'+no);
+  if(!meta[taskId]) meta[taskId] = {};
+  const users = getUsers();
+  const u = users.find(u=>u.id===ownerId);
+  meta[taskId].owner   = u?.name || '';
+  meta[taskId].ownerId = ownerId;
+  LS.set('onbo_meta_'+no, meta);
+}
+
 const ONBO_PHASES=[
 {id:'p1',title:'① 契約ウェルカムフェーズ',color:'#1a56db',tasks:['企業からの内諾','営業からの引継','引継挨拶','契約関連情報確認','請求関連情報確認','契約手続き開始','契約締結・入金確認']},
 {id:'p2',title:'② 背景ヒアリングフェーズ',color:'#7c3aed',tasks:['プレキックオフ日程調整','プレキックオフ準備','プレキックオフ実施','企業へプログラム全体理解','企業へ体制と役割理解','企業へ参加意義の言語化','企業へメンバー選定基準の言語化','プレキックオフ後対応']},
@@ -3468,6 +3580,253 @@ function showSurveyCompany(no){
 }
 
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// オンボーディング拡張 UI関数
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 汎用モーダル表示
+function showModal(content, width='480px'){
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'onbo-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:24px;width:${width};max-width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">${content}</div>`;
+  overlay.style.display = 'flex';
+}
+
+function closeModal(){
+  const el = document.getElementById('onbo-modal-overlay');
+  if(el) el.style.display = 'none';
+}
+
+// セルの右クリックメニュー（担当・コメント・ログ）
+function showOnboCellMenu(e, no, taskId, taskLabel){
+  e.preventDefault();
+  const meta  = LS.get('onbo_meta_'+no);
+  const taskMeta = meta[taskId] || {};
+  const comment  = taskMeta.comment || '';
+  const ownerId  = taskMeta.ownerId || '';
+  const owner    = taskMeta.owner   || '';
+  const users    = getUsers();
+  const c        = COMPANIES.find(x=>x.no===no);
+  const done     = LS.get('onbo_'+no);
+  const st       = getCheckState(done[taskId]);
+
+  const userOpts = users.map(u=>`<option value="${esc(u.id)}" ${ownerId===u.id?'selected':''}>${esc(u.name)}</option>`).join('');
+
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:11px;color:var(--td)">${esc(c?.short||'')} / ${esc(taskLabel)}</div>
+        <div style="font-size:16px;font-weight:700;color:var(--t1);margin-top:2px">タスク詳細設定</div>
+      </div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+
+    <!-- 状態選択 -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px">ステータス</div>
+      <div style="display:flex;gap:6px">
+        ${ONBO_CHECK_STATES.map(s=>`
+          <button onclick="(()=>{const d=LS.get('onbo_'+${no});const cur=getCheckState(d['${taskId}']).val;d['${taskId}']=${s.val};addOnboLog(${no},'${taskId}','${taskLabel.replace(/'/g, "\\'")}',cur,${s.val});localStorage.setItem('neo_ps_onbo_${no}',JSON.stringify(d));LSdb._call({key:'onbo_${no}',value:d});closeModal();renderOnboardingAll();toast('${s.icon} ${s.label}');})()"
+            style="flex:1;padding:10px 6px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
+              border:2px solid ${st.val===s.val?s.color:'var(--border)'};
+              background:${st.val===s.val?s.bg:'var(--surface2)'};
+              color:${st.val===s.val?s.color:'var(--td)'}">
+            ${s.icon} ${s.label}
+          </button>`).join('')}
+      </div>
+    </div>
+
+    <!-- 担当者 -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:6px">👤 担当者</div>
+      <select id="cell-owner-${no}-${taskId}" onchange="saveOnboOwner(${no},'${taskId}',this.value)"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;
+          font-size:13px;color:var(--t1);background:var(--surface2);outline:none;cursor:pointer">
+        <option value="">未設定</option>
+        ${userOpts}
+      </select>
+    </div>
+
+    <!-- コメント -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:6px">
+        💬 コメント・メモ
+        ${taskMeta.comment_ts?`<span style="font-weight:400;margin-left:8px">${esc(taskMeta.comment_user||'')} ${esc(taskMeta.comment_ts)}</span>`:''}
+      </div>
+      <textarea id="cell-comment-${no}-${taskId}"
+        style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;
+          font-size:12px;color:var(--t1);background:var(--surface2);outline:none;resize:vertical;
+          min-height:80px;font-family:'Noto Sans JP',sans-serif;line-height:1.7;box-sizing:border-box"
+        placeholder="例：請求書送付済みだが押印が未完了、次回確認予定..."
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'">${esc(comment)}</textarea>
+    </div>
+
+    <button onclick="(()=>{
+      const c2 = document.getElementById('cell-comment-${no}-${taskId}')?.value||'';
+      saveOnboComment(${no},'${taskId}',c2);
+      renderOnboardingAll();
+      closeModal();
+      toast('💾 保存しました');
+    })()"
+      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+        font-size:13px;font-weight:700;cursor:pointer">
+      💾 保存する
+    </button>
+  `, '520px');
+}
+
+// フェーズ名編集モーダル
+function showPhaseNameEditor(){
+  const rows = ONBO_PHASES.map(p=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--td);width:60px;flex-shrink:0">${p.id}</div>
+      <input id="pname-${p.id}" type="text" value="${esc(getPhaseName(p.id))}"
+        style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;
+          font-size:13px;color:var(--t1);background:var(--surface2);outline:none"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'">
+      <button onclick="savePhaseName('${p.id}',document.getElementById('pname-${p.id}').value);this.textContent='✅'"
+        style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;
+          background:var(--surface2);color:var(--td);cursor:pointer;font-size:11px">保存</button>
+    </div>`).join('');
+
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">✏ フェーズ名編集</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--td);margin-bottom:12px">各フェーズの表示名を変更できます</div>
+    ${rows}
+    <button onclick="renderOnboardingAll();closeModal();toast('✅ フェーズ名を更新しました')"
+      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+        font-size:13px;font-weight:700;cursor:pointer;margin-top:16px">
+      完了（一覧を更新）
+    </button>
+  `);
+}
+
+// ユーザー管理モーダル
+function showUserManager(){
+  function renderUserList(){
+    const users = getUsers();
+    return users.map((u,i)=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--accent-lt);
+          color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
+          ${esc(u.name[0]||'?')}
+        </div>
+        <input id="uname-${i}" type="text" value="${esc(u.name)}"
+          style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;
+            font-size:13px;color:var(--t1);background:var(--surface2);outline:none"
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='var(--border)'">
+        <button onclick="(()=>{const us=getUsers();us.splice(${i},1);saveUsers(us);document.getElementById('user-list-inner').innerHTML=renderUserList_inner();})()"
+          style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;
+            background:var(--surface2);color:var(--td);cursor:pointer;font-size:11px"
+          onmouseover="this.style.color='var(--ng)'"
+          onmouseout="this.style.color='var(--td)'">✕</button>
+      </div>`).join('');
+  }
+
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">⚙ ユーザー管理</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div id="user-list-inner">
+      ${renderUserList()}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input id="new-user-name" type="text" placeholder="新しいユーザー名..."
+        style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:7px;
+          font-size:13px;color:var(--t1);background:var(--surface2);outline:none"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'"
+        onkeydown="if(event.key==='Enter'){document.getElementById('add-user-btn').click()}">
+      <button id="add-user-btn" onclick="(()=>{
+        const name = document.getElementById('new-user-name').value.trim();
+        if(!name) return;
+        const users = getUsers();
+        users.push({id:'u'+Date.now(), name});
+        saveUsers(users);
+        document.getElementById('new-user-name').value='';
+        const el = document.getElementById('onbo-modal-overlay');
+        if(el) showUserManager();
+      })()"
+        style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:7px;
+          font-size:12px;font-weight:700;cursor:pointer">＋ 追加</button>
+    </div>
+    <button onclick="(()=>{
+      const inputs = document.querySelectorAll('[id^=uname-]');
+      const users = getUsers();
+      inputs.forEach((inp,i)=>{ if(users[i]) users[i].name = inp.value.trim()||users[i].name; });
+      saveUsers(users);
+      renderOnboardingAll();
+      closeModal();
+      toast('✅ ユーザーを保存しました');
+    })()"
+      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+        font-size:13px;font-weight:700;cursor:pointer;margin-top:16px">
+      💾 保存する
+    </button>
+  `);
+}
+
+// 変更ログモーダル
+function showOnboLog(no){
+  let logs = [];
+  if(no){
+    logs = LS.getArr('onbo_log_'+no);
+  } else {
+    // 全社のログを統合
+    COMPANIES.forEach(c=>{
+      const cl = LS.getArr('onbo_log_'+c.no);
+      cl.forEach(l=>logs.push({...l, companyName: c.short, companyNo: c.no}));
+    });
+    logs.sort((a,b)=>b.ts.localeCompare(a.ts));
+    logs = logs.slice(0, 100);
+  }
+
+  const c = no ? COMPANIES.find(x=>x.no===no) : null;
+  const rows = logs.length > 0
+    ? logs.map(l=>`
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">
+        <div style="flex-shrink:0;width:100px;font-size:10px;color:var(--td);line-height:1.5">
+          ${esc(l.ts||'')}
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:var(--t1)">
+            ${l.companyName?`<span style="color:var(--accent)">${esc(l.companyName)}</span> / `:''}${esc(l.taskLabel||l.taskId)}
+          </div>
+          <div style="font-size:11px;color:var(--td);margin-top:2px;display:flex;align-items:center;gap:6px">
+            <span style="color:${(ONBO_CHECK_STATES[l.from]||ONBO_CHECK_STATES[0]).color}">${esc(l.fromLabel||'—')}</span>
+            →
+            <span style="font-weight:700;color:${(ONBO_CHECK_STATES[l.to]||ONBO_CHECK_STATES[0]).color}">${esc(l.toLabel||'—')}</span>
+            <span style="color:var(--accent)">👤 ${esc(l.user||'—')}</span>
+          </div>
+        </div>
+      </div>`).join('')
+    : '<div style="padding:40px;text-align:center;color:var(--td)">変更ログはありません</div>';
+
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:700">📋 変更ログ</div>
+        <div style="font-size:11px;color:var(--td);margin-top:2px">${c?esc(c.short)+'の変更履歴':'全社の変更履歴（直近100件）'}</div>
+      </div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="max-height:60vh;overflow-y:auto">${rows}</div>
+  `, '560px');
+}
+
 function renderOnboardingAll(){
   const page = document.getElementById('page-onboarding-all');
   if(!page) return;
@@ -3520,7 +3879,7 @@ function renderOnboardingAll(){
         border-bottom:${active?'2px solid '+p.color:'1px solid var(--border)'};
         background:${active?p.color+'18':'var(--surface2)'};
         color:${active?p.color:'var(--td)'};cursor:pointer;white-space:nowrap;margin-bottom:-1px">
-      ${esc(p.title)}
+      ${esc(getPhaseName(p.id))}
       <span style="font-size:10px;margin-left:6px;opacity:.7">${pDoneCount}/${filtered.length}</span>
     </button>`;
   }).join('');
@@ -3582,7 +3941,7 @@ function renderOnboardingAll(){
     const pct   = tasks.length>0 ? Math.round(pDone/tasks.length*100) : 0;
 
     const cells = tasks.map(t=>{
-      const isDone  = !!done[t.id];
+      const isDone  = getCheckState(done[t.id]).val === 2;  // 三段階: 2=完了
       // 共通期日を使用（個別期日があれば個別優先）
       const meta    = LS.get('onbo_meta_'+c.no);
       const indivDue = meta&&meta[t.id]&&meta[t.id].due ? meta[t.id].due : null;
@@ -3605,20 +3964,28 @@ function renderOnboardingAll(){
 
       return `<td style="padding:5px 4px;text-align:center;
         border-right:1px solid var(--border);vertical-align:middle;
-        background:${isDone?'#d1fae5':cellBg==='transparent'?'#f8fafc':cellBg}">
-        <div onclick="toggleOnboByIdAndRefresh(${c.no},'${esc(t.id)}')"
+        background:${(()=>{ const st=getCheckState(done[t.id]); return st.val===2?'#d1fae5':st.val===1?'#fffbeb':cellBg==='transparent'?'#f8fafc':cellBg; })()}"
+        oncontextmenu="showOnboCellMenu(event,${c.no},'${esc(t.id)}','${esc(t.label)}');return false">
+        <div onclick="cycleOnboCheck(${c.no},'${esc(t.id)}','${esc(t.label)}')"
+          title="クリックで状態を切り替え"
           style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px">
-          <!-- チェックボックス -->
-          <div style="width:22px;height:22px;border-radius:5px;
-            border:2px solid ${isDone?'var(--ok)':'#64748b'};
-            background:${isDone?'var(--ok)':'#ffffff'};
-            display:flex;align-items:center;justify-content:center;
-            font-size:13px;color:${isDone?'#fff':'transparent'};font-weight:700;
-            box-shadow:0 1px 4px rgba(0,0,0,.2),inset 0 0 0 1px rgba(0,0,0,.05)">${isDone?'✓':''}</div>
-          <!-- 担当者 -->
-          ${owner?`<div style="font-size:9px;color:var(--accent);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤${esc(owner)}</div>`:''}
-          <!-- 期日アイコン（超過・近接のみ表示） -->
+          ${(()=>{
+            const st = getCheckState(done[t.id]);
+            return `<div style="width:26px;height:26px;border-radius:6px;
+              border:2px solid ${st.color};
+              background:${st.bg};
+              display:flex;align-items:center;justify-content:center;
+              font-size:14px;color:${st.color};font-weight:900;
+              box-shadow:0 1px 4px rgba(0,0,0,.15)"
+              title="${st.label}">${st.icon}</div>
+            <div style="font-size:8px;color:${st.color};font-weight:700;white-space:nowrap">${st.label}</div>`;
+          })()}
+          ${owner?`<div style="font-size:8px;color:var(--accent);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px">👤${esc(owner)}</div>`:''}
           ${dueIconText?`<div style="font-size:10px;font-weight:700;color:${dueBorderColor}">${dueIconText}</div>`:''}
+          ${(()=>{
+            const meta2 = LS.get('onbo_meta_'+c.no);
+            return meta2[t.id]?.comment ? `<div style="font-size:9px;color:var(--accent)">💬</div>` : '';
+          })()}
         </div>
       </td>`;
     }).join('');
@@ -3648,6 +4015,35 @@ function renderOnboardingAll(){
   }).join('');
 
   page.innerHTML = `
+    <!-- ユーザー選択・管理ツールバー -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;
+      background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px">
+      <span style="font-size:11px;font-weight:700;color:var(--td)">👤 操作ユーザー</span>
+      <select id="onbo-user-select" onchange="setCurrentUser(this.value)"
+        style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;
+          font-size:12px;color:var(--t1);background:var(--surface2);outline:none;cursor:pointer">
+        <option value="">未選択</option>
+        ${getUsers().map(u=>`<option value="${esc(u.id)}" ${getCurrentUser()===u.id?'selected':''}>${esc(u.name)}</option>`).join('')}
+      </select>
+      <button onclick="showUserManager()"
+        style="padding:5px 12px;font-size:11px;border:1px solid var(--border);border-radius:6px;
+          background:var(--surface2);color:var(--td);cursor:pointer">
+        ⚙ ユーザー管理
+      </button>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button onclick="showPhaseNameEditor()"
+          style="padding:5px 12px;font-size:11px;border:1px solid var(--accent);border-radius:6px;
+            background:var(--accent-lt);color:var(--accent);cursor:pointer;font-weight:700">
+          ✏ フェーズ名編集
+        </button>
+        <button onclick="showOnboLog(window._onboLogNo||null)"
+          style="padding:5px 12px;font-size:11px;border:1px solid var(--border);border-radius:6px;
+            background:var(--surface2);color:var(--td);cursor:pointer">
+          📋 変更ログ
+        </button>
+      </div>
+    </div>
+
     <div style="margin-bottom:16px">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px">📊 オンボーディング一覧</div>
       <div style="font-size:13px;color:var(--td);margin-top:4px">
@@ -3705,7 +4101,7 @@ function renderOnboardingAll(){
     <!-- テーブル -->
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
       <table style="width:max-content;min-width:100%;border-collapse:collapse">
-        <thead>
+        <thead style="position:sticky;top:0;z-index:10">
           <tr style="border-bottom:2px solid var(--border)">
             <th style="padding:8px 10px;text-align:left;border-right:2px solid var(--border);
               position:sticky;left:0;background:var(--surface2);z-index:2;
