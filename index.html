@@ -252,8 +252,35 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
 .co-ms-badge.skip{background:var(--surface2);color:var(--t-muted);}
 .co-ms-badge.pending{background:#f1f5f9;color:#94a3b8;}
 </style>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+
+<!-- ログインオーバーレイ -->
+<div id="login-overlay" style="position:fixed;inset:0;background:#0e1a2b;z-index:9999;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px">
+  <div style="text-align:center;margin-bottom:8px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:#38bdf8">NEO ACADEMIA</div>
+    <div style="font-size:14px;color:#64748b;letter-spacing:2px;margin-top:4px">PARTNER SUCCESS DASHBOARD</div>
+  </div>
+  <div id="google-signin-btn" style="display:flex;align-items:center;gap:12px;padding:14px 28px;
+    background:#fff;border-radius:12px;cursor:pointer;box-shadow:0 4px 24px rgba(0,0,0,.3);
+    font-size:15px;font-weight:700;color:#1e293b;transition:box-shadow .2s"
+    onclick="signInWithGoogle()"
+    onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,.4)'"
+    onmouseout="this.style.boxShadow='0 4px 24px rgba(0,0,0,.3)'">
+    <svg width="24" height="24" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+    Googleでログイン
+  </div>
+  <div id="login-status" style="font-size:12px;color:#475569;min-height:20px"></div>
+</div>
+
 <nav class="top-nav">
   <div class="top-logo">NEO <span>ACADEMIA</span></div>
   <div class="top-badge">PARTNER SUCCESS</div>
@@ -301,6 +328,25 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
     </button>
   </div>
 </nav>
+<!-- ユーザー情報バー（ログイン後表示） -->
+<div id="user-info-bar" style="display:none;background:#0a1628;border-bottom:1px solid #1e3a5f;
+  padding:4px 20px;display:none;align-items:center;gap:10px;font-size:11px">
+  <img id="user-avatar" src="" style="width:22px;height:22px;border-radius:50%;display:none">
+  <span id="user-name-bar" style="color:#94a3b8"></span>
+  <span id="user-role-badge" style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700"></span>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button onclick="showUserManagementPanel()"
+      style="padding:3px 10px;border:1px solid #1e3a5f;border-radius:4px;
+        background:transparent;color:#64748b;cursor:pointer;font-size:10px">
+      👥 ユーザー管理
+    </button>
+    <button onclick="signOut()"
+      style="padding:3px 10px;border:1px solid #1e3a5f;border-radius:4px;
+        background:transparent;color:#64748b;cursor:pointer;font-size:10px">
+      ログアウト
+    </button>
+  </div>
+</div>
 <div class="app" id="app-company" style="display:none"></div>
 <div id="page-overview" class="page active" style="padding:28px 36px 80px"></div>
 <div id="page-board" class="page" style="padding:28px 36px 80px"></div>
@@ -1077,11 +1123,180 @@ function renderTabContent(tab,no){const c=COMPANIES.find(x=>x.no===no);if(!c)ret
 function infoRow(label,val){return`<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--td);width:110px;flex-shrink:0">${esc(label)}</span><span style="font-size:12px;color:var(--t1);font-weight:500">${esc(val||'—')}</span></div>`;}
 function scoreBox(v,label){return`<div style="flex:1;text-align:center;background:var(--surface2);border-radius:8px;padding:12px"><div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:${scColor(v)}">${v!=null?v:'—'}</div><div style="font-size:10px;color:var(--td)">${esc(label)}</div></div>`;}
 function renderContacts(c){
-  const known={1:[{name:'髙城寿太朗',role:'顧問',email:'',tag:'担当者'},{name:'笠井博明',role:'常務取締役',email:'',tag:'経営層'}],4:[{name:'松尾 恵美',role:'経営戦略室長',email:'e-matsuo@kbc.co.jp',tag:'決裁者/窓口'}],6:[{name:'上野 裕太',role:'副調査役',email:'',tag:'窓口/受講生'},{name:'鬼木良輔',role:'副調査役',email:'',tag:'受講生'}],7:[{name:'手島',role:'副長',email:'',tag:'担当者'}]};
-  const contacts=known[c.no]||[];
-  if(!contacts.length)return`<div class="no-data-msg">担当者情報を登録してください</div>`;
-  return contacts.map(ct=>{const[bg]=avatarColor(ct.name);return`<div class="contact-card"><div class="contact-av" style="background:${bg}">${ct.name[0]||'?'}</div><div class="contact-info"><div class="contact-name">${esc(ct.name)}</div><div class="contact-role">${esc(ct.role)}</div>${ct.email?`<div class="contact-email">${esc(ct.email)}</div>`:''}<div class="contact-tags"><span class="contact-tag" style="background:var(--accent-lt);color:var(--accent)">${esc(ct.tag)}</span></div></div></div>`;}).join('');
+  // LS保存データを優先、なければknownデータ
+  const known={
+    1:[{name:'髙城寿太朗',role:'顧問',email:'',tel:'',tag:'担当者'},{name:'笠井博明',role:'常務取締役',email:'',tel:'',tag:'経営層'}],
+    4:[{name:'松尾 恵美',role:'経営戦略室長',email:'e-matsuo@kbc.co.jp',tel:'',tag:'決裁者/窓口'}],
+    6:[{name:'上野 裕太',role:'副調査役',email:'',tel:'',tag:'窓口/受講生'},{name:'鬼木良輔',role:'副調査役',email:'',tel:'',tag:'受講生'}],
+    7:[{name:'手島',role:'副長',email:'',tel:'',tag:'担当者'}]
+  };
+  const saved = LS.get('contacts_'+c.no);
+  const contacts = (saved && Array.isArray(saved.list)) ? saved.list : (known[c.no]||[]);
+
+  const tagColors = {'担当者':'var(--accent)','経営層':'var(--purple)','決裁者/窓口':'var(--ok)','窓口/受講生':'#0891b2','受講生':'#0891b2','その他':'var(--td)'};
+
+  const contactCards = contacts.map((ct,i)=>`
+    <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;position:relative;border:1px solid var(--border)">
+      <div style="display:flex;align-items:flex-start;gap:12px">
+        <div style="width:40px;height:40px;border-radius:50%;background:${tagColors[ct.tag]||'var(--accent)'};
+          color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0">
+          ${esc((ct.name||'?')[0])}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <div style="font-size:14px;font-weight:700;color:var(--t1)">${esc(ct.name||'—')}</div>
+            <span style="font-size:10px;padding:2px 8px;border-radius:4px;
+              background:${tagColors[ct.tag]||'var(--accent)'}22;
+              color:${tagColors[ct.tag]||'var(--accent)'};font-weight:700">${esc(ct.tag||'')}</span>
+          </div>
+          <div style="font-size:12px;color:var(--td);margin-bottom:6px">${esc(ct.role||'')}</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            ${ct.email?`<a href="mailto:${esc(ct.email)}" style="font-size:11px;color:var(--accent);text-decoration:none">✉ ${esc(ct.email)}</a>`:''}
+            ${ct.tel?`<a href="tel:${esc(ct.tel)}" style="font-size:11px;color:var(--accent);text-decoration:none">📞 ${esc(ct.tel)}</a>`:''}
+          </div>
+          ${ct.note?`<div style="font-size:11px;color:var(--td);margin-top:6px;padding:6px 8px;background:var(--surface);border-radius:5px">${esc(ct.note)}</div>`:''}
+        </div>
+        <button onclick="editContact(${c.no},${i})"
+          style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;
+            background:var(--surface);color:var(--td);cursor:pointer;font-size:10px;flex-shrink:0"
+          onmouseover="this.style.background='var(--accent-lt)';this.style.color='var(--accent)'"
+          onmouseout="this.style.background='var(--surface)';this.style.color='var(--td)'">✏</button>
+      </div>
+    </div>`).join('');
+
+  return `<div style="padding:4px 0 80px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:700">👤 担当者情報</div>
+        <div style="font-size:11px;color:var(--td);margin-top:2px">${esc(c.short||'')} / ${contacts.length}名</div>
+      </div>
+      <button onclick="addContact(${c.no})"
+        style="padding:8px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+          font-size:12px;font-weight:700;cursor:pointer">
+        ＋ 担当者を追加
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${contactCards || '<div style="text-align:center;padding:32px;color:var(--td)">担当者がまだ登録されていません</div>'}
+    </div>
+  </div>`;
 }
+
+function addContact(no){ _showContactForm(no, null, null); }
+function editContact(no, i){
+  const saved = LS.get('contacts_'+no);
+  const contacts = (saved && Array.isArray(saved.list)) ? saved.list : [];
+  _showContactForm(no, i, contacts[i]);
+}
+
+function _showContactForm(no, i, ct){
+  const isEdit = i !== null;
+  const tags = ['担当者','経営層','決裁者/窓口','窓口/受講生','受講生','その他'];
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">${isEdit?'✏ 担当者編集':'＋ 担当者を追加'}</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">氏名 *</div>
+        <input id="ct-name" type="text" value="${esc(ct?.name||'')}" placeholder="山田 太郎"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">役職</div>
+        <input id="ct-role" type="text" value="${esc(ct?.role||'')}" placeholder="経営企画部 課長"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">メールアドレス</div>
+        <input id="ct-email" type="email" value="${esc(ct?.email||'')}" placeholder="taro@example.com"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">電話番号</div>
+        <input id="ct-tel" type="tel" value="${esc(ct?.tel||'')}" placeholder="090-0000-0000"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10px;color:var(--td);margin-bottom:6px">タグ</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${tags.map(t=>`<button id="ct-tag-${t}"
+          onclick="selectContactTag('${t}')"
+          style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;
+            border:1px solid ${(ct?.tag||'担当者')===t?'var(--accent)':'var(--border)'};
+            background:${(ct?.tag||'担当者')===t?'var(--accent)':'var(--surface2)'};
+            color:${(ct?.tag||'担当者')===t?'#fff':'var(--td)'}">${t}</button>`).join('')}
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;color:var(--td);margin-bottom:4px">備考・メモ</div>
+      <textarea id="ct-note" rows="2"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--t1);background:var(--surface2);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.7;box-sizing:border-box"
+        placeholder="連絡時の注意点、関係性など..."
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">${esc(ct?.note||'')}</textarea>
+    </div>
+    <button onclick="(()=>{
+      const name = document.getElementById('ct-name').value.trim();
+      if(!name){ toast('氏名を入力してください'); return; }
+      const saved = LS.get('contacts_'+${no});
+      const contacts = (saved && Array.isArray(saved.list)) ? saved.list : [];
+      const obj = {
+        name,
+        role:  document.getElementById('ct-role').value.trim(),
+        email: document.getElementById('ct-email').value.trim(),
+        tel:   document.getElementById('ct-tel').value.trim(),
+        tag:   window._selectedContactTag || '${ct?.tag||'担当者'}',
+        note:  document.getElementById('ct-note').value.trim(),
+      };
+      if(${isEdit?'true':'false'}) contacts[${i??0}] = obj; else contacts.push(obj);
+      LS.set('contacts_'+${no}, {list: contacts});
+      closeModal();
+      // 担当者タブを再描画
+      const el = document.getElementById('contacts-${no}');
+      const c2 = {...(COMPANIES.find(x=>x.no===${no})||{}),...LS.get('co_info_'+${no})};
+      if(el) el.innerHTML = renderContacts(c2);
+      toast('💾 担当者情報を保存しました');
+    })()"
+      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+      💾 保存する
+    </button>
+    ${isEdit?`<button onclick="(()=>{
+      const saved=LS.get('contacts_'+${no});
+      const cs=(saved&&Array.isArray(saved.list))?saved.list:[];
+      cs.splice(${i},1);
+      LS.set('contacts_'+${no},{list:cs});
+      closeModal();
+      const el=document.getElementById('contacts-${no}');
+      const c2={...(COMPANIES.find(x=>x.no===${no})||{}),...LS.get('co_info_'+${no})};
+      if(el) el.innerHTML=renderContacts(c2);
+      toast('🗑 削除しました');
+    })()"
+      style="width:100%;padding:10px;background:var(--surface2);color:var(--ng);border:1px solid var(--ng);border-radius:8px;font-size:12px;cursor:pointer;margin-top:8px">
+      🗑 削除
+    </button>`:''}
+  `, '500px');
+  window._selectedContactTag = ct?.tag || '担当者';
+}
+
+function selectContactTag(tag){
+  window._selectedContactTag = tag;
+  ['担当者','経営層','決裁者/窓口','窓口/受講生','受講生','その他'].forEach(t=>{
+    const btn = document.getElementById('ct-tag-'+t);
+    if(!btn) return;
+    const active = t === tag;
+    btn.style.border = active ? '1px solid var(--accent)' : '1px solid var(--border)';
+    btn.style.background = active ? 'var(--accent)' : 'var(--surface2)';
+    btn.style.color = active ? '#fff' : 'var(--td)';
+  });
+}
+
+
 function renderActions(no){
   const actions=LS.getArr('actions_'+no);
   const inp=`<div class="action-add"><input type="text" id="action-text-${no}" class="meeting-text-input" placeholder="アクションを入力..." style="flex:1"><input type="date" id="action-due-${no}" class="meeting-date-input" style="width:130px"><button class="meeting-add-btn" onclick="addAction(${no})">+ 追加</button></div>`;
@@ -1117,7 +1332,7 @@ function renderCompanyPage(c){
   const savedSuccess=plans.success!=null?plans.success:c.success;
   const contractOptions=['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(opt=>`<option value="${opt}" ${opt===contract?'selected':''}>${opt}</option>`).join('');
   const selCls=cls.replace('tag-','sel-');
-  return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div><div class="co-kpi-row"><div class="co-kpi"><div class="co-kpi-label">健全スコア</div><div class="co-kpi-val" style="color:${hColor}">${health}</div><div class="co-kpi-sub">/10</div></div><div class="co-kpi"><div class="co-kpi-label">企業進捗</div><div class="co-kpi-val" style="color:${stageData?.color||'#888'};font-size:26px">St.${stage}</div><div class="co-kpi-sub">${stageData?.month||'—'}</div></div><div class="co-kpi"><div class="co-kpi-label">派遣人数</div><div class="co-kpi-val" style="color:var(--accent)">${c.sent}</div><div class="co-kpi-sub">名（1期）</div></div><div class="co-kpi"><div class="co-kpi-label">卒業率</div><div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div><div class="co-kpi-sub">${c.grad}/${c.sent}名</div></div><div class="co-kpi"><div class="co-kpi-label">企業満足度</div><div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div><div class="co-kpi-sub">/10</div></div></div><div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div><div class="inner-tab" onclick="switchInner(this,'theme-${c.no}','inner-tabs-${c.no}')">🎯 出題テーマ</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel" id="co-basic-panel-${c.no}">
+  return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div><div class="co-kpi-row"><div class="co-kpi"><div class="co-kpi-label">健全スコア</div><div class="co-kpi-val" style="color:${hColor}">${health}</div><div class="co-kpi-sub">/10</div></div><div class="co-kpi"><div class="co-kpi-label">企業進捗</div><div class="co-kpi-val" style="color:${stageData?.color||'#888'};font-size:26px">St.${stage}</div><div class="co-kpi-sub">${stageData?.month||'—'}</div></div><div class="co-kpi"><div class="co-kpi-label">派遣人数</div><div class="co-kpi-val" style="color:var(--accent)">${c.sent}</div><div class="co-kpi-sub">名（1期）</div></div><div class="co-kpi"><div class="co-kpi-label">卒業率</div><div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div><div class="co-kpi-sub">${c.grad}/${c.sent}名</div></div><div class="co-kpi"><div class="co-kpi-label">企業満足度</div><div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div><div class="co-kpi-sub">/10</div></div></div><div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div><div class="inner-tab" onclick="switchInner(this,'theme-${c.no}','inner-tabs-${c.no}')">🎯 出題テーマ</div><div class="inner-tab" onclick="switchInner(this,'members-${c.no}','inner-tabs-${c.no}')">🎓 選抜生情報</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel" id="co-basic-panel-${c.no}">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--border)">
     <div class="panel-title" style="margin:0;border:none;padding:0">基本情報</div>
     <div style="display:flex;gap:6px">
@@ -1246,7 +1461,7 @@ function renderCompanyPage(c){
     </div>
     <textarea id="lab-note-${c.no}" onchange="saveDispatch(${c.no})" class="plan-textarea" rows="1" placeholder="備考（例：業務時間外で参加、一部部門のみ労務内など）" style="min-height:40px;font-size:11px;margin-left:118px;width:calc(100% - 118px)">${esc(labNote)}</textarea>
   </div>`;
-})()}</div><div class="panel"><div class="panel-title">企業アンケートスコア（3Q）</div><div style="display:flex;gap:12px;margin-bottom:16px">${scoreBox(c.ent_sat,'満足度')}${scoreBox(c.ent_grow,'成長実感')}${scoreBox(c.ent_recommend,'おすすめ度')}</div><div class="panel-title" style="margin-top:12px">AI研修 / プレイフルキャンプ</div><div style="display:flex;gap:10px"><div style="flex:1;padding:10px;background:var(--surface2);border-radius:7px;text-align:center"><div style="font-size:10px;color:var(--td);margin-bottom:4px">AI研修</div><div style="font-size:13px;font-weight:700;color:${c.ai==='内諾'?'var(--ok)':c.ai==='失注'?'var(--ng)':'var(--warn)'}">${esc(c.ai||'未検討')}</div></div><div style="flex:1;padding:10px;background:var(--surface2);border-radius:7px;text-align:center"><div style="font-size:10px;color:var(--td);margin-bottom:4px">プレイフルキャンプ</div><div style="font-size:13px;font-weight:700;color:${c.camp==='体験会参加'||c.camp==='内諾'?'var(--ok)':'var(--td)'}">${esc(c.camp||'未検討')}</div></div></div></div></div></div><div class="inner-content" id="plan-${c.no}"><div class="grid2"><div><div class="plan-section"><div class="plan-label">長期ビジョン（1〜3年後のサクセス状態）</div><textarea class="plan-textarea" id="plan-vision-${c.no}" rows="4">${esc(savedVision)}</textarea></div><div class="plan-section"><div class="plan-label">短期ゴール（直近3ヶ月）</div><textarea class="plan-textarea" id="plan-goal-${c.no}" rows="3">${esc(savedGoal)}</textarea></div></div><div><div class="plan-section"><div class="plan-label">伴走方針・アクション</div><textarea class="plan-textarea" id="plan-escort-${c.no}" rows="5">${esc(savedEscort)}</textarea></div><div class="plan-section"><div class="plan-label">1年後のサクセス定義</div><textarea class="plan-textarea" id="plan-success-${c.no}" rows="4">${esc(savedSuccess)}</textarea></div></div></div><button class="plan-save-btn" onclick="savePlan(${c.no})">💾 アカウントプランを保存</button></div><div class="inner-content" id="contacts-${c.no}">${renderContacts(c)}</div><div class="inner-content" id="leader-${c.no}">${renderLeaderTab(c.no)}</div><div class="inner-content" id="progress-${c.no}">${renderProgressTab(c.no)}</div><div class="inner-content" id="actionlog-${c.no}">${renderActionLogTab(c.no)}</div><div class="inner-content" id="theme-${c.no}">${renderThemeTab(c.no)}</div></div>`;
+})()}</div><div class="panel"><div class="panel-title">企業アンケートスコア（3Q）</div><div style="display:flex;gap:12px;margin-bottom:16px">${scoreBox(c.ent_sat,'満足度')}${scoreBox(c.ent_grow,'成長実感')}${scoreBox(c.ent_recommend,'おすすめ度')}</div><div class="panel-title" style="margin-top:12px">AI研修 / プレイフルキャンプ</div><div style="display:flex;gap:10px"><div style="flex:1;padding:10px;background:var(--surface2);border-radius:7px;text-align:center"><div style="font-size:10px;color:var(--td);margin-bottom:4px">AI研修</div><div style="font-size:13px;font-weight:700;color:${c.ai==='内諾'?'var(--ok)':c.ai==='失注'?'var(--ng)':'var(--warn)'}">${esc(c.ai||'未検討')}</div></div><div style="flex:1;padding:10px;background:var(--surface2);border-radius:7px;text-align:center"><div style="font-size:10px;color:var(--td);margin-bottom:4px">プレイフルキャンプ</div><div style="font-size:13px;font-weight:700;color:${c.camp==='体験会参加'||c.camp==='内諾'?'var(--ok)':'var(--td)'}">${esc(c.camp||'未検討')}</div></div></div></div></div></div><div class="inner-content" id="plan-${c.no}"><div class="grid2"><div><div class="plan-section"><div class="plan-label">長期ビジョン（1〜3年後のサクセス状態）</div><textarea class="plan-textarea" id="plan-vision-${c.no}" rows="4">${esc(savedVision)}</textarea></div><div class="plan-section"><div class="plan-label">短期ゴール（直近3ヶ月）</div><textarea class="plan-textarea" id="plan-goal-${c.no}" rows="3">${esc(savedGoal)}</textarea></div></div><div><div class="plan-section"><div class="plan-label">伴走方針・アクション</div><textarea class="plan-textarea" id="plan-escort-${c.no}" rows="5">${esc(savedEscort)}</textarea></div><div class="plan-section"><div class="plan-label">1年後のサクセス定義</div><textarea class="plan-textarea" id="plan-success-${c.no}" rows="4">${esc(savedSuccess)}</textarea></div></div></div><button class="plan-save-btn" onclick="savePlan(${c.no})">💾 アカウントプランを保存</button></div><div class="inner-content" id="contacts-${c.no}">${renderContacts(c)}</div><div class="inner-content" id="leader-${c.no}">${renderLeaderTab(c.no)}</div><div class="inner-content" id="progress-${c.no}">${renderProgressTab(c.no)}</div><div class="inner-content" id="actionlog-${c.no}">${renderActionLogTab(c.no)}</div><div class="inner-content" id="theme-${c.no}">${renderThemeTab(c.no)}</div><div class="inner-content" id="members-${c.no}">${renderMembersTab(c.no)}</div></div>`;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2597,6 +2812,434 @@ function saveLeaderAll(no){
   if(progEl) d.prog_detail = progEl.value;
   LS.set('leader_'+no, d);
   toast('💾 リーダー育成情報を保存しました');
+}
+
+// ━━━ 選抜生情報タブ ━━━
+
+function renderMembersTab(no){
+  const members = LS.getArr('members_info_'+no);  // [{id, name, dept, role, motivation, skills:{...}, lecture_surveys:[{term, lecture, sat, grow, rec, comment}], term_surveys:[{term, sat, grow, rec}]}]
+  const c = COMPANIES.find(x=>x.no===no);
+
+  // 選抜生追加フォーム
+  const addBtn = `
+    <button onclick="addMemberDialog(${no})"
+      style="padding:8px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+      ＋ 選抜生を追加
+    </button>`;
+
+  if(!members.length){
+    return `<div style="padding:4px 0 80px">
+      <div class="panel" style="text-align:center;padding:48px 24px">
+        <div style="font-size:32px;margin-bottom:12px">🎓</div>
+        <div style="font-size:14px;font-weight:700;color:var(--t2);margin-bottom:8px">選抜生がまだ登録されていません</div>
+        <div style="font-size:12px;color:var(--td);margin-bottom:20px">プロフィール・アンケート・参加動機などを管理できます</div>
+        <div style="display:flex;justify-content:center">${addBtn}</div>
+      </div>
+    </div>`;
+  }
+
+  // 選抜生カード一覧
+  const memberCards = members.map((m,mi)=>{
+    const termLabels = {'q1':'1学期','q2':'2学期','q3':'3学期'};
+    const skillKeys = ['leadership','communication','problem_solving','creativity','teamwork'];
+    const skillLabels = {leadership:'リーダーシップ',communication:'コミュニケーション',problem_solving:'問題解決力',creativity:'創造性',teamwork:'チームワーク'};
+
+    // スキルレーダー表示
+    const skillBars = skillKeys.map(k=>{
+      const v = m.skills?.[k] || 0;
+      const pct = Math.round(v/5*100);
+      return `<div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--td);margin-bottom:3px">
+          <span>${skillLabels[k]}</span>
+          <span style="font-weight:700;color:var(--t2)">${v}/5</span>
+        </div>
+        <div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px;transition:width .4s"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // 学期別アンケート集計
+    const termSurveys = m.term_surveys || [];
+    const termSurveyHtml = ['q1','q2','q3'].map(term=>{
+      const s = termSurveys.find(t=>t.term===term);
+      const label = termLabels[term];
+      return `<div style="flex:1;padding:10px;background:var(--surface2);border-radius:8px;text-align:center">
+        <div style="font-size:10px;color:var(--td);font-weight:700;margin-bottom:8px">${label}</div>
+        ${s ? `
+          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+            ${[{k:'sat',l:'満足度'},{k:'grow',l:'成長'},{k:'fun',l:'楽しさ'},{k:'rec',l:'おすすめ'}].map(({k,l})=>`
+              <div style="text-align:center">
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:${scColor(s[k])}">${s[k]||'—'}</div>
+                <div style="font-size:9px;color:var(--td)">${l}</div>
+              </div>`).join('')}
+          </div>` :
+          `<div style="color:var(--td);font-size:11px;padding:8px 0">未実施</div>`}
+      </div>`;
+    }).join('');
+
+    // 講義アンケート一覧
+    const lectureSurveys = m.lecture_surveys || [];
+    const lectureSurveyHtml = lectureSurveys.length > 0 ?
+      `<div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th style="padding:6px 10px;text-align:left;font-weight:700;color:var(--td)">講義</th>
+              <th style="padding:6px 8px;text-align:center;color:var(--td)">満足度</th>
+              <th style="padding:6px 8px;text-align:center;color:var(--td)">成長</th>
+              <th style="padding:6px 8px;text-align:center;color:var(--td)">おすすめ</th>
+              <th style="padding:6px 10px;text-align:left;color:var(--td)">コメント</th>
+              <th style="padding:6px 6px;width:40px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lectureSurveys.map((ls,li)=>`
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 10px">
+                  <div style="font-weight:700;color:var(--t1)">${esc(ls.lecture||'—')}</div>
+                  <div style="font-size:10px;color:var(--td)">${termLabels[ls.term]||ls.term||''}</div>
+                </td>
+                <td style="padding:6px 8px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:${scColor(ls.sat)}">${ls.sat||'—'}</td>
+                <td style="padding:6px 8px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:${scColor(ls.grow)}">${ls.grow||'—'}</td>
+                <td style="padding:6px 8px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:${scColor(ls.rec)}">${ls.rec||'—'}</td>
+                <td style="padding:6px 10px;color:var(--t2);font-size:11px;max-width:200px">${esc(ls.comment||'—')}</td>
+                <td style="padding:4px 6px">
+                  <button onclick="editLectureSurvey(${no},${mi},${li})"
+                    style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);cursor:pointer;font-size:10px;color:var(--td)">✏</button>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` :
+      `<div style="color:var(--td);font-size:12px;padding:12px 0;text-align:center">講義アンケートがまだ登録されていません</div>`;
+
+    return `<div class="panel" style="margin-bottom:16px">
+      <!-- カードヘッダー -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--border)">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;
+          display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0">
+          ${esc((m.name||'?')[0])}
+        </div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;color:var(--t1)">${esc(m.name||'未設定')}</div>
+          <div style="font-size:11px;color:var(--td);margin-top:2px">
+            ${esc(m.dept||'')}${m.role?` / ${esc(m.role)}`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="editMemberProfile(${no},${mi})"
+            style="padding:5px 12px;border:1px solid var(--accent);border-radius:6px;
+              background:var(--accent-lt);color:var(--accent);cursor:pointer;font-size:11px;font-weight:700">
+            ✏ 編集
+          </button>
+          <button onclick="addLectureSurveyDialog(${no},${mi})"
+            style="padding:5px 12px;border:1px solid var(--border);border-radius:6px;
+              background:var(--surface2);color:var(--t2);cursor:pointer;font-size:11px">
+            ＋ 講義アンケート
+          </button>
+          <button onclick="editTermSurvey(${no},${mi})"
+            style="padding:5px 12px;border:1px solid var(--border);border-radius:6px;
+              background:var(--surface2);color:var(--t2);cursor:pointer;font-size:11px">
+            📊 学期アンケート
+          </button>
+        </div>
+      </div>
+
+      <div class="grid2" style="gap:16px;margin-bottom:16px">
+        <!-- 左: プロフィール + スキル -->
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px;letter-spacing:1px">🧑 プロフィール</div>
+          <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:12px">
+            ${[['部署',m.dept],['役職',m.role],['参加選考',m.recruit_type],['成長スキル',m._grow_skill],['挑戦スキル',m._challenge_skill],['ステップ',m._step]].map(([l,v])=>v?`
+              <div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+                <span style="font-size:10px;color:var(--td);width:80px;flex-shrink:0">${l}</span>
+                <span style="font-size:12px;color:var(--t2)">${esc(v)}</span>
+              </div>`:''  ).join('')}
+          </div>
+          <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px;letter-spacing:1px">💡 参加動機・成長の意味</div>
+          <div style="background:var(--surface2);border-radius:8px;padding:12px;font-size:12px;color:var(--t2);line-height:1.8;min-height:60px">
+            ${m.motivation ? esc(m.motivation) : '<span style="color:var(--td)">未記入</span>'}
+          </div>
+          ${m._grow_comment ? `<div style="margin-top:8px;background:var(--ok-lt);border-radius:8px;padding:10px 12px">
+            <div style="font-size:10px;font-weight:700;color:var(--ok);margin-bottom:4px">📈 成長を感じたこと</div>
+            <div style="font-size:12px;color:var(--t2);line-height:1.7">${esc(m._grow_comment)}</div>
+          </div>` : ''}
+          ${m._sat_comment ? `<div style="margin-top:8px;background:var(--accent-lt);border-radius:8px;padding:10px 12px">
+            <div style="font-size:10px;font-weight:700;color:var(--accent);margin-bottom:4px">💬 満足度コメント</div>
+            <div style="font-size:12px;color:var(--t2);line-height:1.7">${esc(m._sat_comment)}</div>
+          </div>` : ''}
+        </div>
+        <!-- 右: スキル自己評価 -->
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px;letter-spacing:1px">📊 スキル自己評価</div>
+          <div style="background:var(--surface2);border-radius:8px;padding:14px">
+            ${skillBars || '<div style="color:var(--td);font-size:12px;text-align:center;padding:12px">未入力</div>'}
+          </div>
+        </div>
+      </div>
+
+      <!-- 学期別アンケート -->
+      <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px;letter-spacing:1px">📋 学期別アンケートスコア</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">${termSurveyHtml}</div>
+
+      <!-- 講義アンケート -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--td);letter-spacing:1px">📝 講義アンケート（${lectureSurveys.length}件）</div>
+      </div>
+      ${lectureSurveyHtml}
+    </div>`;
+  }).join('');
+
+  return `<div style="padding:4px 0 80px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:18px;font-weight:700">🎓 選抜生情報</div>
+        <div style="font-size:12px;color:var(--td);margin-top:2px">${esc(c?.short||'')} / ${members.length}名登録</div>
+      </div>
+      ${addBtn}
+    </div>
+    ${memberCards}
+  </div>`;
+}
+
+// ━━━ 選抜生 各種ダイアログ関数 ━━━
+
+function addMemberDialog(no){
+  _showMemberForm(no, null, null);
+}
+
+function editMemberProfile(no, mi){
+  const m = LS.getArr('members_info_'+no)[mi];
+  _showMemberForm(no, mi, m);
+}
+
+function _showMemberForm(no, mi, m){
+  const isEdit = mi !== null;
+  const skills = ['leadership','communication','problem_solving','creativity','teamwork'];
+  const skillLabels = {leadership:'リーダーシップ',communication:'コミュニケーション',problem_solving:'問題解決力',creativity:'創造性',teamwork:'チームワーク'};
+
+  const skillInputs = skills.map(k=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-size:11px;color:var(--td);width:120px;flex-shrink:0">${skillLabels[k]}</span>
+      <div style="display:flex;gap:4px">
+        ${[1,2,3,4,5].map(v=>`
+          <button id="skill-${k}-${v}"
+            onclick="selectSkill('${k}',${v},'${no}_${mi??'new'}')"
+            style="width:32px;height:32px;border-radius:6px;border:1px solid var(--border);
+              background:${(m?.skills?.[k]||0)>=v?'var(--accent)':'var(--surface2)'};
+              color:${(m?.skills?.[k]||0)>=v?'#fff':'var(--td)'};cursor:pointer;font-size:12px;font-weight:700">
+            ${v}
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
+
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">${isEdit?'✏ プロフィール編集':'＋ 選抜生を追加'}</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">氏名 *</div>
+        <input id="mb-name" type="text" value="${esc(m?.name||'')}" placeholder="山田 太郎"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">部署</div>
+        <input id="mb-dept" type="text" value="${esc(m?.dept||'')}" placeholder="営業部"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">役職</div>
+        <input id="mb-role" type="text" value="${esc(m?.role||'')}" placeholder="主任"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">選考方式</div>
+        <select id="mb-recruit" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none">
+          ${['選抜','公募','両方'].map(v=>`<option value="${v}" ${(m?.recruit_type||'')==v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;color:var(--td);margin-bottom:4px">参加動機</div>
+      <textarea id="mb-motivation" rows="3"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--t1);background:var(--surface2);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.7;box-sizing:border-box"
+        placeholder="NEOに参加した動機・期待...">${esc(m?.motivation||'')}</textarea>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;color:var(--td);margin-bottom:8px">スキル自己評価（1〜5）</div>
+      <div id="skill-container-${no}_${mi??'new'}">${skillInputs}</div>
+    </div>
+    <button onclick="(()=>{
+      const name = document.getElementById('mb-name').value.trim();
+      if(!name){ toast('氏名を入力してください'); return; }
+      const members = LS.getArr('members_info_'+${no});
+      const skillKeys = ['leadership','communication','problem_solving','creativity','teamwork'];
+      const skills = {};
+      skillKeys.forEach(k=>{ skills[k] = parseInt(window._skillVals?.['${no}_${mi??'new'}']?.[k]||0) || ${isEdit?`(${JSON.stringify(m?.skills||{})}[k]||0)`:0}; });
+      const obj = {
+        name,
+        dept: document.getElementById('mb-dept').value.trim(),
+        role: document.getElementById('mb-role').value.trim(),
+        recruit_type: document.getElementById('mb-recruit').value,
+        motivation: document.getElementById('mb-motivation').value.trim(),
+        skills,
+        lecture_surveys: ${isEdit?`members[${mi}]?.lecture_surveys||[]`:'[]'},
+        term_surveys: ${isEdit?`members[${mi}]?.term_surveys||[]`:'[]'},
+      };
+      if(${isEdit}) members[${mi}] = obj; else members.push(obj);
+      LS.setArr('members_info_'+${no}, members);
+      closeModal();
+      rerenderMembersTab(${no});
+      toast('💾 保存しました');
+    })()"
+      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+      💾 保存する
+    </button>
+    ${isEdit?`<button onclick="(()=>{if(!confirm('この選抜生を削除しますか？'))return;const ms=LS.getArr('members_info_'+${no});ms.splice(${mi},1);LS.setArr('members_info_'+${no},ms);closeModal();rerenderMembersTab(${no});toast('🗑 削除しました')})()"
+      style="width:100%;padding:10px;background:var(--surface2);color:var(--ng);border:1px solid var(--ng);border-radius:8px;font-size:12px;cursor:pointer;margin-top:8px">
+      🗑 この選抜生を削除
+    </button>`:''}
+  `, '560px');
+}
+
+function selectSkill(key, val, prefix){
+  if(!window._skillVals) window._skillVals = {};
+  if(!window._skillVals[prefix]) window._skillVals[prefix] = {};
+  window._skillVals[prefix][key] = val;
+  // ボタンスタイル更新
+  [1,2,3,4,5].forEach(v=>{
+    const btn = document.getElementById('skill-'+key+'-'+v);
+    if(!btn) return;
+    const active = v <= val;
+    btn.style.background = active ? 'var(--accent)' : 'var(--surface2)';
+    btn.style.color = active ? '#fff' : 'var(--td)';
+  });
+}
+
+function addLectureSurveyDialog(no, mi){
+  _showLectureSurveyForm(no, mi, null, null);
+}
+
+function editLectureSurvey(no, mi, li){
+  const m = LS.getArr('members_info_'+no)[mi];
+  const ls = m?.lecture_surveys?.[li];
+  _showLectureSurveyForm(no, mi, li, ls);
+}
+
+function _showLectureSurveyForm(no, mi, li, ls){
+  const isEdit = li !== null;
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">${isEdit?'✏ 講義アンケート編集':'＋ 講義アンケートを追加'}</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">講義名 *</div>
+        <input id="ls-lecture" type="text" value="${esc(ls?.lecture||'')}" placeholder="第1回 キックオフ"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--td);margin-bottom:4px">学期</div>
+        <select id="ls-term" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none">
+          ${[['q1','1学期'],['q2','2学期'],['q3','3学期']].map(([v,l])=>`<option value="${v}" ${(ls?.term||'q1')===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      ${[['ls-sat','満足度','sat'],['ls-grow','成長度','grow'],['ls-rec','おすすめ度','rec']].map(([id,label,key])=>`
+        <div>
+          <div style="font-size:10px;color:var(--td);margin-bottom:4px">${label}</div>
+          <input id="${id}" type="number" min="1" max="10" step="0.1" value="${ls?.[key]||''}" placeholder="1〜10"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface2);outline:none;box-sizing:border-box">
+        </div>`).join('')}
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;color:var(--td);margin-bottom:4px">定性コメント</div>
+      <textarea id="ls-comment" rows="3"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--t1);background:var(--surface2);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.7;box-sizing:border-box"
+        placeholder="講義で学んだこと、気づき、感想...">${esc(ls?.comment||'')}</textarea>
+    </div>
+    <button onclick="(()=>{
+      const lecture = document.getElementById('ls-lecture').value.trim();
+      if(!lecture){ toast('講義名を入力してください'); return; }
+      const members = LS.getArr('members_info_'+${no});
+      if(!members[${mi}]) return;
+      if(!members[${mi}].lecture_surveys) members[${mi}].lecture_surveys = [];
+      const obj = {
+        lecture,
+        term:    document.getElementById('ls-term').value,
+        sat:     parseFloat(document.getElementById('ls-sat').value)||null,
+        grow:    parseFloat(document.getElementById('ls-grow').value)||null,
+        rec:     parseFloat(document.getElementById('ls-rec').value)||null,
+        comment: document.getElementById('ls-comment').value.trim(),
+      };
+      if(${isEdit}) members[${mi}].lecture_surveys[${li}] = obj;
+      else members[${mi}].lecture_surveys.push(obj);
+      LS.setArr('members_info_'+${no}, members);
+      closeModal();
+      rerenderMembersTab(${no});
+      toast('💾 講義アンケートを保存しました');
+    })()"
+      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+      💾 保存する
+    </button>
+  `, '480px');
+}
+
+function editTermSurvey(no, mi){
+  const m = LS.getArr('members_info_'+no)[mi];
+  const ts = m?.term_surveys || [];
+  const termLabels = {q1:'1学期',q2:'2学期',q3:'3学期'};
+
+  const termRows = ['q1','q2','q3'].map(term=>{
+    const s = ts.find(t=>t.term===term) || {};
+    return `<div style="padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px">${termLabels[term]}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        ${[['sat','満足度'],['grow','成長度'],['rec','おすすめ度']].map(([key,label])=>`
+          <div>
+            <div style="font-size:10px;color:var(--td);margin-bottom:4px">${label}</div>
+            <input id="ts-${term}-${key}" type="number" min="1" max="10" step="0.1" value="${s[key]||''}" placeholder="1〜10"
+              style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;color:var(--t1);background:var(--surface);outline:none;box-sizing:border-box">
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">📊 学期別アンケート: ${esc(m?.name||'')}</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    ${termRows}
+    <button onclick="(()=>{
+      const members = LS.getArr('members_info_'+${no});
+      if(!members[${mi}]) return;
+      members[${mi}].term_surveys = ['q1','q2','q3'].map(term=>({
+        term,
+        sat:  parseFloat(document.getElementById('ts-'+term+'-sat').value)||null,
+        grow: parseFloat(document.getElementById('ts-'+term+'-grow').value)||null,
+        rec:  parseFloat(document.getElementById('ts-'+term+'-rec').value)||null,
+      })).filter(s=>s.sat||s.grow||s.rec);
+      LS.setArr('members_info_'+${no}, members);
+      closeModal();
+      rerenderMembersTab(${no});
+      toast('💾 学期別アンケートを保存しました');
+    })()"
+      style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px">
+      💾 保存する
+    </button>
+  `, '480px');
+}
+
+function rerenderMembersTab(no){
+  const el = document.getElementById('members-'+no);
+  if(el) el.innerHTML = renderMembersTab(no);
 }
 
 function renderThemeTab(no){
@@ -4741,6 +5384,180 @@ const html=`<div class="section-header"><div class="section-num">📊</div><div 
 }
 function goToCompany(no){currentCompanyNo=no;switchMainTab('company');}
 
+// ━━━ Google認証 & ユーザー管理 ━━━
+
+const GOOGLE_CLIENT_ID = '411975871767-foeu86boj63re000cfjv1j6p0vsdq35k.apps.googleusercontent.com';
+
+let currentUser = null;  // {email, name, picture, role}
+
+function signInWithGoogle(){
+  const statusEl = document.getElementById('login-status');
+  if(statusEl) statusEl.textContent = '認証中...';
+
+  // Google Identity Services で認証
+  if(typeof google === 'undefined'){
+    // GSIライブラリが未ロードの場合はフォールバック（開発時）
+    _devLoginFallback();
+    return;
+  }
+
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredential,
+  });
+  google.accounts.id.prompt();
+}
+
+async function handleGoogleCredential(response){
+  const statusEl = document.getElementById('login-status');
+  try {
+    if(statusEl) statusEl.textContent = 'サーバーで検証中...';
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action:'verify', token: response.credential})
+    });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || '認証失敗');
+    onLoginSuccess(data.user);
+  } catch(e) {
+    if(statusEl) statusEl.textContent = 'ログインに失敗しました: '+e.message;
+    console.error('[auth]', e);
+  }
+}
+
+function _devLoginFallback(){
+  // 開発時・GSI未設定時のフォールバック（ローカルHTMLで使用）
+  const email = prompt('メールアドレスを入力してください（開発用）:');
+  if(!email) return;
+  onLoginSuccess({
+    email, name: email.split('@')[0], picture: '', role: 'admin'
+  });
+}
+
+function onLoginSuccess(user){
+  currentUser = user;
+  localStorage.setItem('neo_ps_current_user', JSON.stringify(user));
+
+  // ログイン画面を非表示
+  const overlay = document.getElementById('login-overlay');
+  if(overlay) overlay.style.display = 'none';
+
+  // ユーザー情報バーを表示
+  const bar = document.getElementById('user-info-bar');
+  if(bar) bar.style.display = 'flex';
+
+  const avatar = document.getElementById('user-avatar');
+  if(avatar && user.picture){ avatar.src = user.picture; avatar.style.display = 'block'; }
+
+  const nameEl = document.getElementById('user-name-bar');
+  if(nameEl) nameEl.textContent = user.name || user.email;
+
+  const roleEl = document.getElementById('user-role-badge');
+  if(roleEl){
+    roleEl.textContent = user.role === 'admin' ? '管理者' : 'メンバー';
+    roleEl.style.background = user.role === 'admin' ? 'var(--accent)' : '#334155';
+    roleEl.style.color = '#fff';
+  }
+
+  // グローバルユーザー選択を現在のユーザーに設定
+  setCurrentUser(user.email);
+
+  console.log('[auth] ログイン成功:', user.email, '権限:', user.role);
+}
+
+function signOut(){
+  currentUser = null;
+  localStorage.removeItem('neo_ps_current_user');
+  const overlay = document.getElementById('login-overlay');
+  if(overlay) overlay.style.display = 'flex';
+  const bar = document.getElementById('user-info-bar');
+  if(bar) bar.style.display = 'none';
+}
+
+function isAdmin(){
+  return currentUser?.role === 'admin';
+}
+
+function canEdit(){
+  return currentUser !== null; // ログイン済みなら編集可
+}
+
+// セッション復元（ページロード時）
+function restoreSession(){
+  const saved = localStorage.getItem('neo_ps_current_user');
+  if(saved){
+    try {
+      const user = JSON.parse(saved);
+      // セッションが有効かサーバーで再検証（Google tokenがないので簡易チェック）
+      onLoginSuccess(user);
+      return true;
+    } catch(e) {}
+  }
+  return false;
+}
+
+// ユーザー管理パネル（管理者のみ）
+async function showUserManagementPanel(){
+  if(!isAdmin()){
+    toast('⚠ 管理者権限が必要です');
+    return;
+  }
+
+  showModal(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="font-size:16px;font-weight:700">👥 ユーザー管理</div>
+    <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+  </div>
+  <div id="user-mgmt-list" style="margin-bottom:16px">
+    <div style="color:var(--td);font-size:12px">読み込み中...</div>
+  </div>`, '520px');
+
+  try {
+    const res = await fetch('/api/auth', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'users', email: currentUser.email})
+    });
+    const data = await res.json();
+    const users = data.users || [];
+
+    const list = users.map(u=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        ${u.picture?`<img src="${esc(u.picture)}" style="width:32px;height:32px;border-radius:50%">`
+          :`<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">${(u.name||u.email)[0]}</div>`}
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--t1)">${esc(u.name||'')}</div>
+          <div style="font-size:11px;color:var(--td)">${esc(u.email)}</div>
+        </div>
+        <select onchange="changeUserRole('${esc(u.email)}',this.value)"
+          style="padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;
+            background:var(--surface2);color:var(--t1);outline:none;cursor:pointer">
+          <option value="admin" ${u.role==='admin'?'selected':''}>管理者</option>
+          <option value="member" ${u.role==='member'?'selected':''}>メンバー</option>
+        </select>
+        <div style="font-size:10px;color:var(--td);white-space:nowrap">
+          ${u.last_login ? new Date(u.last_login).toLocaleDateString('ja-JP') : '未ログイン'}
+        </div>
+      </div>`).join('');
+
+    const el = document.getElementById('user-mgmt-list');
+    if(el) el.innerHTML = list || '<div style="color:var(--td);font-size:12px">ユーザーなし</div>';
+  } catch(e) {
+    console.error('[user mgmt]', e);
+  }
+}
+
+async function changeUserRole(targetEmail, role){
+  try {
+    await fetch('/api/auth', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'setRole', email:currentUser.email, targetEmail, role})
+    });
+    toast('✅ 権限を変更しました: '+targetEmail+' → '+role);
+  } catch(e) {
+    toast('❌ 権限変更に失敗しました');
+  }
+}
+
 // ── ページ離脱前に確実に保存 ──
 window.addEventListener('beforeunload', function(){
   // 未完了のsaveをフラッシュ（同期的には無理だがキャンセルを防ぐ）
@@ -4749,6 +5566,12 @@ window.addEventListener('beforeunload', function(){
 
 // ── 起動: Supabaseからデータをロードしてから描画 ──
 (async function init(){
+  // セッション復元（ログイン済みなら自動復元）
+  if(!restoreSession()){
+    // 未ログイン → ログイン画面を表示したまま
+    // ただしページ自体は読み込んでおく
+    console.log('[init] 未ログイン状態');
+  }
   try {
     await LSdb.loadAll();
   } catch(e) {
@@ -4760,6 +5583,8 @@ window.addEventListener('beforeunload', function(){
   initGlobalUserSelect();
   updateGlobalFilterUI();
   updateFiscalYearUI();
+  // MB_SURVEYから選抜生データを自動投入（初回のみ）
+  setTimeout(initMembersFromSurvey, 1000);
 })();
 
 function initGlobalUserSelect(){
@@ -4882,6 +5707,23 @@ function updateCSStaffField(no, idx, field, value){
   const staff = getCoCSStaff(no);
   if(staff[idx]) staff[idx][field] = value;
   saveCoCSStaff(no, staff);
+}
+
+// ━━━ MB_SURVEYデータから自動生成した選抜生初期データ ━━━
+function initMembersFromSurvey(){
+  const surveyData = {"1": [{"name": "下原元気", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "活動を通じて、自分のやりたい事を言語化する事が出来るようになりました。私はタカギの事が大好きです。このタカギの魅力を届ける事や、WaterWaveを地域と一体となって盛り上げる事に携わりたいと強く思っています。様々な学びの中で、20年後の自分を描けるか、カリスマカンタロウさんの講義を思い出します。2", "skills": {"leadership": 3, "communication": 4, "problem_solving": 4, "creativity": 3, "teamwork": 3}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 10.0, "rec": null, "fun": 10.0}], "_grow_skill": "共感する力", "_challenge_skill": "質問力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "また参加したいくらい、名残惜しく、これからも関わりを持ちたい！", "_grow_comment": "やり抜いた経験です。成長したと感じています！", "_grow_factor": "仲間と進める期間が多く、仲間と信頼関係を築くことが出来た。"}], "2": [{"name": "森山稜平", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "広告制作という仕事上、出来ないこと、難しいこと人を動かすことが多くあり壁にぶつかることがある。その時に出来ない理由ではなくどうやったらできるのかを考えるようにもうすでになっている。今後もこの考え方を忘れないようにしていきたい。", "skills": {"leadership": 4, "communication": 5, "problem_solving": 3, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 9.0, "grow": 10.0, "rec": null, "fun": 9.0}], "_grow_skill": "傾聴力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ1. 授業に主体的に取り組んでいる", "_sat_comment": "講義や活動内容についてはかなり満足しています。ただ社会人である以上、仕事との調整がかなり難しい部分があり時間的な拘束時間の長さは正直感じた。また、企業側のアワードの課題提出についてはアカデミア生との熱力に差があるところもあったのは否めない。", "_grow_comment": "仕事の進み具合が劇的に良くなったと感じるため。", "_grow_factor": "もともと自信はあったものの、他社・学生など環境が違う中でさらに磨かれた"}, {"name": "小西達也", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "まずはプロジェクトマネジメントととして、プロジェクトを背負う覚悟と責任が変わった。 新たなプロジェクトを自ら作り、自ら実行し、やり切ること。 最終的に成果にも責任を持って社内プロジェクトを推進していく。  動員や物を買っていただくことについて、共感とアウトカムが重要であると感じた。 自分の挑戦への共", "skills": {"leadership": 3, "communication": 5, "problem_solving": 3, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 10.0, "rec": null, "fun": 10.0}], "_grow_skill": "傾聴力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "_sat_comment": "本当に自分のマインドが変わり、行動も変わったため。", "_grow_comment": "プレイフルになった。賞をいただけたこともその実感につながった。", "_grow_factor": "他社の方がたくさんいる環境でやれたこと。"}, {"name": "小島直樹", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "NEOで学んだことは、企画を成功させるために大切なことはリーダーが誰よりも熱をもってとりくむこと、チームのモチベーションをあげること、きつくてもやりきることなどです。今後自社の仕事で様々な企画やプロジェクトに経験させていただくときに、NEOで学んだ上記のことを忘れず取り組んでまいります。", "skills": {"leadership": 2, "communication": 5, "problem_solving": 2, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 8.0, "grow": 7.0, "rec": null, "fun": 8.0}], "_grow_skill": "傾聴力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "普段できない貴重な経験ができたため。自分が心の底からやり切れたといえなかったことがマイナス点です。", "_grow_comment": "学びは多かったがリーダーを経験することができなかったため", "_grow_factor": "西鉄のPJリーダー、NEOの応援団長の姿を見て自分のロールモデルになったため"}], "5": [{"name": "野口亮太", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "NEOでの経験を踏まえて、アウトプットを出し続けていくことで事業を前に進めることができると強く実感しました。今後の仕事においても積極的にアウトプットを出し続けて、自分の実現したいビジョンに向かって仲間を巻き込みながら行動していきたいです。", "skills": {"leadership": 4, "communication": 4, "problem_solving": 2, "creativity": 2, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 8.0, "grow": 8.0, "rec": null, "fun": 8.0}], "_grow_skill": "共感する力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "_sat_comment": "素敵な仲間との出会いと挑戦の機会をもらえたから。", "_grow_comment": "今までやったことないアプリ開発にチャレンジして、自分のできることが広がったから。", "_grow_factor": "アワードに挑戦してやり切ると決めたこと。"}], "6": [{"name": "上野裕太", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "ここで得た人脈が財産。業界を超えて福岡を良くするために何ができるのか、真剣に考えていける仲間ができたこと。その環境が整ったことが財産です。また、Neo合説は、地域の企業があつまり若者に福岡の魅力を伝える大切な機会となりました。", "skills": {"leadership": 3, "communication": 4, "problem_solving": 2, "creativity": 3, "teamwork": 2}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 8.0, "grow": 7.0, "rec": null, "fun": 7.0}], "_grow_skill": "共感する力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "取り組みの趣旨や想いは共感。今後も応援したいとおもいます。", "_grow_comment": "スキルや知識を持った方が多く、そのような方と話をすることで多くのことを学んだ", "_grow_factor": "チームであらゆる経験ができたこと"}, {"name": "芥川裕介", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "会社で求められていること、自分の武器と世の中の課題をうまくマッチングできるビジネスをつくりあげたい。そして会社の良き部分はしっかり残しつつ、自分の武器を活かした事業を創る。xxxxxxxxxxxxxxxx", "skills": {"leadership": 2, "communication": 4, "problem_solving": 2, "creativity": 3, "teamwork": 2}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 7.0, "grow": 7.0, "rec": null, "fun": 8.0}], "_grow_skill": "伝える力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ2. アカデミア以外(会社や学校で)でこれまでと違う行動をし始めている", "_sat_comment": "試行錯誤しながらもみんなが一歩前進できたから", "_grow_comment": "たくさんの出会い", "_grow_factor": "仕事、家庭とのバランスで苦戦したが良き経験となりました。"}, {"name": "鬼木良輔", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "NEOでの経験において、一番自分の人生に影響を与えてくれていることは、三木校長との出会いである。縁もゆかりも無い福岡で、本気で応援資本主義を実現するため、リスクをとって堂々とステークホルダーを巻き込んでいる姿がカッコよかった。それを見て、小銭稼ぎではなく、福岡および銀行を本気で変革するために人生を使", "skills": {"leadership": 4, "communication": 3, "problem_solving": 4, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 10.0, "rec": null, "fun": 10.0}], "_grow_skill": "巻き込み力", "_challenge_skill": "質問力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ5. アカデミア終了後も継続、収益化するプロジェクトを目指し活動している", "_sat_comment": "事務局の運営者には感謝です。いつも素晴らしい場作りありがとうございます。", "_grow_comment": "各段に視座が上がった。また、構造化するスキル、PMスキル習得の経験を積むことができた。", "_grow_factor": "NEOでは、様々なステークホルダーの人々をコミュニケーションを図る機会が多かったため。"}], "7": [{"name": "後藤駿", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "前提に縛られずHowで考え、周りを巻き込むことが活かせると思った。 今までは与えられたリソースの中でどうやれるかを考えていた。 たけしくんやまゆこちゃんを見て、自分自身も協力したいと思ったので、偉い人も同じことを思うだろうなと思った。 言うだけはタダなので、思いついたことは行動に変えてみようと思いま", "skills": {"leadership": 4, "communication": 4, "problem_solving": 2, "creativity": 2, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 8.0, "rec": null, "fun": 10.0}], "_grow_skill": "共感する力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "辛いこともありましたが楽しかったです！", "_grow_comment": "チーム活動があまり得意ではありませんでしたが、チームで成果を出せました。集団での立ち回りなど成長できました！", "_grow_factor": "多くの価値観が違う人と話せた。大学生からも学ぶことが多かった"}, {"name": "仲矢大雅", "dept": "", "role": "", "recruit_type": "公募", "motivation": "仕事について、プロジェクトややりたいことの進め方を学べた。また進めるにあたって周りを巻き込むことの重要性、1人でできることの限界を知ることができたので社内では学んだ巻き込み力を発揮、成長させていきたい。 キャリアについて、1年弱でさまざまな企業や学生と話し、自分の視野の低さを認識できた。 視座を高め", "skills": {"leadership": 4, "communication": 3, "problem_solving": 4, "creativity": 2, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 8.0, "rec": null, "fun": 9.0}], "_grow_skill": "質問力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "いいえ", "_step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "_sat_comment": "学生企業問わずフラットに関わることができた。また、最近の企業では味わえないような仕事ができた", "_grow_comment": "思考力や言語化力が飛躍的にのびた", "_grow_factor": "答えのないことに対して仮説立て取り組むことができるようになった"}, {"name": "秋吉翔太", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "NEOにいるメンバーは行動力や実行力が高く学ぶ点がとても多かったから。またプロジェクトのリーダーをやらせていただく中で、チームを巻き込む力やスピード感がまだまだ足りないこと感じた。本気でやったからこそ知れた自分の強みと弱みがあるので、今後の社会人経験のなかで、あるべき姿へと流れを変えていくために、も", "skills": {"leadership": 3, "communication": 4, "problem_solving": 4, "creativity": 3, "teamwork": 3}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 10.0, "rec": null, "fun": 10.0}], "_grow_skill": "伝える力", "_challenge_skill": "質問力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "_sat_comment": "1番辛い時に、必ず手を差し伸べてくれた。これが成長を後押ししてくれたから。", "_grow_comment": "社内に提案する機会が増えて、実際に動いてきていると感じているから。具体的な事例として、QUSIS須内くんとの繋がりで、QTnetの新規事業部がインターンとして初めて大学生を採用することになった。社内から、一緒にawardに応募して、NTTデ", "_grow_factor": "事務局が、1番辛い時に、一歩踏み出すための支援をしてくれたから。"}], "8": [{"name": "福永諒", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "マネジメント経験を得たため、今後の社会人人生において有意義に活用したいと考える。マネジメントは一定以上の層しか経験する事が出来ず、その他では非常に有用。", "skills": {"leadership": 4, "communication": 2, "problem_solving": 2, "creativity": 2, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 8.0, "grow": 7.0, "rec": null, "fun": 8.0}], "_grow_skill": "巻き込み力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "_sat_comment": "総合的に判断して。", "_grow_comment": "5を１つのラインとして判断。スキルとしては、既に身につけていたものが多い。マインド面ではやや成長。マネジメント面での成長があり、この点数。", "_grow_factor": "特段なし。"}, {"name": "河野浩樹", "dept": "", "role": "", "recruit_type": "公募", "motivation": "", "skills": {"leadership": 2, "communication": 2, "problem_solving": 2, "creativity": 2, "teamwork": 2}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 8.0, "grow": 8.0, "rec": null, "fun": 5.0}], "_grow_skill": "", "_challenge_skill": "", "_challenge_will": "", "_leader": "", "_step": "", "_sat_comment": "", "_grow_comment": "", "_grow_factor": ""}], "10": [{"name": "塩田昂明", "dept": "", "role": "", "recruit_type": "公募", "motivation": "", "skills": {"leadership": 2, "communication": 2, "problem_solving": 2, "creativity": 2, "teamwork": 2}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 9.0, "grow": 8.0, "rec": null, "fun": 9.0}], "_grow_skill": "", "_challenge_skill": "", "_challenge_will": "", "_leader": "", "_step": "", "_sat_comment": "", "_grow_comment": "", "_grow_factor": ""}], "11": [{"name": "西岡寛史", "dept": "", "role": "", "recruit_type": "公募", "motivation": "新規事業開発を行う際の構想を考える中で実践する機会になりました。 これまで会社において重要視してきたことは1の仕事を1.1や1.2に改善することで0から1を生み出す経験はしてきませんでした。 今回、NEOで様々な年代、業種の人と自社企業の課題について考える中で社内では考えつかないアイデアが出てきて、", "skills": {"leadership": 3, "communication": 4, "problem_solving": 0, "creativity": 3, "teamwork": 0}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 7.0, "grow": 6.0, "rec": null, "fun": 8.0}], "_grow_skill": "共感する力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "いいえ", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "社会人生活では体験しない研修になりました。", "_grow_comment": "AWARD、実装においてはチームの想いと会社の規定が合わず難しい部分を感じました。", "_grow_factor": "バックボーンが異なる人に対しての対応を考えながら参加しました。"}], "12": [{"name": "緒方伊吹", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "グリッド力です。 何事もやり切るということを学び、それをアカデミア生から感じ取れてすごく刺激を受けました。１つのプロジェクトに対しても熱意を持って、どうやったら成功するか、仮説を繰り返し続け、思考を止めない姿に感銘を受け、自分の業務の中でもいかにクリエイティブに思考するかを常に考えることが当たり前に", "skills": {"leadership": 3, "communication": 4, "problem_solving": 4, "creativity": 3, "teamwork": 3}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 9.0, "rec": null, "fun": 7.0}], "_grow_skill": "質問力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "この経験は当たり前じゃ無いし恵まれてるなと感じてます。", "_grow_comment": "アカデミア生の姿を見てネオに参加する前と卒業したあとでは視座が明らかに高くなってると実感してる。", "_grow_factor": "社外の方とコミュニケーションを取らざるを得ない環境なので、その部分が成長できた"}, {"name": "友田滉己", "dept": "", "role": "", "recruit_type": "公募", "motivation": "", "skills": {"leadership": 0, "communication": 0, "problem_solving": 0, "creativity": 0, "teamwork": 0}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 4.0, "grow": 4.0, "rec": null, "fun": 4.0}], "_grow_skill": "", "_challenge_skill": "", "_challenge_will": "", "_leader": "", "_step": "", "_sat_comment": "", "_grow_comment": "", "_grow_factor": ""}, {"name": "平山美穂", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "Neoのおかげで、幅広いバックグラウンドの仲間を得ることができました。これからも頼り・頼られる仲であり続けたいと思っています。ここでいただいたご縁を、ある意味「図々しく」活用させていただくことが自分の成長につながると思っています。自分が抱え込みかけている業務があるので、積極的に相談し、周りから助けて", "skills": {"leadership": 4, "communication": 4, "problem_solving": 0, "creativity": 0, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 7.0, "grow": 6.0, "rec": null, "fun": 8.0}], "_grow_skill": "共感する力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "貴重な機会をいただき感謝しています。まだまだ良くなると思っています。", "_grow_comment": "Neoをやり切れた、という時点で成長できたと思っています。また、次の成長のために必要なこともNeoで学ばせていただきました。", "_grow_factor": "企業の枠を超えてメンバーと繋がることができたからです。"}], "13": [{"name": "柴尾龍一郎", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "今回、NEO福岡に参加することで、色んな方とお話することができ、コミュニケーション能力も上がったため、今後、所長業務をする中で、ドライバーと会話し、現場の業務改善をすることができると感じる。また、言語化能力も向上したと感じるため、言葉にして色んな方と色んな仕事で繋がっていきたいと思う。", "skills": {"leadership": 4, "communication": 4, "problem_solving": 2, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 9.0, "grow": 8.0, "rec": null, "fun": 9.0}], "_grow_skill": "伝える力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "今回、NEO福岡を通して自分自身を見つめ直す機会を貰った。", "_grow_comment": "今回、NEO福岡を通じて限界に挑むことができた。", "_grow_factor": "NEO福岡で色んな方とお話することで、対人力が身についた。"}, {"name": "坂井友紀", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "仲間の増やしかた、色んな出会いそしてneo福岡の進め方は勉強になりました。 この中で仲間になった人これからの自分の人生を作って行きたいし仲間の人生も応援したい。 特に自分はエネルギーをもらいました。 そこは本当に感謝してます。 企業として正しいかは分かりませんが僕自信は成長させて頂いたのでこれを会社", "skills": {"leadership": 4, "communication": 4, "problem_solving": 3, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 10.0, "rec": null, "fun": 10.0}], "_grow_skill": "巻き込み力", "_challenge_skill": "共感する力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ5. アカデミア終了後も継続、収益化するプロジェクトを目指し活動している", "_sat_comment": "皆大好きです！", "_grow_comment": "殻をやぶれた", "_grow_factor": "発言ができる環境にあった"}], "14": [{"name": "小野恭敬", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "拡張と収縮があるということを強く意識できる機会になった。自らの仕事を超えた、いわゆるやらなくても企業にとっては悪影響がないことについてどれだけ社会意識を持って進めていくか。それはつまり拡張であり、自分がどこまで既存の仕事とは別にどこまで攻めれるかと、どのラインまで来たら守るか、のラインを想像できた。", "skills": {"leadership": 4, "communication": 4, "problem_solving": 3, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 10.0, "rec": null, "fun": 9.0}], "_grow_skill": "巻き込み力", "_challenge_skill": "共感する力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "最高！時間の拘束も含めて、結果自分のキャパのギリギリを攻めた感じが素晴らしい", "_grow_comment": "仲間もできた、最高", "_grow_factor": "結局、自分のことを自分がでコントロールせねば成長や人からの信頼はないということ"}, {"name": "鎌田敏弘", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "プロジェクトマネジメントの経験。リソースを見つけること、人を巻き込むこと、計画をたてること。仕事の基本だが改めてそこを鍛え直そうと思った。 終わりを描いて、完了させること。小さくても決断をしていくこと。 メンバーへの情報共有。", "skills": {"leadership": 4, "communication": 3, "problem_solving": 4, "creativity": 0, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 5.0, "rec": null, "fun": 10.0}], "_grow_skill": "質問力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "自分の課題に気づかせてくれたところ。社外に仲間と思える人が増えたこと。", "_grow_comment": "アワードあたりから、コミットが薄くなったため。妥協してしまったなぁと思う。", "_grow_factor": "プレゼンや課題を通して、リソースを発見したり提案としてまとめるところ"}, {"name": "亀川将哉", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "自分のNEOでの学びのテーマは、会社の看板を外し、社外のコミュニティでどんな影響力を広げることができるのか、どんなリーダーシップを持てるのか、でした。 これまでは社内で影響力を広げたり、リーダーシップを貼れるかの挑戦をしていたのだが、今回は所属も年齢もバラバラのコミュニティの中でどう動けるのかの腕試", "skills": {"leadership": 2, "communication": 4, "problem_solving": 4, "creativity": 3, "teamwork": 2}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 9.0, "grow": 7.0, "rec": null, "fun": 9.0}], "_grow_skill": "質問力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "出会に感謝！運営事務局の熱量に尊敬！！", "_grow_comment": "委員会活動やプロジェクトなど、まだまだできることがあったが、本業と両立することに躊躇してしまうことがあったため。", "_grow_factor": "一学期の講義後にほぼ毎回懇親会に参加して、いろんな人と話し、関係性を作ることができたから"}], "15": [{"name": "尾塚哲平", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "プロジェクトを通しての経験になるが、改めて企画から実行にうつすということは現場での活動が絶対に必要だと感じましたので、今後は現場スタッフをもっと巻き込んで目的をしっかりと伝えて行きながら活動をしていきます。", "skills": {"leadership": 4, "communication": 4, "problem_solving": 2, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 7.0, "grow": 8.0, "rec": null, "fun": 8.0}], "_grow_skill": "巻き込み力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ2. アカデミア以外(会社や学校で)でこれまでと違う行動をし始めている", "_sat_comment": "業務やプライベートとの両立がある中での活動だったため大変でしたが、学びや出会いがあったので満足しております", "_grow_comment": "振り返りや意味づけの繰り返しにより、普段の業務でも振り返りを行うことを意識するようになったため", "_grow_factor": "多くのアカデミア生と関わることができたため"}, {"name": "井上裕也", "dept": "", "role": "", "recruit_type": "公募", "motivation": "", "skills": {"leadership": 2, "communication": 2, "problem_solving": 2, "creativity": 2, "teamwork": 2}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 7.0, "grow": 7.0, "rec": null, "fun": 7.0}], "_grow_skill": "", "_challenge_skill": "", "_challenge_will": "", "_leader": "", "_step": "", "_sat_comment": "", "_grow_comment": "", "_grow_factor": ""}], "16": [{"name": "畑野元征", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "以下のような、組織の課題解決のプロセスで活かせると感じました。 自分の業務、部署、またはそれより高い視点で、自社の成長に必要なことは何なのか「問いを立てる」こと。 その課題解決に向けて、「人を巻き込み」「チームを作り」「組織を前に動かす」こと。 困難なことがあっても、「笑顔」で「他人をリスペクト」し", "skills": {"leadership": 3, "communication": 4, "problem_solving": 4, "creativity": 3, "teamwork": 3}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 7.0, "grow": 10.0, "rec": null, "fun": 10.0}], "_grow_skill": "伝える力", "_challenge_skill": "質問力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "_sat_comment": "自己の学び（スクール）という観点では非常に満足しています。 一方で、NEOACADEMIAという観点ではスクールとコミュニティの境界が曖昧で、儀式的な行為など、強制的にコミュニティの活動に参加させられている感覚があったのが不快でした。 また", "_grow_comment": "一番大きかったのは学びのプロセスを実体験をもとに学ぶことができたことです。 事象を客観視して、抽象化し、自身の解釈で「学びに変換する力」と自分が働きかけ、環境を変え、それをもとに「自己を変革する力」。この重要な2つの力を心の底から理解、実践", "_grow_factor": "少人数でのプロジェクトということで、自分が動かないと物事が前に進まない状況であったため。 また、ビジョン（目標）に対して強く共感をしており、自社を変えたいと強く思っていたため。"}, {"name": "牛島由佳理", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "新しいことに挑戦する機会を逃さない、躊躇を乗り越える大切さを仕事でも活かしたい。 どうしても売上、利益ばかり考えてしまう為、躊躇する部分があるが、今後はバイヤーとして新しいことにどんどんチャレンジして会社に還元したい。", "skills": {"leadership": 3, "communication": 5, "problem_solving": 3, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 7.0, "grow": 10.0, "rec": null, "fun": 8.0}], "_grow_skill": "傾聴力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ5. アカデミア終了後も継続、収益化するプロジェクトを目指し活動している", "_sat_comment": "楽しく学ぶことができました。", "_grow_comment": "前向きになれた", "_grow_factor": "プロジェクトを通して自分自身が成長できた"}], "17": [{"name": "鈴木和奏", "dept": "", "role": "", "recruit_type": "公募", "motivation": "仕事として物事を進める力に活かせると感じています。ワークショップでは、決められた期間の中でアイデアを出し合い、方向性を決めながら進める経験が多くありました。普段の仕事でも、限られた時間の中で判断しながら進める場面は多いため、そうした経験を今後の仕事にも活かしていきたいと思っています。", "skills": {"leadership": 0, "communication": 5, "problem_solving": 0, "creativity": 3, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 6.0, "grow": 4.0, "rec": null, "fun": 9.0}], "_grow_skill": "傾聴力", "_challenge_skill": "伝える力", "_challenge_will": "はい", "_leader": "いいえ", "_step": "ステップ2. アカデミア以外(会社や学校で)でこれまでと違う行動をし始めている", "_sat_comment": "活動自体はとても楽しく、普段関わることのない人たちとプレイフルに課題に取り組めたことは良い経験でした。ただ、学びの内容はマインド面に寄っている部分が多く、実際の仕事にどう活かすかという点では人によると感じました。そのため、楽しさは大きかった", "_grow_comment": "これまで一人で制作することは多かったのですが、NEOでは初めて会う人たちとチームで課題に取り組み、最後までやりきる経験ができました。そうした意味では新しい経験にはなりましたが、大きくスキルが変わったというよりは、新しい取り組み方を体験できた", "_grow_factor": "決められた期間の中で物事を進めていく必要があり、期限内に判断しながら進めていく経験が多くありました。その中で、意見をまとめながら方向性を決めて進めるなど、仕事として物事を進めていく力が成長したと感じています。"}], "18": [{"name": "SamuelImanishimwe", "dept": "", "role": "", "recruit_type": "公募", "motivation": "", "skills": {"leadership": 0, "communication": 0, "problem_solving": 0, "creativity": 0, "teamwork": 0}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 7.0, "grow": 6.0, "rec": null, "fun": 8.0}], "_grow_skill": "", "_challenge_skill": "", "_challenge_will": "", "_leader": "", "_step": "", "_sat_comment": "", "_grow_comment": "", "_grow_factor": ""}], "20": [{"name": "峯達哉", "dept": "", "role": "", "recruit_type": "公募", "motivation": "", "skills": {"leadership": 2, "communication": 2, "problem_solving": 2, "creativity": 2, "teamwork": 2}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 6.0, "grow": 7.0, "rec": null, "fun": 5.0}], "_grow_skill": "", "_challenge_skill": "", "_challenge_will": "", "_leader": "", "_step": "", "_sat_comment": "", "_grow_comment": "", "_grow_factor": ""}, {"name": "牛嶋香莉", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "NEO AWARDで得たAIの実践的理解と課題解決プロセスの習熟は、日々の業務改善や新しい仕組みづくりに直結すると考えています。業務の中にある課題をゼロベースで見直し、「AIをどう活用すれば効率化や新たな価値創造ができるか」を自ら企画・実装していきたいです。", "skills": {"leadership": 4, "communication": 4, "problem_solving": 2, "creativity": 2, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 8.0, "rec": null, "fun": 10.0}], "_grow_skill": "共感する力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "半年間の参加でしたが、非常に濃い時間でした。 NEO福岡に参加することで、人脈の獲得や自己成長につなげることが出来、貴重な経験をすることが出来ました。", "_grow_comment": "アカデミアを通して、企画力や推進力など様々な力を身に付けることができたため", "_grow_factor": "ACADEMIAでは業種も年齢も全く異なる方たちと関わることがほとんどだったため、関係を深めるためにチーム内でのコミュニケーションを意識して行動していた。"}], "21": [{"name": "森永愛弓", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "NEOに参加して一番初めに驚いたことはコミュニティが心理的安全性を保たれた状態で、皆が活発に行動・発言していることでした。今までの自分は、自分にできる範囲で物事を考える癖がついてしまっていたため、自分の能力や経験にとらわれず意見を発信する受講生から学びを得ました。できる条件がそろってからではなく、や", "skills": {"leadership": 4, "communication": 4, "problem_solving": 2, "creativity": 2, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 7.0, "rec": null, "fun": 10.0}], "_grow_skill": "共感する力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "なんとかイベントも終えることができ、やり切った感があります。福岡の大企業の方ともお話する機会がたくさんあり楽しみながら参加できました。", "_grow_comment": "AIを使って合説イベントのワークシートを作成するなど、今までしてこなかった経験をすることができた。イベントの立ち上がりを知ることができた。", "_grow_factor": "お酒学のイベントを実施までやり切ったこと"}], "23": [{"name": "小嶺岬夕", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "1.業務を作業ではなく、意義をもって取り組む姿勢に変わりました。常に目的意識を持って、誰にどんな影響が出るかを捉えるようになりました。 2.人を頼る姿勢。自分1人で問題を抱える癖がありましたが、最近は1on1を依頼したり自分から質問したりなどチームメンバーとの距離も縮まり関わり方も変化している 3.", "skills": {"leadership": 3, "communication": 4, "problem_solving": 4, "creativity": 3, "teamwork": 3}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 10.0, "grow": 10.0, "rec": null, "fun": 10.0}], "_grow_skill": "伝える力", "_challenge_skill": "質問力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "_sat_comment": "全てを通して非常に良い経験ができました！！ここで終わらせず社内に持ち帰ります！", "_grow_comment": "視座や考え方が大きく変わりました！", "_grow_factor": "自分でビジネスをゼロから企画し提案する過程を経験できたことが大きいです。また、それを実行に移すためにマッチデイにてブース出店するなど実施することができました。"}, {"name": "園田朱莉", "dept": "", "role": "", "recruit_type": "選抜", "motivation": "普段の営業業務では、既存のビジネスの更改など過去に必ず例があるビジネスしか経験がなかった。NEOでは、0→1のビジネスを初めて経験し、愚直な取組や他人の巻き込み方、責任を持ってやり抜くことがいかに重要かを学ぶことができた。自分たちの取組だけでなく、他のチームの取組に参加することで、より刺激的に学ぶこ", "skills": {"leadership": 4, "communication": 3, "problem_solving": 4, "creativity": 2, "teamwork": 4}, "lecture_surveys": [], "term_surveys": [{"term": "q3", "sat": 9.0, "grow": 8.0, "rec": null, "fun": 9.0}], "_grow_skill": "質問力", "_challenge_skill": "巻き込み力", "_challenge_will": "はい", "_leader": "はい", "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "_sat_comment": "会社の本業がある中、プレイフルに取り組むことができた！", "_grow_comment": "新しい環境に身を置き、プレイフルに活動できた。", "_grow_factor": "アワードの提案。発表の際や意見を言う際、どうすれば相手に想いが伝わるか？を常に考え、自分の仕事にもその考えを持ち帰ることができた。"}]};
+  let count = 0;
+  for(const [coNo, members] of Object.entries(surveyData)){
+    const key = 'members_info_'+coNo;
+    const existing = LS.getArr(key);
+    if(existing.length === 0){
+      // まだ登録がない場合のみ自動投入
+      LS.setArr(key, members);
+      count += members.length;
+      console.log('[initMembers] 企業No.'+coNo+': '+members.length+'名を投入');
+    }
+  }
+  if(count > 0) toast('🎓 '+count+'名の選抜生データを自動登録しました');
 }
 
 function toggleCoEdit(no){
