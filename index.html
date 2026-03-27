@@ -294,6 +294,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
     <div class="nav-tab" id="ntab-milestone" onclick="switchMainTab('milestone')">🗓 マイルストーン</div>
     <div class="nav-tab" id="ntab-board" onclick="switchMainTab('board')">📌 ボードビュー</div>
   </div>
+  <!-- 同期インジケーター -->
+  <div style="display:flex;align-items:center;gap:6px;padding:0 10px;flex-shrink:0">
+    <span id="sync-indicator" style="font-size:9px;color:#64748b;white-space:nowrap;cursor:pointer"
+      onclick="REALTIME_SYNC.forceSync()" title="クリックで手動同期">● オフ</span>
+  </div>
   <!-- グローバルフィルター + 年度切り替え -->
   <div style="display:flex;align-items:center;gap:4px;padding:0 10px;border-left:1px solid rgba(255,255,255,.15);flex-shrink:0">
     <span style="font-size:9px;color:rgba(255,255,255,.5);white-space:nowrap;margin-right:2px">表示</span>
@@ -918,6 +923,117 @@ function updateFiscalYearUI(){
     btn.style.fontWeight = active ? '700' : '400';
   });
 }
+
+// ━━━ リアルタイム同期（ポーリング方式） ━━━
+
+const REALTIME_SYNC = {
+  _timer: null,
+  _lastSync: Date.now(),
+  _INTERVAL: 10000,  // 10秒ごとに同期
+
+  start(){
+    if(this._timer) return;
+    this._timer = setInterval(() => this._sync(), this._INTERVAL);
+    // 同期インジケーターを表示
+    this._updateIndicator('active');
+    console.log('[sync] 自動同期開始（10秒間隔）');
+  },
+
+  stop(){
+    if(this._timer){ clearInterval(this._timer); this._timer = null; }
+    this._updateIndicator('off');
+  },
+
+  async _sync(){
+    if(!currentUser) return;  // 未ログインはスキップ
+    try {
+      const data = await LSdb._call({action:'all'});
+      if(!data?.rows) return;
+
+      let updated = 0;
+      const changedKeys = [];
+
+      data.rows.forEach(({key, value}) => {
+        const localRaw  = localStorage.getItem('neo_ps_'+key);
+        const remoteStr = JSON.stringify(value);
+        if(localRaw !== remoteStr){
+          // 現在書き込み中のキーは上書きしない
+          if(LSdb._saving[key]) return;
+          localStorage.setItem('neo_ps_'+key, remoteStr);
+          changedKeys.push(key);
+          updated++;
+        }
+      });
+
+      if(updated > 0){
+        console.log('[sync] 同期更新:', changedKeys);
+        this._applyChanges(changedKeys);
+      }
+
+      this._lastSync = Date.now();
+      this._updateIndicator('active');
+    } catch(e){
+      console.warn('[sync] 同期エラー:', e.message);
+      this._updateIndicator('error');
+    }
+  },
+
+  _applyChanges(changedKeys){
+    const tab = window.currentMainTab || 'overview';
+    const needsRefresh = changedKeys.some(k =>
+      k.startsWith('onbo_') || k.startsWith('ms_') ||
+      k.startsWith('co_info_') || k.startsWith('contacts_') ||
+      k.startsWith('members_info_')
+    );
+    if(!needsRefresh) return;
+
+    // 現在のタブに応じて再描画
+    if(tab === 'overview')            { renderOverview(); return; }
+    if(tab === 'onboarding-all')      { renderOnboardingAll(); return; }
+    if(tab === 'milestone')           { renderMilestonePage(); return; }
+    if(tab === 'board')               { renderBoard(); return; }
+
+    // 企業カルテ系は通知バナーを表示
+    const relevantCoKeys = changedKeys.filter(k =>
+      k.startsWith('onbo_') || k.startsWith('contacts_') ||
+      k.startsWith('co_info_') || k.startsWith('members_info_')
+    );
+    if(relevantCoKeys.length > 0) {
+      this._showBanner(relevantCoKeys);
+    }
+  },
+
+  _showBanner(keys){
+    const existing = document.getElementById('sync-banner');
+    if(existing) { existing._count = (existing._count||1)+1; existing.querySelector('.sync-count').textContent = existing._count+'件更新'; return; }
+    const el = document.createElement('div');
+    el.id = 'sync-banner';
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;background:linear-gradient(135deg,#0f766e,#0891b2);color:#fff;padding:12px 18px;border-radius:10px;font-size:12px;font-weight:700;z-index:9998;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);cursor:pointer;max-width:320px';
+    el.innerHTML = `<span style="font-size:18px">🔄</span><div><div>他のユーザーがデータを更新しました</div><div class="sync-count" style="font-size:10px;opacity:.8;margin-top:2px">1件更新 — クリックで再読み込み</div></div>`;
+    el.onclick = () => { window.location.reload(); };
+    document.body.appendChild(el);
+    setTimeout(() => { el.remove(); }, 10000);
+  },
+
+  _updateIndicator(status){
+    const el = document.getElementById('sync-indicator');
+    if(!el) return;
+    const map = {
+      active: {color:'#34d399', text:'● 同期中'},
+      error:  {color:'#f87171', text:'● エラー'},
+      off:    {color:'#64748b', text:'● オフ'},
+    };
+    const s = map[status] || map.off;
+    el.style.color = s.color;
+    el.textContent = s.text;
+  },
+
+  // 手動同期
+  async forceSync(){
+    await this._sync();
+    toast('🔄 同期しました');
+  }
+};
 
 const ONBO_PHASES=[
 {id:'p1',title:'① 契約ウェルカムフェーズ',color:'#1a56db',tasks:['企業からの内諾','営業からの引継','引継挨拶','契約関連情報確認','請求関連情報確認','契約手続き開始','契約締結・入金確認']},
@@ -5578,11 +5694,15 @@ function onLoginSuccess(user){
   // グローバルユーザー選択を現在のユーザーに設定
   setCurrentUser(user.email);
 
+  // リアルタイム同期を開始
+  REALTIME_SYNC.start();
+
   console.log('[auth] ログイン成功:', user.email, '権限:', user.role);
 }
 
 function signOut(){
   currentUser = null;
+  REALTIME_SYNC.stop();
   localStorage.removeItem('neo_ps_current_user');
   const overlay = document.getElementById('login-overlay');
   if(overlay) overlay.style.display = 'flex';
