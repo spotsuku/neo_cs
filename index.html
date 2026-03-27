@@ -3395,45 +3395,74 @@ function deleteMemberWithBackup(no, mi){
 
 function showMemberRestoreDialog(){
   if(!currentUser){ toast('⚠ ログインが必要です'); return; }
-  const backups = LS.getArr('members_deleted_backup');
 
-  // COMPANIES マップ
+  const backups = LS.getArr('members_deleted_backup');
   const coMap = {};
   COMPANIES.forEach(c => coMap[c.no] = c.short);
 
-  const rows = backups.length > 0
-    ? backups.map((b, i) => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
-            <span style="font-size:13px;font-weight:700;color:var(--t1)">${esc(b.data?.name||'不明')}</span>
-            <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--accent-lt);color:var(--accent)">${esc(coMap[b.no]||'No.'+b.no)}</span>
-            <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--td)">${esc(b.fy||'')}年度</span>
-          </div>
-          <div style="font-size:10px;color:var(--td)">
-            削除: ${esc(b.deleted_by)} ／ ${esc(b.deleted_at)}
-          </div>
-        </div>
-        <button onclick="restoreMember(${i})"
-          style="padding:6px 16px;background:var(--ok);color:#fff;border:none;border-radius:6px;
-            font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
-          ↩ 復元
-        </button>
-      </div>`)
-      .join('')
-    : '<div style="padding:32px;text-align:center;color:var(--td);font-size:13px">削除済みの選抜生はありません</div>';
+  // DOM APIで構築
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'onbo-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
+    document.body.appendChild(overlay);
+  }
 
-  showModal(`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div>
-        <div style="font-size:16px;font-weight:700">↩ 削除済み選抜生の復元</div>
-        <div style="font-size:11px;color:var(--td);margin-top:2px">最大50件まで保持されます</div>
-      </div>
-      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
-    </div>
-    <div style="max-height:60vh;overflow-y:auto">${rows}</div>
-  `, '540px');
+  // モーダル外枠
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--surface);border-radius:14px;padding:24px;width:540px;max-width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)';
+
+  // ヘッダー
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px';
+  header.innerHTML = '<div><div style="font-size:16px;font-weight:700">↩ 削除済み選抜生の復元</div><div style="font-size:11px;color:var(--td);margin-top:2px">最大50件まで保持されます</div></div>';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)';
+  closeBtn.onclick = closeModal;
+  header.appendChild(closeBtn);
+  box.appendChild(header);
+
+  // リスト
+  const list = document.createElement('div');
+  if(backups.length === 0){
+    list.style.cssText = 'padding:40px;text-align:center;color:var(--td);font-size:13px';
+    list.textContent = '削除済みの選抜生はありません';
+  } else {
+    backups.forEach((b, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)';
+
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1';
+      info.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          <span style="font-size:13px;font-weight:700;color:var(--t1)">${esc(b.data?.name||'不明')}</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--accent-lt);color:var(--accent)">${esc(coMap[b.no]||'No.'+b.no)}</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--td)">${esc(b.fy||'')}年度</span>
+        </div>
+        <div style="font-size:10px;color:var(--td)">削除: ${esc(b.deleted_by||'—')} ／ ${esc(b.deleted_at||'—')}</div>
+      `;
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.textContent = '↩ 復元';
+      restoreBtn.style.cssText = 'padding:6px 16px;background:var(--ok);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0';
+      restoreBtn.onclick = () => restoreMember(i);  // クロージャで i を正確にキャプチャ
+
+      row.appendChild(info);
+      row.appendChild(restoreBtn);
+      list.appendChild(row);
+    });
+  }
+  box.appendChild(list);
+
+  overlay.innerHTML = '';
+  overlay.appendChild(box);
+  overlay.style.display = 'flex';
 }
+
 
 function restoreMember(backupIdx){
   const backups = LS.getArr('members_deleted_backup');
