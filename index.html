@@ -458,7 +458,7 @@ function removeCustomMs(no, msId){
   // オーバーライドも削除
   const ov = getMsOverrides(no);
   delete ov[msId];
-  LS.set('ms_overrides_'+no, ov);
+  LS.set(fyKey('ms_overrides_'+no), ov);
 }
 
 const CAREER_DATA = {"n_total": 68, "n_student": 24, "n_worker": 49, "student": [{"label": "起業", "icon": "🚀", "color": "#f43f5e", "count": 11}, {"label": "福岡外就職", "icon": "✈️", "color": "#8b5cf6", "count": 9}, {"label": "地元企業", "icon": "🏙️", "color": "#1a56db", "count": 8}, {"label": "NEO事務局", "icon": "⭐", "color": "#059669", "count": 6}, {"label": "NEO会員企業", "icon": "🤝", "color": "#0891b2", "count": 6}], "worker": [{"label": "社内リーダー", "icon": "👑", "color": "#1a56db", "count": 25}, {"label": "部署横断PJ", "icon": "🔗", "color": "#059669", "count": 24}, {"label": "独立・起業", "icon": "🚀", "color": "#f43f5e", "count": 12}, {"label": "社内ベンチャー", "icon": "💡", "color": "#f59e0b", "count": 9}, {"label": "MBA・スクール", "icon": "📚", "color": "#7c3aed", "count": 7}], "comments": [{"text": "地元が大好きで、現地で貢献していきたいと考えております!", "type": "student"}, {"text": "上層部の方々と同じ目線でお仕事をしてみたい", "type": "worker"}, {"text": "自分の事業をもっと伸ばしていきたい", "type": "worker"}, {"text": "自社のイントレプレナーに挑戦していきたいと感じてます。まだ事業案などは無いが何かしらチャレンジできたらと思ってます。", "type": "worker"}, {"text": "社内でプロジェクトを立ち上げたい", "type": "worker"}, {"text": "実際にネオに入った後にグロービス経営大学院に入学し、今社内事業化の提案書を作成している", "type": "worker"}, {"text": "ブルーカラーの魅力を伝え、地位を上げられるような事業を作りたい", "type": "worker"}, {"text": "幅広い知識を身につけて組織を牽引できる人財なりたいと思います。", "type": "student"}, {"text": "1年は、広島のデニムを学びに行く。遠隔でイオンさんのプロジェクトを続けていく。", "type": "student"}, {"text": "0から1を作り出す面白さを知り、これから社内のプレイフルリーダーとなりたい。", "type": "worker"}, {"text": "今後社内で新規事業を立ち上げたい。", "type": "worker"}, {"text": "今よりもっと規模の大きなプロジェクト、事業を動かせるようになりたい", "type": "worker"}, {"text": "お硬い慣習を良い意味で覆す", "type": "student"}, {"text": "グループ会社も増えている中でその仕事を任せられるような人間になりたい。そのためにさらなる磨きをかけていく。", "type": "worker"}, {"text": "特段ない。迷うことなくゼネラリストとしての道を歩んでいきたい。", "type": "worker"}, {"text": "会社の新規事業提案プログラムに挑戦する。", "type": "worker"}, {"text": "これまでの地方創生の経験を活かして、五島列島の宇久島で観光協会で働きます。島に関係人口を増やす挑戦をしていきます。", "type": "student"}, {"text": "まずは社内リーダーを行い、NEOで関わった企業を巻き込んでいきたい", "type": "worker"}, {"text": "衣食住の暮らしに寄り添い、人々の生活を彩り豊かにするような仕事がしたい。自分がまずイキイキして、その幸せを他の人に分け与えられるような人になりたい。", "type": "student"}, {"text": "元々から決めていたこと", "type": "student"}, {"text": "自分の理想とする地域像が言語化できてきたところなのでどうすれば具体に落とし込めるかを考えて動いていきたい。", "type": "student"}, {"text": "実行力、責任力がある事業部のトップになれるように成長したい。", "type": "worker"}, {"text": "NEOに入って同世代の仲間や大人の方とたくさん話す中で自分のやりたいことが明確になった気がしています。もともと福岡で働きたいという思いがあったのですが、もっと違う世界も見てみたいなと思ってます。", "type": "student"}, {"text": "代表目指します", "type": "worker"}, {"text": "自分で責任を負う経験をしにいく。", "type": "worker"}, {"text": "neoでの1年間で人生の時間軸が縮まったように感じている。35歳くらいで、興味分野の農業や街づくりを軸に開発地域で起業しようと思っていたが、この半年で事業への仮説を立てて、25歳より前に起業して事業をやる。", "type": "student"}, {"text": "ビジネススキルを高めるため・仲間づくりのためにMBA取得(QBS入学)が次の目標です。", "type": "worker"}, {"text": "今持ってるインターンシップ事業を更に拡大させて地域の教育文化を変えること、地域の中で価値のあるコミュニティとしていくことがこれからのコミットメントです！", "type": "worker"}, {"text": "既に行なっている、ヨーロッパ野球留学プログラムに加え、海外選手を日本に受け入れるプログラムを行っていきます。\n加えて、共感型消費を促すことのできるプラットフォーム創りにも挑戦していきます。", "type": "student"}, {"text": "マーケティング業、観光業", "type": "student"}, {"text": "今の自分自身のビジョンの実現、これは変わらずもっとスピード持ってやっていく。\nそれが自分の会社のビジョンにも繋がるし、それがこの世界を変えるものになると信じている。\n思想や構想はより固まった。挑戦をより推進した上で、リーダーとして立って、自らの声と行動で変えていきたい", "type": "worker"}, {"text": "クリエイティブディレクター目指します", "type": "student"}, {"text": "まずは、チャレパでやり残した課題を、地域の方や大学生と連携して、確実に福岡にeスポーツの文化を広げていきたい。", "type": "worker"}, {"text": "NEOで学んだことを会社に還元し、部署横断で活躍できる人材となりたいため。", "type": "worker"}, {"text": "NEOに就職するまでの1年でリーダーとして引っ張っていく経験をし、来年には事業を任せてもらえるほどの人間になります。", "type": "student"}, {"text": "まだ具体的には定まっていませんが、福岡の魅力を発信しながら、若者が自分のやりたいことを見つけ挑戦できる、そんな街を作っていきたいと考えています。", "type": "student"}, {"text": "会社の広報に関わりたいと会社に伝えました。", "type": "worker"}, {"text": "今回生まれた事業計画を事業化して自分がオーナーシップを取っていく形を実現します", "type": "student"}, {"text": "今も2人ですが、一つのビジネスを推進する立場ですので、この事業を拡大して10名規模くらいにしたい", "type": "worker"}, {"text": "匠ギャラリーで、福岡の伝統工芸、産地、県を巻き込んでプロジェクト/イベントを作る\n\n福岡の文化、伝統を海外に販売する事業に挑戦する（KBCさんの新規事業と絡めて、インド/インドネシアなど）", "type": "worker"}, {"text": "3年目までにPLを務める", "type": "worker"}, {"text": "会社、役職関係なく様々なところで影響力を発揮し、リーダーシップを貼れる人でありたい。\nそのために具体的に何をするかはその時次第。", "type": "worker"}, {"text": "事業推進力が不足していると思いますので、もっと分析し、観察して、判断し、強い事業部にしていきます。", "type": "worker"}, {"text": "自部署の業務である商品企画室でのマネジメント業務、リーダー業務、そして社内のイベント業務のリーダーでNEOで学んだことを活かしていきます。また今期は新人育成の責任も会社で任されているためNEOのようにチャレンジを楽しむ人材を育てていきます。", "type": "worker"}, {"text": "まだ未定ですが、食の分野で課題解決につながるようなこと、人の健康の支えになることをやりたいです。", "type": "worker"}, {"text": "自身の戦略性やITスキルを活かしながら、自社が長期的に選ばれる企業になるために、本質的な取り組みを組織を動かして実行できる人間になっていきます。", "type": "worker"}, {"text": "ITやAIを題材としたもの", "type": "worker"}, {"text": "スポーツクラブまたはマーケティングができる企業にインターンを行い、就職したいと考えています。", "type": "student"}, {"text": "株式会社JAFAN（ジャファン）は売却の方向で進めているが、もう一度自分の会社（本社:佐賀）を立ち上げ、より「資本主義の歪み」にアプローチできる事業をしたい気持ちは変わっていないので、それを成し遂げた後に、\n「きほさんってネオアカデミアの1期生なんだ！」と言われるよう精進します。", "type": "worker"}, {"text": "場所や人を巻き込まないと地域課題解決は困難なため、横断的にプロジェクトに参加することを決めました。NEOで学んだことを活かしています。", "type": "worker"}, {"text": "具体策はこれから検討になります。", "type": "worker"}, {"text": "新たな分野を勉強することに面白みを感じている為", "type": "worker"}, {"text": "今の経験でやり切りたいと思う領域に気づいて、最短ルートで向かう。", "type": "student"}, {"text": "まだ具体的な内容は決まっていないが、農学に関して、より深く学びたいと思うようになった。この10ヶ月で、圧倒的な深い知識を得ることも感じており、私の中では農学をその対象に置きたい。", "type": "student"}, {"text": "西日本シティ銀行のAIプロジェクトのPM", "type": "worker"}, {"text": "グロービス等の通常の研修に参加したい", "type": "worker"}, {"text": "NEOで学んだプロジェクト推進力を活かして社内のリーダーになりたい", "type": "worker"}, {"text": "博運社内でキャリアアップしたい", "type": "worker"}, {"text": "ソフトバンク株式会社に4月から入社いたします。\nまだ確定ではないのですが、社長直下の本部にてソブリンAIを用いて外資・外貨に負けない日本をつくるために全力で取り組みます。", "type": "student"}, {"text": "NEO ACADEMIAを通して学んだ企画・実装力を更に学んでいけると感じるため", "type": "worker"}]};
@@ -481,7 +481,7 @@ const MS_STATUS_OPTIONS = [
 ];
 
 function getMsOverrides(no){
-  return LS.get('ms_overrides_'+no) || {};
+  return LS.get(fyKey('ms_overrides_'+no)) || {};
 }
 function getMsStatus(no, msId){
   const ov = getMsOverrides(no);
@@ -494,7 +494,7 @@ function getMsStatus(no, msId){
 function setMsStatus(no, msId, status, rawLabel){
   const ov = getMsOverrides(no);
   ov[msId] = {status, raw:rawLabel};
-  LS.set('ms_overrides_'+no, ov);
+  LS.set(fyKey('ms_overrides_'+no), ov);
 }
 function getMsForCompany(no){
   const d = MILESTONE_DATA.by_no[String(no)];
@@ -623,7 +623,7 @@ function saveMsEdit(no, msId, field, value){
     ov[msId] = {...base};
   }
   ov[msId][field] = value;
-  LS.set('ms_overrides_'+no, ov);
+  LS.set(fyKey('ms_overrides_'+no), ov);
 }
 
 // カスタムマイルストーンのフィールドも更新
@@ -778,25 +778,25 @@ function setCurrentUser(id){
 
 // ③ フェーズ名編集
 function getPhaseName(phaseId){
-  const names = LS.get('onbo_phase_names');
+  const names = LS.get(fyKey('onbo_phase_names'));
   const phase = ONBO_PHASES.find(p=>p.id===phaseId);
   return names[phaseId] || phase?.title || phaseId;
 }
 
 function savePhaseName(phaseId, name){
-  const names = LS.get('onbo_phase_names');
+  const names = LS.get(fyKey('onbo_phase_names'));
   names[phaseId] = name.trim() || ONBO_PHASES.find(p=>p.id===phaseId)?.title || phaseId;
   // LocalStorageに即時保存
-  localStorage.setItem('neo_ps_onbo_phase_names', JSON.stringify(names));
+  localStorage.setItem('neo_ps_'+fyKey('onbo_phase_names'), JSON.stringify(names));
   // SupabaseにもdebounceなしでAPIを直接呼んで確実に保存
-  LSdb._call({key:'onbo_phase_names', value:names})
+  LSdb._call({key:fyKey('onbo_phase_names'), value:names})
     .then(r=>{ if(r) console.log('[phaseName] Supabase保存OK:', phaseId, names[phaseId]); })
     .catch(e=>console.warn('[phaseName] 保存失敗:', e.message));
 }
 
 // ④ 変更ログ
 function addOnboLog(no, taskId, taskLabel, from, to){
-  const logs = LS.getArr('onbo_log_'+no);
+  const logs = LS.getArr(fyKey('onbo_log_'+no));
   // Googleログインユーザーを使用
   const fromState = getCheckState(from);
   const toState   = getCheckState(to);
@@ -812,18 +812,18 @@ function addOnboLog(no, taskId, taskLabel, from, to){
     ts: new Date().toLocaleString('ja-JP'),
   });
   // 最大50件
-  LS.setArr('onbo_log_'+no, logs.slice(0, 50));
+  LS.setArr(fyKey('onbo_log_'+no), logs.slice(0, 50));
 }
 
 // ⑤ コメント保存
 function saveOnboComment(no, taskId, comment){
-  const meta = LS.get('onbo_meta_'+no);
+  const meta = LS.get(fyKey('onbo_meta_'+no));
   if(!meta[taskId]) meta[taskId] = {};
   meta[taskId].comment = comment;
   meta[taskId].comment_ts = new Date().toLocaleString('ja-JP');
   // Googleログインユーザーの名前を使用
   meta[taskId].comment_user = currentUser?.name || currentUser?.email || '—';
-  LS.set('onbo_meta_'+no, meta);
+  LS.set(fyKey('onbo_meta_'+no), meta);
 }
 
 // ⑥ 三段階チェック切り替え（0→1→2→0）
@@ -846,12 +846,12 @@ function cycleOnboCheck(no, taskId, taskLabel){
 
 // ⑦ 担当者設定
 function saveOnboOwner(no, taskId, ownerId){
-  const meta = LS.get('onbo_meta_'+no);
+  const meta = LS.get(fyKey('onbo_meta_'+no));
   if(!meta[taskId]) meta[taskId] = {};
   // ownerId はメールアドレス、owner は表示名
   meta[taskId].owner   = currentUser?.name || currentUser?.email || ownerId;
   meta[taskId].ownerId = ownerId || currentUser?.email || '';
-  LS.set('onbo_meta_'+no, meta);
+  LS.set(fyKey('onbo_meta_'+no), meta);
 }
 
 // ━━━ グローバルフィルター & 年度管理 ━━━
@@ -1582,16 +1582,16 @@ function getOnboLabel(no, taskId){
 
 // タスクのメタ情報（担当・期日）を取得
 function getOnboMeta(no, taskId){
-  const meta = LS.get('onbo_meta_'+no);
+  const meta = LS.get(fyKey('onbo_meta_'+no));
   return meta[taskId] || {owner:'', due:''};
 }
 
 // タスクのメタ情報を保存
 function saveOnboMeta(no, taskId, field, value){
-  const meta = LS.get('onbo_meta_'+no);
+  const meta = LS.get(fyKey('onbo_meta_'+no));
   if(!meta[taskId]) meta[taskId] = {owner:'', due:''};
   meta[taskId][field] = value;
-  LS.set('onbo_meta_'+no, meta);
+  LS.set(fyKey('onbo_meta_'+no), meta);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1599,7 +1599,7 @@ function saveOnboMeta(no, taskId, field, value){
 // LS key: 'onbo_tasks_PHASEID' = {list:[{id,label}]}
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function getGlobalTasks(phaseId){
-  const saved = LS.get('onbo_tasks_'+phaseId);
+  const saved = LS.get(fyKey('onbo_tasks_'+phaseId));
   if(saved && Array.isArray(saved.list) && saved.list.length > 0){
     return saved.list;
   }
@@ -1612,12 +1612,12 @@ function addGlobalTask(phaseId, label){
   if(!label) return;
   const tasks = getGlobalTasks(phaseId);
   tasks.push({id:phaseId+':custom:'+Date.now(), label});
-  LS.set('onbo_tasks_'+phaseId, {list:tasks});
+  LS.set(fyKey('onbo_tasks_'+phaseId), {list:tasks});
 }
 
 function deleteGlobalTask(phaseId, taskId){
   const tasks = getGlobalTasks(phaseId).filter(t=>t.id!==taskId);
-  LS.set('onbo_tasks_'+phaseId, {list:tasks});
+  LS.set(fyKey('onbo_tasks_'+phaseId), {list:tasks});
   COMPANIES.forEach(c=>{
     const done = LS.get(fyKey('onbo_'+c.no));
     if(done[taskId]!==undefined){ delete done[taskId]; LS.set('onbo_'+c.no, done); }
@@ -1629,7 +1629,7 @@ function renameGlobalTask(phaseId, taskId, newLabel){
   if(!newLabel) return;
   const tasks = getGlobalTasks(phaseId);
   const t = tasks.find(t=>t.id===taskId);
-  if(t){ t.label = newLabel; LS.set('onbo_tasks_'+phaseId, {list:tasks}); }
+  if(t){ t.label = newLabel; LS.set(fyKey('onbo_tasks_'+phaseId), {list:tasks}); }
 }
 
 function getOnboTasks(no, phaseId){
@@ -3448,7 +3448,7 @@ function restoreMember(backupIdx){
 }
 
 function renderThemeTab(no){
-  const saved = LS.get('theme_'+no);
+  const saved = LS.get(fyKey('theme_'+no));
   const checked  = saved.checked  || '';   // '' | 'ok' | 'ng' | 'review'
   const adminComment = saved.admin_comment || '';
   const division = saved.division || '';   // '新規事業創出型' | '既存事業リニューアル型'
@@ -3678,27 +3678,27 @@ function renderThemeTab(no){
 }
 
 function saveThemeField(no, field, value){
-  const d = LS.get('theme_'+no);
+  const d = LS.get(fyKey('theme_'+no));
   d[field] = value;
   if(field==='admin_comment') d.admin_updated = new Date().toLocaleString('ja-JP');
-  LS.set('theme_'+no, d);
+  LS.set(fyKey('theme_'+no), d);
 }
 
 function saveThemeAll(no){
-  const d = LS.get('theme_'+no);
+  const d = LS.get(fyKey('theme_'+no));
   const fields = ['title','summary','who','pain','what','result','impl','resource','after'];
   fields.forEach(f=>{
     const el = document.getElementById('theme-'+f+'-'+no);
     if(el) d[f] = el.value;
   });
-  LS.set('theme_'+no, d);
+  LS.set(fyKey('theme_'+no), d);
   toast('💾 出題テーマを保存しました');
 }
 
 function saveThemeChecked(no, val){
-  const d = LS.get('theme_'+no);
+  const d = LS.get(fyKey('theme_'+no));
   d.checked = val;
-  LS.set('theme_'+no, d);
+  LS.set(fyKey('theme_'+no), d);
   rerenderThemeTab(no);
 }
 
@@ -3713,7 +3713,7 @@ function updateThemeCharCount(no, field, value, maxlen){
 }
 
 function renderActionLogTab(no){
-  const weeklyLogs = LS.getArr('weekly_logs_'+no);
+  const weeklyLogs = LS.getArr(fyKey('weekly_logs_'+no));
   const c = COMPANIES.find(x=>x.no===no);
 
   // 最新ネクストアクション
@@ -3830,9 +3830,9 @@ function saveWeeklyLogAndRefresh(no){
   const more = document.getElementById('wlog-more-'+no)?.value?.trim() || '';
   const next = document.getElementById('wlog-next-'+no)?.value?.trim() || '';
   if(!done && !good && !more && !next){ toast('内容を入力してください'); return; }
-  const logs = LS.getArr('weekly_logs_'+no);
+  const logs = LS.getArr(fyKey('weekly_logs_'+no));
   logs.unshift({date, week, done, good, more, next});
-  LS.setArr('weekly_logs_'+no, logs);
+  LS.setArr(fyKey('weekly_logs_'+no), logs);
   // フォームリセット
   ['done','good','more','next'].forEach(k=>{
     const el = document.getElementById('wlog-'+k+'-'+no);
@@ -3981,7 +3981,7 @@ function renderProgressTab(no){
     </div>`;
 
   // ── アクションログセクション（週次振り返り形式）──
-  const weeklyLogs = LS.getArr('weekly_logs_'+no);
+  const weeklyLogs = LS.getArr(fyKey('weekly_logs_'+no));
   const logsHtml = weeklyLogs.length>0
     ? weeklyLogs.map((log,i)=>`
         <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:10px;border-left:3px solid var(--accent)">
@@ -4234,9 +4234,9 @@ function saveWeeklyLog(no){
   const more = document.getElementById('wlog-more-'+no)?.value?.trim()||'';
   const next = document.getElementById('wlog-next-'+no)?.value?.trim()||'';
   if(!done&&!good&&!more&&!next){toast('内容を入力してください');return;}
-  const logs = LS.getArr('weekly_logs_'+no);
+  const logs = LS.getArr(fyKey('weekly_logs_'+no));
   logs.unshift({date,week,done,good,more,next});
-  LS.setArr('weekly_logs_'+no,logs);
+  LS.setArr(fyKey('weekly_logs_'+no),logs);
   // フォームクリア
   ['done','good','more','next'].forEach(k=>{const el=document.getElementById('wlog-'+k+'-'+no);if(el)el.value='';});
   toast('💾 ログを保存しました');
@@ -4246,9 +4246,9 @@ function saveWeeklyLog(no){
   if(mainArea&&c){mainArea.innerHTML=renderCompanyPage(c);setTimeout(()=>{const tabs=document.getElementById('inner-tabs-'+no);if(tabs){const pt=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('進捗'));if(pt)switchInner(pt,'progress-'+no,'inner-tabs-'+no);}},0);}
 }
 function deleteWeeklyLog(no,i){
-  const logs=LS.getArr('weekly_logs_'+no);
+  const logs=LS.getArr(fyKey('weekly_logs_'+no));
   logs.splice(i,1);
-  LS.setArr('weekly_logs_'+no,logs);
+  LS.setArr(fyKey('weekly_logs_'+no),logs);
   const mainArea=document.getElementById('co-main-area');
   const c=COMPANIES.find(x=>x.no===no);
   if(mainArea&&c){mainArea.innerHTML=renderCompanyPage(c);setTimeout(()=>{const tabs=document.getElementById('inner-tabs-'+no);if(tabs){const pt=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('進捗'));if(pt)switchInner(pt,'progress-'+no,'inner-tabs-'+no);}},0);}
@@ -4594,7 +4594,7 @@ function closeModal(){
 // セルの右クリックメニュー（担当・コメント・ログ）
 function showOnboCellMenu(e, no, taskId, taskLabel){
   e.preventDefault();
-  const meta  = LS.get('onbo_meta_'+no);
+  const meta  = LS.get(fyKey('onbo_meta_'+no));
   const taskMeta = meta[taskId] || {};
   const comment  = taskMeta.comment || '';
   const ownerId  = taskMeta.ownerId || '';
@@ -4847,11 +4847,11 @@ function showUserManager(){
 function showOnboLog(no){
   let logs = [];
   if(no){
-    logs = LS.getArr('onbo_log_'+no);
+    logs = LS.getArr(fyKey('onbo_log_'+no));
   } else {
     // 全社のログを統合
     COMPANIES.forEach(c=>{
-      const cl = LS.getArr('onbo_log_'+c.no);
+      const cl = LS.getArr(fyKey('onbo_log_'+c.no));
       cl.forEach(l=>logs.push({...l, companyName: c.short, companyNo: c.no}));
     });
     logs.sort((a,b)=>b.ts.localeCompare(a.ts));
@@ -5007,7 +5007,7 @@ function renderOnboardingAll(){
     const cells = tasks.map(t=>{
       const isDone  = getCheckState(done[t.id]).val === 2;  // 三段階: 2=完了
       // 共通期日を使用（個別期日があれば個別優先）
-      const meta    = LS.get('onbo_meta_'+c.no);
+      const meta    = LS.get(fyKey('onbo_meta_'+c.no));
       const indivDue = meta&&meta[t.id]&&meta[t.id].due ? meta[t.id].due : null;
       const commonDue = phaseDues[phase.id+'::'+t.id] || null;
       const due     = indivDue || commonDue || '';
@@ -5047,7 +5047,7 @@ function renderOnboardingAll(){
           ${owner?`<div style="font-size:8px;color:var(--accent);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px">👤${esc(owner)}</div>`:''}
           ${dueIconText?`<div style="font-size:10px;font-weight:700;color:${dueBorderColor}">${dueIconText}</div>`:''}
           ${(()=>{
-            const meta2 = LS.get('onbo_meta_'+c.no);
+            const meta2 = LS.get(fyKey('onbo_meta_'+c.no));
             return meta2[t.id]?.comment ? `<div style="font-size:9px;color:var(--accent)">💬</div>` : '';
           })()}
         </div>
@@ -5280,11 +5280,11 @@ function buildTaskMgmtPanel(phaseId){
 
 // フェーズ×タスクの共通期日を保存
 function saveOnboPhaseTaskDue(phaseId, taskId, dueVal){
-  const d = LS.get('onbo_phase_due');
+  const d = LS.get(fyKey('onbo_phase_due'));
   d[phaseId+'::'+taskId] = dueVal;
-  localStorage.setItem('neo_ps_onbo_phase_due', JSON.stringify(d));
+  localStorage.setItem('neo_ps_'+fyKey('onbo_phase_due'), JSON.stringify(d));
   // Supabaseに即時保存（awaitしないが確実に送信）
-  LSdb._call({key:'onbo_phase_due', value:d}).then(()=>{
+  LSdb._call({key:fyKey('onbo_phase_due'), value:d}).then(()=>{
     console.log('[LSdb] onbo_phase_due saved');
   }).catch(e=>console.warn('[LSdb] save error:', e.message));
 }
@@ -5330,11 +5330,11 @@ function showMsHeaderEdit(msId, currentLabel, currentDate){
       const label = document.getElementById('ms-header-label').value.trim();
       const dateRaw = document.getElementById('ms-header-date').value;
       const date = dateRaw ? formatMsDate(dateRaw) : '';
-      const ov = LS.get('ms_global_overrides');
+      const ov = LS.get(fyKey('ms_global_overrides'));
       if(!ov['${esc(msId)}']) ov['${esc(msId)}'] = {};
       if(label) ov['${esc(msId)}'].label = label;
       if(date)  ov['${esc(msId)}'].date  = date;
-      LS.set('ms_global_overrides', ov);
+      LS.set(fyKey('ms_global_overrides'), ov);
       closeModal();
       renderMilestonePage();
       toast('✅ マイルストーンを更新しました（全社共通）');
@@ -5377,7 +5377,32 @@ function copyFiscalYearData(fromFy, toFy){
     if(data.length > 0) LS.setArr(toKey, data);
   });
 
-  toast(`✅ ${fromFy}年度 → ${toFy}年度 にコピーしました（選抜生情報も含む）`);
+  // テーマ・メタ・ログ・アクションログ・マイルストーンも年度コピー
+  COMPANIES.forEach(c=>{
+    ['theme_','onbo_meta_','onbo_log_','weekly_logs_','ms_overrides_'].forEach(prefix=>{
+      const fromKey = fromFy==='2026' ? prefix+c.no : prefix+c.no+'_fy'+fromFy;
+      const toKey   = toFy  ==='2026' ? prefix+c.no : prefix+c.no+'_fy'+toFy;
+      const data = LS.get(fromKey);
+      if(data && Object.keys(data).length > 0) LS.set(toKey, data);
+    });
+  });
+
+  // フェーズ名・期日・タスクも年度コピー
+  ['onbo_phase_names','onbo_phase_due','ms_global_overrides'].forEach(k=>{
+    const fromKey = fromFy==='2026' ? k : k+'_fy'+fromFy;
+    const toKey   = toFy  ==='2026' ? k : k+'_fy'+toFy;
+    const data = LS.get(fromKey);
+    if(data && Object.keys(data).length > 0) LS.set(toKey, data);
+  });
+
+  ['p1','p2','p3','p4','p5'].forEach(pid=>{
+    const fromKey = fromFy==='2026' ? 'onbo_tasks_'+pid : 'onbo_tasks_'+pid+'_fy'+fromFy;
+    const toKey   = toFy  ==='2026' ? 'onbo_tasks_'+pid : 'onbo_tasks_'+pid+'_fy'+toFy;
+    const data = LS.get(fromKey);
+    if(data && data.list) LS.set(toKey, data);
+  });
+
+  toast(`✅ ${fromFy}年度 → ${toFy}年度 にコピーしました（全データ）`);
 }
 
 function showFiscalYearManager(){
@@ -5456,7 +5481,7 @@ function renderMilestonePage(){
   const filteredDefs = typeFilter ? defs.filter(d=>d.type===typeFilter) : defs;
 
   // ── テーブルHTML ──
-  const msGlobalOv = LS.get('ms_global_overrides');
+  const msGlobalOv = LS.get(fyKey('ms_global_overrides'));
   const theadCols = filteredDefs.map(d=>{
     const gOv = msGlobalOv[d.id] || {};
     const displayLabel = gOv.label || d.label;
