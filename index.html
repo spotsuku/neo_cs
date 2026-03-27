@@ -2915,16 +2915,24 @@ function saveLeaderAll(no){
 // ━━━ 選抜生情報タブ ━━━
 
 function renderMembersTab(no){
-  const members = LS.getArr('members_info_'+no);  // [{id, name, dept, role, motivation, skills:{...}, lecture_surveys:[{term, lecture, sat, grow, rec, comment}], term_surveys:[{term, sat, grow, rec}]}]
+  const members = LS.getArr(fyKey('members_info_'+no));
   const c = COMPANIES.find(x=>x.no===no);
 
-  // 選抜生追加フォーム
+  // 選抜生追加フォーム＋復元ボタン
   const addBtn = `
-    <button onclick="addMemberDialog(${no})"
-      style="padding:8px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;
-        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
-      ＋ 選抜生を追加
-    </button>`;
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="showMemberRestoreDialog()"
+        style="padding:8px 14px;background:var(--surface2);color:var(--t2);
+          border:1px solid var(--border);border-radius:8px;
+          font-size:12px;font-weight:700;cursor:pointer">
+        ↩ 削除済みを復元
+      </button>
+      <button onclick="addMemberDialog(${no})"
+        style="padding:8px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+          font-size:12px;font-weight:700;cursor:pointer">
+        ＋ 選抜生を追加
+      </button>
+    </div>`;
 
   if(!members.length){
     return `<div style="padding:4px 0 80px">
@@ -2932,7 +2940,14 @@ function renderMembersTab(no){
         <div style="font-size:32px;margin-bottom:12px">🎓</div>
         <div style="font-size:14px;font-weight:700;color:var(--t2);margin-bottom:8px">選抜生がまだ登録されていません</div>
         <div style="font-size:12px;color:var(--td);margin-bottom:20px">プロフィール・アンケート・参加動機などを管理できます</div>
-        <div style="display:flex;justify-content:center">${addBtn}</div>
+        <div style="display:flex;justify-content:center;gap:8px">
+          <button onclick="showMemberRestoreDialog()"
+            style="padding:8px 16px;background:var(--surface2);color:var(--t2);
+              border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
+            ↩ 削除済みを復元
+          </button>
+          ${addBtn}
+        </div>
       </div>
     </div>`;
   }
@@ -3117,7 +3132,7 @@ function addMemberDialog(no){
 }
 
 function editMemberProfile(no, mi){
-  const m = LS.getArr('members_info_'+no)[mi];
+  const m = LS.getArr(fyKey('members_info_'+no))[mi];
   _showMemberForm(no, mi, m);
 }
 
@@ -3182,7 +3197,7 @@ function _showMemberForm(no, mi, m){
     <button onclick="(()=>{
       const name = document.getElementById('mb-name').value.trim();
       if(!name){ toast('氏名を入力してください'); return; }
-      const members = LS.getArr('members_info_'+${no});
+      const members = LS.getArr(fyKey('members_info_'+${no}));
       const skillKeys = ['leadership','communication','problem_solving','creativity','teamwork'];
       const skills = {};
       skillKeys.forEach(k=>{ skills[k] = parseInt(window._skillVals?.['${no}_${mi??'new'}']?.[k]||0) || ${isEdit?`(${JSON.stringify(m?.skills||{})}[k]||0)`:0}; });
@@ -3197,7 +3212,7 @@ function _showMemberForm(no, mi, m){
         term_surveys: ${isEdit?`members[${mi}]?.term_surveys||[]`:'[]'},
       };
       if(${isEdit}) members[${mi}] = obj; else members.push(obj);
-      LS.setArr('members_info_'+${no}, members);
+      LS.setArr(fyKey('members_info_'+${no}), members);
       closeModal();
       rerenderMembersTab(${no});
       toast('💾 保存しました');
@@ -3230,7 +3245,7 @@ function addLectureSurveyDialog(no, mi){
 }
 
 function editLectureSurvey(no, mi, li){
-  const m = LS.getArr('members_info_'+no)[mi];
+  const m = LS.getArr(fyKey('members_info_'+no))[mi];
   const ls = m?.lecture_surveys?.[li];
   _showLectureSurveyForm(no, mi, li, ls);
 }
@@ -3272,7 +3287,7 @@ function _showLectureSurveyForm(no, mi, li, ls){
     <button onclick="(()=>{
       const lecture = document.getElementById('ls-lecture').value.trim();
       if(!lecture){ toast('講義名を入力してください'); return; }
-      const members = LS.getArr('members_info_'+${no});
+      const members = LS.getArr(fyKey('members_info_'+${no}));
       if(!members[${mi}]) return;
       if(!members[${mi}].lecture_surveys) members[${mi}].lecture_surveys = [];
       const obj = {
@@ -3285,7 +3300,7 @@ function _showLectureSurveyForm(no, mi, li, ls){
       };
       if(${isEdit}) members[${mi}].lecture_surveys[${li}] = obj;
       else members[${mi}].lecture_surveys.push(obj);
-      LS.setArr('members_info_'+${no}, members);
+      LS.setArr(fyKey('members_info_'+${no}), members);
       closeModal();
       rerenderMembersTab(${no});
       toast('💾 講義アンケートを保存しました');
@@ -3297,7 +3312,7 @@ function _showLectureSurveyForm(no, mi, li, ls){
 }
 
 function editTermSurvey(no, mi){
-  const m = LS.getArr('members_info_'+no)[mi];
+  const m = LS.getArr(fyKey('members_info_'+no))[mi];
   const ts = m?.term_surveys || [];
   const termLabels = {q1:'1学期',q2:'2学期',q3:'3学期'};
 
@@ -3323,7 +3338,7 @@ function editTermSurvey(no, mi){
     </div>
     ${termRows}
     <button onclick="(()=>{
-      const members = LS.getArr('members_info_'+${no});
+      const members = LS.getArr(fyKey('members_info_'+${no}));
       if(!members[${mi}]) return;
       members[${mi}].term_surveys = ['q1','q2','q3'].map(term=>({
         term,
@@ -3331,7 +3346,7 @@ function editTermSurvey(no, mi){
         grow: parseFloat(document.getElementById('ts-'+term+'-grow').value)||null,
         rec:  parseFloat(document.getElementById('ts-'+term+'-rec').value)||null,
       })).filter(s=>s.sat||s.grow||s.rec);
-      LS.setArr('members_info_'+${no}, members);
+      LS.setArr(fyKey('members_info_'+${no}), members);
       closeModal();
       rerenderMembersTab(${no});
       toast('💾 学期別アンケートを保存しました');
@@ -3379,7 +3394,7 @@ function deleteMemberWithBackup(no, mi){
 }
 
 function showMemberRestoreDialog(){
-  if(!isAdmin()){ toast('⚠ 管理者のみ操作できます'); return; }
+  if(!currentUser){ toast('⚠ ログインが必要です'); return; }
   const backups = LS.getArr('members_deleted_backup');
 
   // COMPANIES マップ
@@ -5849,6 +5864,8 @@ window.addEventListener('beforeunload', function(){
   setTimeout(initMembersFromSurvey, 1000);
   // やずや2025年度選抜生データを緊急復元
   setTimeout(restoreYazuya2025Once, 1500);
+  // 西日本シティ銀行2026年度選抜生データを復元
+  setTimeout(restoreNcbank2026Once, 1800);
 })();
 
 function initGlobalUserSelect(){
@@ -6199,6 +6216,172 @@ function initContactsFromCSV(){
   localStorage.setItem('neo_ps_contacts_csv_restored_v1', '1');
   if(count > 0) toast('📋 ' + count + '社の担当者情報をCSVから復元しました');
   console.log('[initContacts] CSV担当者情報復元完了:', count, '社');
+}
+
+// ━━━ 西日本シティ銀行2026年度 選抜生データ復元 ━━━
+function restoreNcbank2026Once(){
+  if(localStorage.getItem('neo_ps_ncbank2026_restored_v1')) return;
+
+  const members = [
+  {
+    "name": "上野裕太",
+    "dept": "",
+    "role": "",
+    "recruit_type": "選抜",
+    "motivation": "ここで得た人脈が財産。業界を超えて福岡を良くするために何ができるのか、真剣に考えていける仲間ができたこと。その環境が整ったことが財産です。また、Neo合説は、地域の企業があつまり若者に福岡の魅力を伝える大切な機会となりました。",
+    "skills": {
+      "leadership": 3,
+      "communication": 4,
+      "problem_solving": 0,
+      "creativity": 3,
+      "teamwork": 0
+    },
+    "lecture_surveys": [],
+    "term_surveys": [
+      {
+        "term": "q2",
+        "sat": 9.0,
+        "grow": 9.0,
+        "fun": 9.0,
+        "rec": null,
+        "playful": 7.0,
+        "sat_comment": "何とか企画を成功させたいという強い思いは芽生えましたし、来年に向けて実装できるように企業側で支援していきます",
+        "grow_comment": "社内を巻き込むという観点において、本活動をきっかけに広がりを感じた部分がありました。",
+        "free_comment": "とても深く学びのある内容ではありましたが、いかに実装させていけるがが大切です。その意味でこれからが本番ですので、今後もプレイフルに取り組んでいきます"
+      },
+      {
+        "term": "q3",
+        "sat": 8.0,
+        "grow": 7.0,
+        "fun": 7.0,
+        "rec": null,
+        "sat_comment": "取り組みの趣旨や想いは共感。今後も応援したいとおもいます。",
+        "grow_comment": "スキルや知識を持った方が多く、そのような方と話をすることで多くのことを学んだ"
+      }
+    ],
+    "_grow_skill": "共感する力",
+    "_challenge_skill": "伝える力",
+    "_challenge_will": "はい",
+    "_leader": "はい",
+    "_step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している",
+    "_sat_comment": "取り組みの趣旨や想いは共感。今後も応援したいとおもいます。",
+    "_grow_comment": "スキルや知識を持った方が多く、そのような方と話をすることで多くのことを学んだ",
+    "_grow_factor": "チームであらゆる経験ができたこと"
+  },
+  {
+    "name": "芥川裕介",
+    "dept": "",
+    "role": "",
+    "recruit_type": "選抜",
+    "motivation": "会社で求められていること、自分の武器と世の中の課題をうまくマッチングできるビジネスをつくりあげたい。そして会社の良き部分はしっかり残しつつ、自分の武器を活かした事業を創る。xxxxxxxxxxxxxxxx",
+    "skills": {
+      "leadership": 0,
+      "communication": 4,
+      "problem_solving": 0,
+      "creativity": 3,
+      "teamwork": 0
+    },
+    "lecture_surveys": [],
+    "term_surveys": [
+      {
+        "term": "q2",
+        "sat": 2.0,
+        "grow": 3.0,
+        "fun": 5.0,
+        "rec": null,
+        "playful": 7.0,
+        "sat_comment": "十分な時間を捻出できなかった。",
+        "grow_comment": "色んなチームから多くの壁打ち相手をしながら、自分自身も楽しめた。",
+        "free_comment": "なし"
+      },
+      {
+        "term": "q3",
+        "sat": 7.0,
+        "grow": 7.0,
+        "fun": 8.0,
+        "rec": null,
+        "sat_comment": "試行錯誤しながらもみんなが一歩前進できたから",
+        "grow_comment": "たくさんの出会い"
+      }
+    ],
+    "_grow_skill": "伝える力",
+    "_challenge_skill": "伝える力",
+    "_challenge_will": "はい",
+    "_leader": "はい",
+    "_step": "ステップ2. アカデミア以外(会社や学校で)でこれまでと違う行動をし始めている",
+    "_sat_comment": "試行錯誤しながらもみんなが一歩前進できたから",
+    "_grow_comment": "たくさんの出会い",
+    "_grow_factor": "仕事、家庭とのバランスで苦戦したが良き経験となりました。"
+  },
+  {
+    "name": "鬼木良輔",
+    "dept": "",
+    "role": "",
+    "recruit_type": "選抜",
+    "motivation": "NEOでの経験において、一番自分の人生に影響を与えてくれていることは、三木校長との出会いである。縁もゆかりも無い福岡で、本気で応援資本主義を実現するため、リスクをとって堂々とステークホルダーを巻き込んでいる姿がカッコよかった。それを見て、小銭稼ぎではなく、福岡および銀行を本気で変革するために人生を使",
+    "skills": {
+      "leadership": 4,
+      "communication": 3,
+      "problem_solving": 4,
+      "creativity": 3,
+      "teamwork": 4
+    },
+    "lecture_surveys": [],
+    "term_surveys": [
+      {
+        "term": "q1",
+        "sat": 10.0,
+        "grow": 10.0,
+        "fun": 10.0,
+        "rec": 10.0,
+        "playful": 10.0,
+        "sat_comment": "成長できる素晴らしい環境をありがとうございます。",
+        "grow_comment": "ビジネス的な思考力、周りを巻き込む力などなど、たくさんある。",
+        "rec_comment": "こんな楽しく成長できる場所はない。",
+        "free_comment": ""
+      },
+      {
+        "term": "q2",
+        "sat": 10.0,
+        "grow": 10.0,
+        "fun": 10.0,
+        "rec": null,
+        "playful": 10.0,
+        "sat_comment": "プレイフルでした。忙しかった。",
+        "grow_comment": "新しいことに全力でチャレンジしたから。",
+        "free_comment": "事務局の皆さん。いつも運営ありがとうございます。しっかり寝てください。"
+      },
+      {
+        "term": "q3",
+        "sat": 10.0,
+        "grow": 10.0,
+        "fun": 10.0,
+        "rec": null,
+        "sat_comment": "事務局の運営者には感謝です。いつも素晴らしい場作りありがとうございます。",
+        "grow_comment": "各段に視座が上がった。また、構造化するスキル、PMスキル習得の経験を積むことができた。"
+      }
+    ],
+    "_grow_skill": "巻き込み力",
+    "_challenge_skill": "質問力",
+    "_challenge_will": "はい",
+    "_leader": "はい",
+    "_step": "ステップ5. アカデミア終了後も継続、収益化するプロジェクトを目指し活動している",
+    "_sat_comment": "事務局の運営者には感謝です。いつも素晴らしい場作りありがとうございます。",
+    "_grow_comment": "各段に視座が上がった。また、構造化するスキル、PMスキル習得の経験を積むことができた。",
+    "_grow_factor": "NEOでは、様々なステークホルダーの人々をコミュニケーションを図る機会が多かったため。"
+  }
+];
+  // 2026年度のキー（fyKey('members_info_6') = 'members_info_6'）
+  const key = 'members_info_6';
+  localStorage.setItem('neo_ps_'+key, JSON.stringify(members));
+
+  LSdb._call({key, value: members})
+    .then(()=>console.log('[restore] 西日本シティ銀行2026年度 選抜生をSupabaseに保存しました'))
+    .catch(e=>console.warn('[restore] 保存失敗:', e.message));
+
+  localStorage.setItem('neo_ps_ncbank2026_restored_v1', '1');
+  console.log('[restore] 西日本シティ銀行2026年度 選抜生データを復元しました（3名・1Q/2Q/3Q）');
+  toast('✅ 西日本シティ銀行2026年度 選抜生（3名・3学期分）を復元しました');
 }
 
 function toggleCoEdit(no){
