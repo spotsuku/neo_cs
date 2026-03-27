@@ -5818,6 +5818,8 @@ window.addEventListener('beforeunload', function(){
   initGlobalUserSelect();
   updateGlobalFilterUI();
   updateFiscalYearUI();
+  // CSVから担当者情報を復元（初回のみ）
+  setTimeout(initContactsFromCSV, 800);
   // MB_SURVEYから選抜生データを自動投入（初回のみ）
   setTimeout(initMembersFromSurvey, 1000);
   // やずや2025年度選抜生データを緊急復元
@@ -6151,6 +6153,27 @@ function restoreYazuya2025Once(){
   localStorage.setItem('neo_ps_yazuya2025_restored_v2', '1');
   console.log('[restore] やずや2025年度選抜生データを復元しました（3名・1Q/2Q/3Q全学期）');
   toast('✅ やずや2025年度 選抜生データ（3名・3学期分）を復元しました');
+}
+
+// ━━━ CSVから担当者情報を復元（初回のみ） ━━━
+function initContactsFromCSV(){
+  if(localStorage.getItem('neo_ps_contacts_csv_restored_v1')) return;
+
+  const data = {"1": [{"name": "下原 元気", "role": "推進窓口", "email": "shimohara1257@takagi.co.jp", "tel": "", "tag": "担当者", "note": ""}, {"name": "髙城寿太朗", "role": "顧問", "email": "", "tel": "", "tag": "担当者", "note": ""}, {"name": "笠井博明", "role": "常務取締役", "email": "", "tel": "", "tag": "経営層", "note": ""}], "3": [{"name": "神代 大作", "role": "推進窓口", "email": "koujiro@meiji-sangyo.co.jp", "tel": "", "tag": "担当者", "note": ""}], "2": [{"name": "鶴 隆弘", "role": "推進窓口", "email": "inoue@yazuya.jp", "tel": "", "tag": "担当者", "note": ""}], "5": [{"name": "筬島 圭太郎", "role": "推進窓口", "email": "k.osajima@jrkyushu.co.jp", "tel": "", "tag": "担当者", "note": ""}], "4": [{"name": "松尾 恵美", "role": "推進窓口", "email": "e-matsuo@kbc.co.jp", "tel": "", "tag": "担当者", "note": ""}], "6": [{"name": "上野 裕太", "role": "推進窓口", "email": "yuta-ueno-0330@ncbank.co.jp", "tel": "", "tag": "担当者", "note": ""}, {"name": "芥川裕介", "role": "副調査役", "email": "", "tel": "", "tag": "受講生", "note": ""}, {"name": "鬼木良輔", "role": "副調査役", "email": "", "tel": "", "tag": "受講生", "note": ""}], "11": [{"name": "原 亮太", "role": "推進窓口", "email": "rhara@sankyu.co.jp", "tel": "", "tag": "担当者", "note": ""}], "8": [{"name": "石川 哲朗", "role": "推進窓口", "email": "ishikawa1224@fukuokabank.co.jp", "tel": "", "tag": "担当者", "note": ""}], "9": [{"name": "楠元 正道", "role": "推進窓口", "email": "kusumoto-m01@aso-group.co.jp", "tel": "", "tag": "担当者", "note": ""}], "10": [{"name": "森永 豪", "role": "推進窓口", "email": "takeshi.morinaga.hk@nnr-g.com", "tel": "", "tag": "担当者", "note": ""}], "13": [{"name": "長元 美代", "role": "推進窓口", "email": "miyo_nagamoto@hus.co.jp", "tel": "", "tag": "担当者", "note": ""}], "14": [{"name": "西尾 和剛", "role": "推進窓口", "email": "nishio@sakuraforest.jp", "tel": "", "tag": "担当者", "note": ""}], "15": [{"name": "兼田 直樹", "role": "推進窓口", "email": "s-mizuta@sinseido.co.jp", "tel": "", "tag": "担当者", "note": ""}], "16": [{"name": "吉竹 知恵美", "role": "推進窓口", "email": "nakagawa-i@aeonpeople.biz", "tel": "", "tag": "担当者", "note": ""}], "17": [{"name": "森本 章太", "role": "推進窓口", "email": "s.morimoto@a-i-ken.com", "tel": "", "tag": "担当者", "note": ""}], "18": [{"name": "森本 章太", "role": "推進窓口", "email": "s.morimoto@a-i-ken.com", "tel": "", "tag": "担当者", "note": ""}], "19": [{"name": "北出 庫介", "role": "推進窓口", "email": "k_kitade@toridori.co.jp", "tel": "", "tag": "担当者", "note": ""}], "20": [{"name": "丸山", "role": "決済者", "email": "", "tel": "", "tag": "決裁者/窓口", "note": ""}], "7": [{"name": "手島", "role": "副長", "email": "", "tel": "", "tag": "担当者", "note": ""}]};
+
+  let count = 0;
+  for(const [no, contacts] of Object.entries(data)){
+    const key = 'contacts_'+no;
+    const existing = LS.get(key);
+    // すでに手動で保存済みのデータがある場合はスキップ
+    if(existing && Array.isArray(existing.list) && existing.list.length > 0) continue;
+    LS.set(key, {list: contacts});
+    count++;
+  }
+
+  localStorage.setItem('neo_ps_contacts_csv_restored_v1', '1');
+  if(count > 0) toast('📋 ' + count + '社の担当者情報をCSVから復元しました');
+  console.log('[initContacts] CSV担当者情報復元完了:', count, '社');
 }
 
 function toggleCoEdit(no){
