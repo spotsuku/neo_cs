@@ -821,9 +821,11 @@ function saveOnboComment(no, taskId, comment){
   if(!meta[taskId]) meta[taskId] = {};
   meta[taskId].comment = comment;
   meta[taskId].comment_ts = new Date().toLocaleString('ja-JP');
-  // Googleログインユーザーの名前を使用
   meta[taskId].comment_user = currentUser?.name || currentUser?.email || '—';
   LS.set(fyKey('onbo_meta_'+no), meta);
+  // セル部分更新
+  const done = LS.get(fyKey('onbo_'+no));
+  _updateOnboCell(no, taskId, getCheckState(done[taskId]).val, done);
 }
 
 // ⑥ 三段階チェック切り替え（0→1→2→0）
@@ -839,19 +841,71 @@ function cycleOnboCheck(no, taskId, taskLabel){
   localStorage.setItem('neo_ps_'+onboKey, JSON.stringify(done));
   LSdb._call({key:onboKey, value:done})
     .catch(e=>console.warn('[LSdb] save error:', e.message));
-  renderOnboardingAll();
+
+  // ─ スクロール位置を保持したまま、該当セルだけ部分更新 ─
   const nextState = getCheckState(next);
+  _updateOnboCell(no, taskId, next, done);
   toast(nextState.icon+' '+nextState.label+' に変更しました');
+}
+
+// オンボのセルだけを部分更新（スクロール位置を保持）
+function _updateOnboCell(no, taskId, nextVal, done){
+  // セル内のクリック可能 div を特定して更新
+  // id は付いていないので data属性で特定するか、全セルをスキャン
+  // → テーブル内の全 onclick 付き div から該当を探す
+  const table = document.getElementById('onbo-table-wrap');
+  if(!table){ renderOnboardingAll(); return; }
+
+  // 企業行の中からtaskIdに一致するtd > div[onclick]を探す
+  const allDivs = table.querySelectorAll('td div[onclick*="cycleOnboCheck"]');
+  let found = false;
+  allDivs.forEach(div => {
+    const onc = div.getAttribute('onclick') || '';
+    // onclick="cycleOnboCheck(6,'p1_task_1','タスク名')"
+    if(onc.includes(`cycleOnboCheck(${no},`) && onc.includes(`'${taskId}'`)){
+      const st = getCheckState(nextVal);
+      const meta = LS.get(fyKey('onbo_meta_'+no));
+      const taskMeta = meta[taskId] || {};
+      const owner = taskMeta.owner || '';
+      const comment = taskMeta.comment || '';
+
+      // セルの背景色更新
+      const td = div.closest('td');
+      if(td){
+        td.style.background = nextVal===2?'#d1fae5':nextVal===1?'#fffbeb':'#f8fafc';
+      }
+
+      // div内を更新
+      div.innerHTML = `
+        <div style="width:26px;height:26px;border-radius:6px;
+          border:2px solid ${st.color};
+          background:${st.bg};
+          display:flex;align-items:center;justify-content:center;
+          font-size:14px;color:${st.color};font-weight:900;
+          box-shadow:0 1px 4px rgba(0,0,0,.15)"
+          title="${st.label}">${st.icon}</div>
+        <div style="font-size:8px;color:${st.color};font-weight:700;white-space:nowrap">${st.label}</div>
+        ${owner?`<div style="font-size:8px;color:var(--accent);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px">👤${esc(owner)}</div>`:''}
+        ${comment?`<div style="font-size:9px;color:var(--accent)">💬</div>`:''}
+      `;
+      found = true;
+    }
+  });
+
+  // 見つからない場合のみフォールバックで全体再描画
+  if(!found) renderOnboardingAll();
 }
 
 // ⑦ 担当者設定
 function saveOnboOwner(no, taskId, ownerId){
   const meta = LS.get(fyKey('onbo_meta_'+no));
   if(!meta[taskId]) meta[taskId] = {};
-  // ownerId はメールアドレス、owner は表示名
-  meta[taskId].owner   = currentUser?.name || currentUser?.email || ownerId;
-  meta[taskId].ownerId = ownerId || currentUser?.email || '';
+  meta[taskId].owner   = ownerId ? (currentUser?.name || currentUser?.email || ownerId) : '';
+  meta[taskId].ownerId = ownerId || '';
   LS.set(fyKey('onbo_meta_'+no), meta);
+  // セル部分更新
+  const done = LS.get(fyKey('onbo_'+no));
+  _updateOnboCell(no, taskId, getCheckState(done[taskId]).val, done);
 }
 
 // ━━━ グローバルフィルター & 年度管理 ━━━
