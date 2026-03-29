@@ -1536,41 +1536,32 @@ function renderCompanyPage(c){
   return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div>${getCoAlerts(c)}
 <div class="co-kpi-row">
   <div class="co-kpi">
+    <div class="co-kpi-label">健全スコア</div>
+    <div class="co-kpi-val" style="color:${hColor}">${health}</div>
+    <div class="co-kpi-sub">/10</div>
+  </div>
+  <div class="co-kpi">
     <div class="co-kpi-label">企業進捗</div>
-    <div class="co-kpi-val" style="color:${stageData?.color||'#888'};font-size:26px">St.${stage}</div>
+    <div class="co-kpi-val" style="color:${stageData?.color||'#888'}">ST.${stage}</div>
     <div class="co-kpi-sub">${stageData?.month||'—'}</div>
+  </div>
+  <div class="co-kpi">
+    <div class="co-kpi-label">派遣人数</div>
+    <div class="co-kpi-val">${c.sent||0}</div>
+    <div class="co-kpi-sub">名（1期）</div>
+  </div>
+  <div class="co-kpi">
+    <div class="co-kpi-label">卒業率</div>
+    <div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div>
+    <div class="co-kpi-sub">${c.grad}/${c.sent}名</div>
   </div>
   <div class="co-kpi">
     <div class="co-kpi-label">企業満足度</div>
     <div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div>
     <div class="co-kpi-sub">/10</div>
   </div>
-  <div class="co-kpi" style="cursor:pointer" onclick="switchInner(document.querySelector('#inner-tabs-${c.no} .inner-tab:nth-child(3)'),'contacts-${c.no}','inner-tabs-${c.no}')">
-    <div class="co-kpi-label">担当者出席率</div>
-    ${renderAttKpi(c.no,'担当者')}
-  </div>
-  <div class="co-kpi" style="cursor:pointer" onclick="switchInner(document.querySelector('#inner-tabs-${c.no} .inner-tab:last-child'),'members-${c.no}','inner-tabs-${c.no}')">
-    <div class="co-kpi-label">選抜生出席率</div>
-    ${renderAttKpi(c.no,'選抜生')}
-  </div>
-  <div class="co-kpi">
-    <div class="co-kpi-label">担当者関与度</div>
-    ${renderInvolvementKpi(c.no,'mgr')}
-  </div>
-  <div class="co-kpi">
-    <div class="co-kpi-label">選抜生関与度</div>
-    ${renderInvolvementKpi(c.no,'mbr')}
-  </div>
-</div>  <!-- 担当者関与度 -->
-  <div class="co-kpi">
-    <div class="co-kpi-label">担当者関与度</div>
-    ${renderInvolvementKpi(c.no,'mgr')}
-  </div>
-  <div class="co-kpi">
-    <div class="co-kpi-label">選抜生関与度</div>
-    ${renderInvolvementKpi(c.no,'mbr')}
-  </div>
-</div><div class="co-kpi"><div class="co-kpi-label">卒業率</div><div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div><div class="co-kpi-sub">${c.grad}/${c.sent}名</div></div><div class="co-kpi"><div class="co-kpi-label">企業満足度</div><div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div><div class="co-kpi-sub">/10</div></div></div><div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div><div class="inner-tab" onclick="switchInner(this,'theme-${c.no}','inner-tabs-${c.no}')">🎯 出題テーマ</div><div class="inner-tab" onclick="switchInner(this,'members-${c.no}','inner-tabs-${c.no}')">🎓 選抜生情報</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel" id="co-basic-panel-${c.no}">
+</div>
+<div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div><div class="inner-tab" onclick="switchInner(this,'theme-${c.no}','inner-tabs-${c.no}')">🎯 出題テーマ</div><div class="inner-tab" onclick="switchInner(this,'members-${c.no}','inner-tabs-${c.no}')">🎓 選抜生情報</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel" id="co-basic-panel-${c.no}">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--border)">
     <div class="panel-title" style="margin:0;border:none;padding:0">基本情報</div>
     <div style="display:flex;gap:6px">
