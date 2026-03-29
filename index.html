@@ -36,6 +36,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
 .sb-filters{display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .sb-filter-btn{font-size:9px;font-family:'Space Mono',monospace;padding:3px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;color:var(--td);background:var(--surface);transition:all .15s;font-weight:700;}
 .sb-filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.sb-course-btn{font-size:9px;font-family:'Space Mono',monospace;padding:3px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;color:var(--td);background:var(--surface);transition:all .15s;font-weight:700;}
+.sb-course-btn.active{background:var(--ok);color:#fff;border-color:var(--ok);}
+.sb-course-btn:hover:not(.active){background:var(--ok)22;color:var(--ok);}
 .sb-list{flex:1;overflow-y:auto;}
 .sb-list::-webkit-scrollbar{width:4px;}
 .sb-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
@@ -1260,13 +1263,59 @@ function switchMainTab(tab){
 function renderAppLayout(tab){
   const app=document.getElementById('app-company');
   const savedNo=currentCompanyNo;
-  app.innerHTML=`<div class="sidebar"><div class="sb-header"><div class="sb-title">// COMPANIES</div><div class="sb-search"><input type="text" id="sb-search-input" placeholder="企業名で検索..." oninput="filterSidebar(this.value)"></div></div><div class="sb-filters"><button class="sb-filter-btn active" onclick="setSbFilter(this,'all')">全社</button><button class="sb-filter-btn" onclick="setSbFilter(this,'active')">継続</button><button class="sb-filter-btn" onclick="setSbFilter(this,'new')">新規</button><button class="sb-filter-btn" onclick="setSbFilter(this,'disc')">非継続</button></div><div class="sb-list" id="sb-list-inner">${renderSidebarList(COMPANIES,savedNo)}</div></div><div class="main" id="co-main-area">${renderTabContent(tab,savedNo)}</div>`;
+  app.innerHTML=`<div class="sidebar"><div class="sb-header"><div class="sb-title" style="display:flex;align-items:center;justify-content:space-between">// COMPANIES <span id="sb-count" style="font-size:9px;color:var(--td)"></span></div><div class="sb-search"><input type="text" id="sb-search-input" placeholder="企業名で検索..." oninput="filterSidebar(this.value)"></div></div><div class="sb-filters">
+  <button class="sb-filter-btn active" onclick="setSbFilter(this,'all')">全社</button>
+  <button class="sb-filter-btn" onclick="setSbFilter(this,'active')">継続</button>
+  <button class="sb-filter-btn" onclick="setSbFilter(this,'new')">新規</button>
+  <button class="sb-filter-btn" onclick="setSbFilter(this,'disc')">非継続</button>
+</div>
+<div class="sb-filters" style="border-top:1px solid var(--border);padding-top:4px;margin-top:2px">
+  <button class="sb-course-btn active" onclick="setSbCourseFilter(this,'all')">全コース</button>
+  <button class="sb-course-btn" onclick="setSbCourseFilter(this,'リーダー育成')">👑 L育成</button>
+  <button class="sb-course-btn" onclick="setSbCourseFilter(this,'事業共創')">🚀 事業共創</button>
+</div><div class="sb-list" id="sb-list-inner">${renderSidebarList(COMPANIES,savedNo)}</div></div><div class="main" id="co-main-area">${renderTabContent(tab,savedNo)}</div>`;
   if(tab==='onboarding') setTimeout(()=>{const area=document.getElementById('co-main-area');if(area){area._ondelegated=false;setupOnboDelegate(savedNo);}},50);
 }
 let sbFilter='all';
-function setSbFilter(btn,filter){document.querySelectorAll('.sb-filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');sbFilter=filter;filterSidebar(document.getElementById('sb-search-input')?.value||'');}
-function filterSidebar(q){const items=document.querySelectorAll('.sb-item');const lower=q.toLowerCase();items.forEach(item=>{const name=(item.dataset.name||'').toLowerCase();const contract=item.dataset.contract||'';const status=item.dataset.status||'';let show=name.indexOf(lower)>=0;if(sbFilter==='active')show=show&&contract!=='D：非継続';if(sbFilter==='new')show=show&&status==='新規契約';if(sbFilter==='disc')show=show&&contract==='D：非継続';item.style.display=show?'':'none';});}
-function renderSidebarList(cos,activeNo){return cos.map(c=>{const contract=getContract(c.no);const[cls,label]=contractInfo(contract);const health=getHealthScore(c);const hColor=health>=7?'#059669':health>=5?'#d97706':'#dc2626';const[bg,fg]=avatarColor(c.name);const stage=getStage(c.no);return`<div class="sb-item ${c.no===activeNo?'active':''}" onclick="selectCompany(${c.no})" id="sb-item-${c.no}" data-name="${c.short.toLowerCase()}" data-contract="${contract}" data-status="${c.status}"><div class="sb-av" style="background:${fg};color:${bg}">${c.short[0]}</div><div class="sb-info"><div class="sb-name">${esc(c.short)}</div><div class="sb-meta">${c.course2||c.course1||'—'} · St.${stage}</div></div><div class="sb-right"><div class="health-dot" style="background:${hColor}"></div><span class="contract-tag ${cls}">${label}</span></div></div>`;}).join('');}
+let sbCourseFilter='all';
+function setSbFilter(btn,filter){
+  document.querySelectorAll('.sb-filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  sbFilter=filter;
+  filterSidebar(document.getElementById('sb-search-input')?.value||'');
+}
+
+function setSbCourseFilter(btn, course){
+  document.querySelectorAll('.sb-course-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  sbCourseFilter = course;
+  filterSidebar(document.getElementById('sb-search-input')?.value||'');
+}
+function filterSidebar(q){
+  const items = document.querySelectorAll('.sb-item');
+  const lower = q.toLowerCase();
+  items.forEach(item => {
+    const name     = (item.dataset.name||'').toLowerCase();
+    const contract = item.dataset.contract||'';
+    const status   = item.dataset.status||'';
+    const course   = item.dataset.course||'';
+    let show = name.indexOf(lower) >= 0;
+    // 契約フィルター
+    if(sbFilter==='active') show = show && contract !== 'D：非継続';
+    if(sbFilter==='new')    show = show && status   === '新規契約';
+    if(sbFilter==='disc')   show = show && contract === 'D：非継続';
+    // コースフィルター
+    if(sbCourseFilter !== 'all'){
+      show = show && course.includes(sbCourseFilter.toLowerCase());
+    }
+    item.style.display = show ? '' : 'none';
+  });
+  // ヒット件数を表示
+  const visible = [...items].filter(i=>i.style.display!=='none').length;
+  const countEl = document.getElementById('sb-count');
+  if(countEl) countEl.textContent = visible + '社';
+}
+function renderSidebarList(cos,activeNo){return cos.map(c=>{const contract=getContract(c.no);const[cls,label]=contractInfo(contract);const health=getHealthScore(c);const hColor=health>=7?'#059669':health>=5?'#d97706':'#dc2626';const[bg,fg]=avatarColor(c.name);const stage=getStage(c.no);return`<div class="sb-item ${c.no===activeNo?'active':''}" onclick="selectCompany(${c.no})" id="sb-item-${c.no}" data-name="${c.short.toLowerCase()}" data-contract="${contract}" data-status="${c.status}" data-course="${(getCoInfo(c.no).course2||c.course2||getCoInfo(c.no).course1||c.course1||'').toLowerCase()}"><div class="sb-av" style="background:${fg};color:${bg}">${c.short[0]}</div><div class="sb-info"><div class="sb-name">${esc(c.short)}</div><div class="sb-meta">${c.course2||c.course1||'—'} · St.${stage}</div></div><div class="sb-right"><div class="health-dot" style="background:${hColor}"></div><span class="contract-tag ${cls}">${label}</span></div></div>`;}).join('');}
 function selectCompany(no){currentCompanyNo=no;setTimeout(()=>{ const area=document.getElementById('co-main-area'); if(area){area._ondelegated=false;setupOnboDelegate(no);} },150);document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));const sb=document.getElementById('sb-item-'+no);if(sb){sb.classList.add('active');sb.scrollIntoView({block:'nearest'});}const mainArea=document.getElementById('co-main-area');if(mainArea)mainArea.innerHTML=renderTabContent(currentMainTab,no);}
 function getHealthScore(c){let score=5;const contract=getContract(c.no);if(contract==='S：契約書締結'||contract==='A：契約中')score+=2;if(contract==='B：内諾確認済')score+=1;if(contract==='D：非継続')score-=2;if(c.ent_sat!=null&&c.ent_sat>=8)score+=1;if(c.ent_sat!=null&&c.ent_sat<6)score-=1;const meetings=LS.getArr('meetings_'+c.no);if(meetings.length>=3)score+=1;return Math.max(1,Math.min(10,score));}
 function renderTabContent(tab,no){const c=COMPANIES.find(x=>x.no===no);if(!c)return'';switch(tab){case'company':return renderCompanyPage(c);case'onboarding':return renderOnboardingPage(c);case'meetings':return renderMeetingsPage(c);case'survey':return renderSurveyPage(c);default:return'';}}
