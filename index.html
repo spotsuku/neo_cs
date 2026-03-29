@@ -97,7 +97,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
 .b-accent{background:var(--accent-lt);color:var(--accent);border-color:#93c5fd;}
 .b-purple{background:var(--purple-lt);color:var(--purple);border-color:#c4b5fd;}
 .b-gray{background:var(--surface2);color:var(--td);border-color:var(--border2);}
-.co-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+.co-kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
 .co-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);text-align:center;}
 .co-kpi-label{font-size:9px;font-family:'Space Mono',monospace;color:var(--td);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;}
 .co-kpi-val{font-family:'Bebas Neue',sans-serif;font-size:34px;line-height:1;}
@@ -1520,7 +1520,6 @@ function renderCompanyPage(c){
   // LS上書きがあれば適用（_cs_staffは除く）
   const _ov=LS.get('co_info_'+c.no);if(Object.keys(_ov).length>0){const {_cs_staff,..._ovRest}=_ov;c={...c,..._ovRest};}
   const contract=getContract(c.no);const[cls]=contractInfo(contract);const plans=LS.get('plans_'+c.no);
-  const health=getHealthScore(c);const hColor=health>=7?'var(--ok)':health>=5?'var(--warn)':'var(--ng)';
   const gradRate=c.sent>0?Math.round(c.grad/c.sent*100):null;const gradColor=gradRate===100?'var(--ok)':gradRate!=null&&gradRate>=50?'var(--warn)':'var(--ng)';
   const stage=getStage(c.no);const stageData=STAGES[stage-1];
   let risk='';
@@ -1535,11 +1534,6 @@ function renderCompanyPage(c){
   const selCls=cls.replace('tag-','sel-');
   return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div>${getCoAlerts(c)}
 <div class="co-kpi-row">
-  <div class="co-kpi">
-    <div class="co-kpi-label">健全スコア</div>
-    <div class="co-kpi-val" style="color:${hColor}">${health}</div>
-    <div class="co-kpi-sub">/10</div>
-  </div>
   <div class="co-kpi">
     <div class="co-kpi-label">企業進捗</div>
     <div class="co-kpi-val" style="color:${stageData?.color||'#888'}">ST.${stage}</div>
@@ -1559,6 +1553,14 @@ function renderCompanyPage(c){
     <div class="co-kpi-label">企業満足度</div>
     <div class="co-kpi-val" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</div>
     <div class="co-kpi-sub">/10</div>
+  </div>
+  <div class="co-kpi">
+    <div class="co-kpi-label">担当者関与度</div>
+    ${renderInvolvementKpi(c.no,'mgr')}
+  </div>
+  <div class="co-kpi" style="cursor:pointer" onclick="switchInner(document.querySelector('#inner-tabs-${c.no} .inner-tab:nth-child(3)'),'contacts-${c.no}','inner-tabs-${c.no}')">
+    <div class="co-kpi-label">担当者出席率</div>
+    ${renderAttKpi(c.no,'担当者')}
   </div>
 </div>
 <div class="inner-tabs" id="inner-tabs-${c.no}"><div class="inner-tab active" onclick="switchInner(this,'karte-${c.no}','inner-tabs-${c.no}')">📋 顧客カルテ</div><div class="inner-tab" onclick="switchInner(this,'plan-${c.no}','inner-tabs-${c.no}')">🎯 アカウントプラン</div><div class="inner-tab" onclick="switchInner(this,'contacts-${c.no}','inner-tabs-${c.no}')">👤 担当者情報</div><div class="inner-tab" onclick="switchInner(this,'leader-${c.no}','inner-tabs-${c.no}')">🌱 リーダー育成</div><div class="inner-tab" onclick="switchInner(this,'progress-${c.no}','inner-tabs-${c.no}')">📈 企業進捗</div><div class="inner-tab" onclick="switchInner(this,'actionlog-${c.no}','inner-tabs-${c.no}')">📋 アクションログ</div><div class="inner-tab" onclick="switchInner(this,'theme-${c.no}','inner-tabs-${c.no}')">🎯 出題テーマ</div><div class="inner-tab" onclick="switchInner(this,'members-${c.no}','inner-tabs-${c.no}')">🎓 選抜生情報</div></div><div class="inner-content active" id="karte-${c.no}"><div class="grid2"><div class="panel" id="co-basic-panel-${c.no}">
@@ -7173,14 +7175,15 @@ function getCoAlerts(c){
     if(diff < 0) delayedItems.push({type:'ms', label:m.label, due:m.date||'', diff, assignee});
   });
 
-  // NEXTアクション
+  // NEXTアクション（未完了全件）
   const actions = LS.getArr('actions_'+no);
-  const nextAction = actions.find(a=>!a.done);
+  const nextActions = actions.filter(a=>!a.done);
 
-  if(delayedItems.length === 0 && !nextAction) return '';
+  if(delayedItems.length === 0 && nextActions.length === 0) return '';
 
-  let html = '<div style="display:grid;grid-template-columns:'+(nextAction?'1fr 1fr':'1fr')+';gap:10px;margin-bottom:12px">';
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
 
+  // 遅延タスク（左カラム）
   if(delayedItems.length > 0){
     let delayedHtml = '';
     delayedItems.slice(0,5).forEach(item => {
@@ -7194,16 +7197,27 @@ function getCoAlerts(c){
     html += '<div style="background:var(--ng-lt);border:1px solid #fca5a5;border-radius:8px;padding:10px 12px">'
           + '<div style="font-size:10px;font-weight:700;color:var(--ng);margin-bottom:6px">⚠ 遅延タスク ('+delayedItems.length+'件)</div>'
           + delayedHtml + '</div>';
+  } else {
+    html += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">'
+          + '<div style="font-size:10px;font-weight:700;color:var(--ok);margin-bottom:6px">✅ 遅延タスクなし</div></div>';
   }
 
-  if(nextAction){
-    html += '<div style="background:linear-gradient(135deg,#1e3a5f,#1a56db);border-radius:8px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px">'
-          + '<span style="font-size:18px;flex-shrink:0">🎯</span>'
-          + '<div>'
-          + '<div style="font-size:9px;color:rgba(255,255,255,.6);margin-bottom:4px;letter-spacing:1px">NEXT ACTION</div>'
-          + '<div style="font-size:12px;font-weight:700;color:#fff;line-height:1.5">'+esc(nextAction.text)+'</div>'
-          + (nextAction.due ? '<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:3px">期限: '+esc(nextAction.due)+'</div>' : '')
-          + '</div></div>';
+  // ネクストアクション（右カラム）
+  if(nextActions.length > 0){
+    let actionsHtml = '';
+    nextActions.forEach(a => {
+      actionsHtml += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1)">'
+        + '<span style="font-size:11px;color:#fff;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.text)+'</span>'
+        + (a.due ? '<span style="font-size:9px;color:rgba(255,255,255,.5);white-space:nowrap;flex-shrink:0">'+esc(a.due)+'</span>' : '')
+        + '</div>';
+    });
+    html += '<div style="background:linear-gradient(135deg,#1e3a5f,#1a56db);border-radius:8px;padding:10px 12px">'
+          + '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:1px">🎯 NEXT ACTION ('+nextActions.length+'件)</div>'
+          + actionsHtml + '</div>';
+  } else {
+    html += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">'
+          + '<div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:6px">🎯 ネクストアクション</div>'
+          + '<div style="font-size:11px;color:var(--t-muted);padding:5px 0">未設定</div></div>';
   }
 
   html += '</div>';
