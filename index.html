@@ -1226,8 +1226,13 @@ function toast(msg, duration=1800){const el=document.getElementById('toast');if(
 function avatarColor(name){const colors=[['#2563eb','#dbeafe'],['#059669','#d1fae5'],['#d97706','#fef3c7'],['#7c3aed','#ede9fe'],['#0891b2','#cffafe'],['#db2777','#fce7f3']];const idx=(name||'').charCodeAt(0)%colors.length;return colors[idx];}
 function getContract(no){const ov=LS.get('contract_overrides');return ov[no]||COMPANIES.find(x=>x.no===no)?.contract||'';}
 function setContract(no,val){const ov=LS.get('contract_overrides');ov[no]=val;LS.set('contract_overrides',ov);const sb=document.getElementById('sb-item-'+no);if(sb){const tag=sb.querySelector('.contract-tag');if(tag){const[cls,label]=contractInfo(val);tag.className='contract-tag '+cls;tag.textContent=label;}}toast('契約ステータスを更新しました');}
+function getResolvedStages(){const ov=LS.get('stage_defs');return STAGES.map(s=>{const o=ov[s.no]||{};return{...s,...o};});}
 function getStage(no){const s=LS.get('stages');return parseInt(s[no]||1);}
 function setStage(no,n){const s=LS.get('stages');s[no]=n;LS.set('stages',s);}
+function getCustomTracks(){return LS.getArr('custom_tracks');}
+function setCustomTracks(tracks){LS.setArr('custom_tracks',tracks);}
+function getTrackStage(no,trackId){return parseInt(LS.get('track_stages')[no+':'+trackId]||1);}
+function setTrackStage(no,trackId,n){const s=LS.get('track_stages');s[no+':'+trackId]=n;LS.set('track_stages',s);}
 let currentMainTab='overview',currentCompanyNo=1;
 function switchMainTab(tab){
   document.getElementById('page-overview').style.display=tab==='overview'?'block':'none';
@@ -1510,17 +1515,17 @@ function deleteAction(no,i){const actions=LS.getArr('actions_'+no);actions.splic
 function savePlan(no){const plans={vision:document.getElementById('plan-vision-'+no)?.value,short_goal:document.getElementById('plan-goal-'+no)?.value,escort:document.getElementById('plan-escort-'+no)?.value,success:document.getElementById('plan-success-'+no)?.value};LS.set('plans_'+no,plans);toast('💾 保存しました');}
 function changeContract(no,sel){const val=sel.value;setContract(no,val);sel.className='contract-select sel-'+val.replace('S：契約書締結','s').replace('A：契約中','a').replace('B：内諾確認済','b').replace('C：社内調整中','c').replace('D：非継続','d');const c=COMPANIES.find(x=>x.no===no);if(c){const mainArea=document.getElementById('co-main-area');if(mainArea)mainArea.innerHTML=renderCompanyPage(c);}}
 function renderStagePanel(no){
-  const stage=getStage(no);const sd=STAGES[stage-1];
-  const timeline=STAGES.map((s,i)=>{const n=i+1;const isDone=n<stage,isCurr=n===stage;const alpha=isDone?'99':isCurr?'ff':'44';return`<div class="stage-pip ${isDone?'done':''} ${isCurr?'current':''}" style="background:${s.color}${alpha};color:#fff" onclick="jumpStage(${no},${n})" title="St.${n} ${s.name}">${n}</div>`;}).join('');
-  return`<div><div class="stage-current" style="border-color:${sd?.color||'#ccc'}"><div class="stage-num-big" style="color:${sd?.color||'#888'}">${stage}</div><div class="stage-info"><div class="stage-name" style="color:${sd?.color||'#888'}">${sd?.name||'—'}</div><div class="stage-desc">${esc(sd?.desc||'')}</div><div style="font-size:11px;color:var(--t-muted);margin-top:6px;font-family:'Space Mono',monospace">理想時期: ${sd?.month||'—'}</div></div></div><div style="margin-bottom:14px"><div style="font-size:9px;font-family:'Space Mono';color:var(--td);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">ステージタイムライン</div><div class="stage-timeline">${timeline}</div></div>${sd?`<div class="stage-action-box" style="border-left:3px solid ${sd.color}"><div class="stage-action-title" style="color:${sd.color}">キーアクション・必要な支援</div><div class="stage-action-text">${esc(sd.action)}</div></div>`:''}<div class="stage-move-btns">${stage>1?`<button class="stage-btn stage-btn-prev" onclick="moveStage(${no},-1)">← St.${stage-1} に戻す</button>`:'<div></div>'}${stage<12?`<button class="stage-btn stage-btn-next" onclick="moveStage(${no},1)">St.${stage+1} ${STAGES[stage]?.name||''} →</button>`:`<div style="padding:10px;text-align:center;color:var(--ok);font-weight:700">🎉 最終ステージ達成！</div>`}</div></div>`;
+  const _RS=getResolvedStages();const stage=getStage(no);const sd=_RS[stage-1];
+  const timeline=_RS.map((s,i)=>{const n=i+1;const isDone=n<stage,isCurr=n===stage;const alpha=isDone?'99':isCurr?'ff':'44';return`<div class="stage-pip ${isDone?'done':''} ${isCurr?'current':''}" style="background:${s.color}${alpha};color:#fff" onclick="jumpStage(${no},${n})" title="St.${n} ${s.name}">${n}</div>`;}).join('');
+  return`<div><div class="stage-current" style="border-color:${sd?.color||'#ccc'}"><div class="stage-num-big" style="color:${sd?.color||'#888'}">${stage}</div><div class="stage-info"><div class="stage-name" style="color:${sd?.color||'#888'}">${sd?.name||'—'}</div><div class="stage-desc">${esc(sd?.desc||'')}</div><div style="font-size:11px;color:var(--t-muted);margin-top:6px;font-family:'Space Mono',monospace">理想時期: ${sd?.month||'—'}</div></div></div><div style="margin-bottom:14px"><div style="font-size:9px;font-family:'Space Mono';color:var(--td);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">ステージタイムライン</div><div class="stage-timeline">${timeline}</div></div>${sd?`<div class="stage-action-box" style="border-left:3px solid ${sd.color}"><div class="stage-action-title" style="color:${sd.color}">キーアクション・必要な支援</div><div class="stage-action-text">${esc(sd.action)}</div></div>`:''}<div class="stage-move-btns">${stage>1?`<button class="stage-btn stage-btn-prev" onclick="moveStage(${no},-1)">← St.${stage-1} に戻す</button>`:'<div></div>'}${stage<_RS.length?`<button class="stage-btn stage-btn-next" onclick="moveStage(${no},1)">St.${stage+1} ${_RS[stage]?.name||''} →</button>`:`<div style="padding:10px;text-align:center;color:var(--ok);font-weight:700">🎉 最終ステージ達成！</div>`}</div></div>`;
 }
-function moveStage(no,delta){const cur=getStage(no);const next=Math.max(1,Math.min(12,cur+delta));setStage(no,next);const c=COMPANIES.find(x=>x.no===no);const mainArea=document.getElementById('co-main-area');if(mainArea&&c)mainArea.innerHTML=renderCompanyPage(c);setTimeout(()=>{const tabs=document.getElementById('inner-tabs-'+no);if(tabs){const st=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));if(st)switchInner(st,'progress-'+no,'inner-tabs-'+no);}},0);toast(`St.${next} ${STAGES[next-1]?.name||''} に移動しました`);}
-function jumpStage(no,stageNo){setStage(no,stageNo);const c=COMPANIES.find(x=>x.no===no);const mainArea=document.getElementById('co-main-area');if(mainArea&&c)mainArea.innerHTML=renderCompanyPage(c);setTimeout(()=>{const tabs=document.getElementById('inner-tabs-'+no);if(tabs){const st=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));if(st)switchInner(st,'progress-'+no,'inner-tabs-'+no);}},0);toast(`St.${stageNo} ${STAGES[stageNo-1]?.name||''} に設定しました`);}
+function moveStage(no,delta){const _RS=getResolvedStages();const cur=getStage(no);const next=Math.max(1,Math.min(_RS.length,cur+delta));setStage(no,next);const c=COMPANIES.find(x=>x.no===no);const mainArea=document.getElementById('co-main-area');if(mainArea&&c)mainArea.innerHTML=renderCompanyPage(c);setTimeout(()=>{const tabs=document.getElementById('inner-tabs-'+no);if(tabs){const st=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));if(st)switchInner(st,'progress-'+no,'inner-tabs-'+no);}},0);toast(`St.${next} ${_RS[next-1]?.name||''} に移動しました`);}
+function jumpStage(no,stageNo){const _RS=getResolvedStages();setStage(no,stageNo);const c=COMPANIES.find(x=>x.no===no);const mainArea=document.getElementById('co-main-area');if(mainArea&&c)mainArea.innerHTML=renderCompanyPage(c);setTimeout(()=>{const tabs=document.getElementById('inner-tabs-'+no);if(tabs){const st=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));if(st)switchInner(st,'progress-'+no,'inner-tabs-'+no);}},0);toast(`St.${stageNo} ${_RS[stageNo-1]?.name||''} に設定しました`);}
 function renderCompanyPage(c){
   // LS上書きがあれば適用（_cs_staffは除く）
   const _ov=LS.get('co_info_'+c.no);if(Object.keys(_ov).length>0){const {_cs_staff,..._ovRest}=_ov;c={...c,..._ovRest};}
   const contract=getContract(c.no);const[cls]=contractInfo(contract);const plans=LS.get('plans_'+c.no);
-  const stage=getStage(c.no);const stageData=STAGES[stage-1];
+  const stage=getStage(c.no);const stageData=getResolvedStages()[stage-1];
   const _onboDone=LS.get(fyKey('onbo_'+c.no));let onboTotalCnt=0,onboDoneCnt=0;ONBO_PHASES.forEach(p=>{const tasks=getGlobalTasks(p.id);onboTotalCnt+=tasks.length;tasks.forEach(t=>{if(_onboDone[t.id])onboDoneCnt++;});});const onboPct=onboTotalCnt>0?Math.round(onboDoneCnt/onboTotalCnt*100):0;const onboColor=onboPct>=80?'var(--ok)':onboPct>=50?'var(--accent)':'var(--warn)';
   let risk='';
   if(contract==='D：非継続')risk=`<div class="risk-banner danger"><span class="risk-icon">🚨</span><span class="risk-text">非継続企業 — ウィンバック戦略を検討してください</span></div>`;
@@ -4214,13 +4219,14 @@ function renderProgressTab(no){
   const c = COMPANIES.find(x=>x.no===no);
   if(!c) return '';
   const stage = getStage(no);
-  const sd = STAGES[stage-1];
+  const _RS = getResolvedStages();
+  const sd = _RS[stage-1];
   const d = MILESTONE_DATA.by_no[String(no)];
   const typeColors = {meeting:'#3b82f6', notice:'#f59e0b', action:'#059669', contract:'#7c3aed'};
   const typeIcons  = {meeting:'👥', notice:'📨', action:'✅', contract:'📝'};
 
   // ── ステージパネル ──
-  const timeline = STAGES.map((s,i)=>{
+  const timeline = _RS.map((s,i)=>{
     const n=i+1, isDone=n<stage, isCurr=n===stage;
     const alpha=isDone?'99':isCurr?'ff':'44';
     return `<div class="stage-pip ${isDone?'done':''} ${isCurr?'current':''}" style="background:${s.color}${alpha};color:#fff" onclick="jumpStage(${no},${n})" title="St.${n} ${s.name}">${n}</div>`;
@@ -4256,7 +4262,10 @@ function renderProgressTab(no){
       </div>
     </div>
     <div style="margin-bottom:14px">
-      <div style="font-size:9px;font-family:'Space Mono';color:var(--td);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">ステージタイムライン</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:9px;font-family:'Space Mono';color:var(--td);letter-spacing:2px;text-transform:uppercase">エンゲージメント進捗</div>
+        <button onclick="openStageDefEditor()" style="font-size:10px;padding:3px 10px;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--td);background:var(--surface2)">⚙ ステージ編集</button>
+      </div>
       <div class="stage-timeline">${timeline}</div>
     </div>
     ${sd?`<div class="stage-action-box" style="border-left:3px solid ${sd.color}">
@@ -4265,7 +4274,7 @@ function renderProgressTab(no){
     </div>`:''}
     <div class="stage-move-btns" style="margin-bottom:20px">
       ${stage>1?`<button class="stage-btn stage-btn-prev" onclick="moveStage(${no},-1)">← St.${stage-1} に戻す</button>`:'<div></div>'}
-      ${stage<12?`<button class="stage-btn stage-btn-next" onclick="moveStage(${no},1)">St.${stage+1} ${STAGES[stage]?.name||''} →</button>`:`<div style="padding:10px;text-align:center;color:var(--ok);font-weight:700">🎉 最終ステージ達成！</div>`}
+      ${stage<_RS.length?`<button class="stage-btn stage-btn-next" onclick="moveStage(${no},1)">St.${stage+1} ${_RS[stage]?.name||''} →</button>`:`<div style="padding:10px;text-align:center;color:var(--ok);font-weight:700">🎉 最終ステージ達成！</div>`}
     </div>`;
 
   // ── アクションログセクション（週次振り返り形式）──
@@ -4497,11 +4506,20 @@ function renderProgressTab(no){
     </div>`;
   }
 
+  // ── カスタム進捗トラック ──
+  const customTracks = getCustomTracks();
+  const customTrackHtml = customTracks.map(t => renderCustomTrackPanel(no, t)).join('');
+  const addTrackBtn = `<div style="margin-top:16px;margin-bottom:20px"><button onclick="openTrackEditor()" style="width:100%;padding:10px;border:2px dashed var(--accent);border-radius:10px;background:var(--accent-lt);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">＋ 新しい進捗トラックを追加</button></div>`;
+
   return `<div>
     ${nextActionHtml}
 
-    <!-- ステージ -->
+    <!-- エンゲージメント進捗 -->
     ${stageHtml}
+
+    <!-- カスタム進捗トラック -->
+    ${customTrackHtml}
+    ${addTrackBtn}
 
     <!-- マイルストーン -->
     ${msHtml}
@@ -4882,6 +4900,256 @@ function showModal(content, width='480px'){
 function closeModal(){
   const el = document.getElementById('onbo-modal-overlay');
   if(el) el.style.display = 'none';
+}
+
+// ── ステージ定義エディタ ──
+function openStageDefEditor(){
+  const _RS = getResolvedStages();
+  const ov = LS.get('stage_defs');
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){overlay=document.createElement('div');overlay.id='onbo-modal-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});document.body.appendChild(overlay);}
+  const rows = STAGES.map((def,i)=>{
+    const s = _RS[i];
+    const isOv = !!ov[s.no];
+    return `<div style="padding:12px;border:1px solid var(--border);border-radius:8px;background:${isOv?'var(--accent-lt)':'var(--surface2)'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:28px;height:28px;border-radius:6px;background:${s.color};color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:16px;flex-shrink:0">${s.no}</div>
+        <input id="sd-name-${s.no}" value="${esc(s.name)}" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-weight:700;background:var(--surface);outline:none">
+        <input id="sd-month-${s.no}" value="${esc(s.month)}" style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;text-align:center" placeholder="月">
+        ${isOv?`<button onclick="resetStageDef(${s.no})" style="font-size:9px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--td);cursor:pointer">リセット</button>`:''}
+      </div>
+      <textarea id="sd-desc-${s.no}" rows="1" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;resize:vertical;margin-bottom:4px;box-sizing:border-box" placeholder="説明">${esc(s.desc)}</textarea>
+      <textarea id="sd-action-${s.no}" rows="1" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box" placeholder="キーアクション">${esc(s.action)}</textarea>
+    </div>`;
+  }).join('');
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:24px;width:700px;max-width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">⚙ エンゲージメント進捗 ステージ編集</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--td);margin-bottom:14px">各ステージの名称・時期・説明・アクションを編集できます。</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">${rows}</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveStageDefs()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">💾 保存</button>
+      <button onclick="resetAllStageDefs()" style="padding:10px 20px;background:var(--surface2);color:var(--td);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">全てリセット</button>
+    </div>
+  </div>`;
+  overlay.style.display = 'flex';
+}
+function saveStageDefs(){
+  const ov = {};
+  STAGES.forEach(def => {
+    const n = def.no;
+    const name = document.getElementById('sd-name-'+n)?.value||'';
+    const month = document.getElementById('sd-month-'+n)?.value||'';
+    const desc = document.getElementById('sd-desc-'+n)?.value||'';
+    const action = document.getElementById('sd-action-'+n)?.value||'';
+    const changes = {};
+    if(name !== def.name) changes.name = name;
+    if(month !== def.month) changes.month = month;
+    if(desc !== def.desc) changes.desc = desc;
+    if(action !== def.action) changes.action = action;
+    if(Object.keys(changes).length > 0) ov[n] = changes;
+  });
+  LS.set('stage_defs', ov);
+  closeModal();
+  toast('💾 ステージ定義を保存しました');
+  // re-render if on progress tab
+  rerenderCurrentView();
+}
+function resetStageDef(no){
+  const ov = LS.get('stage_defs');
+  delete ov[no];
+  LS.set('stage_defs', ov);
+  openStageDefEditor(); // reopen to refresh
+  toast('ステージ '+no+' をリセットしました');
+}
+function resetAllStageDefs(){
+  if(!confirm('全ステージをデフォルトに戻しますか？')) return;
+  LS.set('stage_defs', {});
+  closeModal();
+  toast('全ステージをリセットしました');
+  rerenderCurrentView();
+}
+function rerenderCurrentView(){
+  // try to re-render current company page
+  const activeItem = document.querySelector('.sb-item.active');
+  if(activeItem){
+    const no = parseInt(activeItem.id?.replace('sb-item-',''));
+    const c = COMPANIES.find(x=>x.no===no);
+    const mainArea = document.getElementById('co-main-area');
+    if(mainArea && c){
+      mainArea.innerHTML = renderCompanyPage(c);
+      setTimeout(()=>{
+        const tabs = document.getElementById('inner-tabs-'+no);
+        if(tabs){const pt=[...tabs.querySelectorAll('.inner-tab')].find(t=>t.textContent.includes('企業進捗'));if(pt)switchInner(pt,'progress-'+no,'inner-tabs-'+no);}
+      },0);
+    }
+  }
+}
+
+// ── カスタム進捗トラック ──
+function renderCustomTrackPanel(no, track){
+  const stages = track.stages || [];
+  if(stages.length === 0) return '';
+  const curStage = getTrackStage(no, track.id);
+  const sd = stages[curStage - 1];
+  const timeline = stages.map((s,i)=>{
+    const n = i + 1, isDone = n < curStage, isCurr = n === curStage;
+    const alpha = isDone ? '99' : isCurr ? 'ff' : '44';
+    return `<div class="stage-pip ${isDone?'done':''} ${isCurr?'current':''}" style="background:${s.color||'#6366f1'}${alpha};color:#fff" onclick="jumpTrackStage(${no},'${track.id}',${n})" title="St.${n} ${esc(s.name)}">${n}</div>`;
+  }).join('');
+  return `<div style="margin-top:20px;padding:16px;border:2px solid var(--border);border-radius:12px;background:var(--surface)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--t1)">📊 ${esc(track.name)}</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="openTrackEditor('${track.id}')" style="font-size:10px;padding:4px 10px;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--td);background:var(--surface2)">⚙ 編集</button>
+        <button onclick="if(confirm('「${esc(track.name)}」トラックを削除しますか？')){deleteTrack('${track.id}');rerenderCurrentView();}" style="font-size:10px;padding:4px 10px;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--ng);background:var(--surface2)">削除</button>
+      </div>
+    </div>
+    <div class="stage-current" style="border-color:${sd?.color||'#6366f1'}">
+      <div class="stage-num-big" style="color:${sd?.color||'#6366f1'}">${curStage}</div>
+      <div class="stage-info">
+        <div class="stage-name" style="color:${sd?.color||'#6366f1'}">${esc(sd?.name||'—')}</div>
+        <div class="stage-desc">${esc(sd?.desc||'')}</div>
+        ${sd?.month?`<div style="font-size:11px;color:var(--t-muted);margin-top:6px;font-family:'Space Mono',monospace">理想時期: ${esc(sd.month)}</div>`:''}
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:9px;font-family:'Space Mono';color:var(--td);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">タイムライン</div>
+      <div class="stage-timeline">${timeline}</div>
+    </div>
+    ${sd?.action?`<div class="stage-action-box" style="border-left:3px solid ${sd.color||'#6366f1'}"><div class="stage-action-title" style="color:${sd.color||'#6366f1'}">キーアクション</div><div class="stage-action-text">${esc(sd.action)}</div></div>`:''}
+    <div class="stage-move-btns">
+      ${curStage>1?`<button class="stage-btn stage-btn-prev" onclick="moveTrackStage(${no},'${track.id}',-1)">← St.${curStage-1} に戻す</button>`:'<div></div>'}
+      ${curStage<stages.length?`<button class="stage-btn stage-btn-next" onclick="moveTrackStage(${no},'${track.id}',1)">St.${curStage+1} ${esc(stages[curStage]?.name||'')} →</button>`:`<div style="padding:10px;text-align:center;color:var(--ok);font-weight:700">🎉 最終ステージ達成！</div>`}
+    </div>
+  </div>`;
+}
+function moveTrackStage(no,trackId,delta){
+  const tracks = getCustomTracks();
+  const track = tracks.find(t=>t.id===trackId);
+  if(!track) return;
+  const cur = getTrackStage(no, trackId);
+  const next = Math.max(1, Math.min(track.stages.length, cur + delta));
+  setTrackStage(no, trackId, next);
+  toast(`St.${next} ${track.stages[next-1]?.name||''} に移動しました`);
+  rerenderCurrentView();
+}
+function jumpTrackStage(no,trackId,stageNo){
+  const tracks = getCustomTracks();
+  const track = tracks.find(t=>t.id===trackId);
+  if(!track) return;
+  setTrackStage(no, trackId, stageNo);
+  toast(`St.${stageNo} ${track.stages[stageNo-1]?.name||''} に設定しました`);
+  rerenderCurrentView();
+}
+function deleteTrack(trackId){
+  let tracks = getCustomTracks();
+  tracks = tracks.filter(t=>t.id!==trackId);
+  setCustomTracks(tracks);
+  // clean up track_stages
+  const ts = LS.get('track_stages');
+  const cleaned = {};
+  Object.keys(ts).forEach(k=>{if(!k.endsWith(':'+trackId))cleaned[k]=ts[k];});
+  LS.set('track_stages', cleaned);
+  toast('トラックを削除しました');
+}
+
+// ── トラック管理モーダル ──
+function openTrackEditor(trackId){
+  const tracks = getCustomTracks();
+  const isNew = !trackId;
+  let track = isNew ? {id:'trk_'+Date.now(), name:'', stages:[]} : tracks.find(t=>t.id===trackId);
+  if(!track) return;
+  // deep copy for editing
+  track = JSON.parse(JSON.stringify(track));
+  window._editingTrack = track;
+  renderTrackEditorModal();
+}
+function renderTrackEditorModal(){
+  const track = window._editingTrack;
+  if(!track) return;
+  const isNew = !getCustomTracks().find(t=>t.id===track.id);
+  const defaultColors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#059669','#0891b2','#3b82f6'];
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){overlay=document.createElement('div');overlay.id='onbo-modal-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});document.body.appendChild(overlay);}
+  const stageRows = track.stages.map((s,i)=>`
+    <div style="display:flex;gap:6px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
+      <div style="width:24px;height:24px;border-radius:6px;background:${s.color||defaultColors[i%defaultColors.length]};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${i+1}</div>
+      <input id="te-name-${i}" value="${esc(s.name)}" placeholder="ステージ名" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-weight:600;background:var(--surface);outline:none">
+      <input id="te-month-${i}" value="${esc(s.month||'')}" placeholder="時期" style="width:55px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;text-align:center">
+      <input id="te-color-${i}" type="color" value="${s.color||defaultColors[i%defaultColors.length]}" style="width:30px;height:28px;border:none;cursor:pointer;background:none">
+      <button onclick="removeTrackStage(${i})" style="font-size:14px;border:none;background:none;cursor:pointer;color:var(--td);padding:2px 4px" title="削除">✕</button>
+    </div>
+  `).join('');
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:24px;width:600px;max-width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">${isNew?'＋ 新しい進捗トラックを作成':'⚙ トラック編集'}</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">トラック名</div>
+      <input id="te-track-name" value="${esc(track.name)}" placeholder="例：契約更新進捗" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:14px;font-weight:700;background:var(--surface);outline:none;box-sizing:border-box">
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:6px">ステージ一覧 (${track.stages.length})</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${stageRows}</div>
+    <div style="display:flex;gap:6px;margin-bottom:16px">
+      <button onclick="addTrackStage()" style="flex:1;padding:8px;border:2px dashed var(--accent);border-radius:8px;background:var(--accent-lt);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">＋ ステージを追加</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveTrackEditor()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">💾 保存</button>
+      <button onclick="closeModal()" style="padding:10px 20px;background:var(--surface2);color:var(--td);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">キャンセル</button>
+    </div>
+  </div>`;
+  overlay.style.display = 'flex';
+}
+function addTrackStage(){
+  const track = window._editingTrack;
+  if(!track) return;
+  syncTrackEditorToModel();
+  const defaultColors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#059669'];
+  track.stages.push({no:track.stages.length+1, name:'', desc:'', month:'', color:defaultColors[track.stages.length%defaultColors.length], action:''});
+  renderTrackEditorModal();
+}
+function removeTrackStage(idx){
+  const track = window._editingTrack;
+  if(!track) return;
+  syncTrackEditorToModel();
+  track.stages.splice(idx, 1);
+  track.stages.forEach((s,i)=>s.no=i+1);
+  renderTrackEditorModal();
+}
+function syncTrackEditorToModel(){
+  const track = window._editingTrack;
+  if(!track) return;
+  track.name = document.getElementById('te-track-name')?.value || '';
+  track.stages.forEach((s,i)=>{
+    s.name = document.getElementById('te-name-'+i)?.value || '';
+    s.month = document.getElementById('te-month-'+i)?.value || '';
+    s.color = document.getElementById('te-color-'+i)?.value || s.color;
+  });
+}
+function saveTrackEditor(){
+  const track = window._editingTrack;
+  if(!track) return;
+  syncTrackEditorToModel();
+  if(!track.name.trim()){toast('トラック名を入力してください');return;}
+  if(track.stages.length === 0){toast('ステージを1つ以上追加してください');return;}
+  // add desc/action fields from stages if missing
+  track.stages.forEach((s,i)=>{
+    s.no = i + 1;
+    if(!s.desc) s.desc = '';
+    if(!s.action) s.action = '';
+  });
+  let tracks = getCustomTracks();
+  const idx = tracks.findIndex(t=>t.id===track.id);
+  if(idx >= 0) tracks[idx] = track;
+  else tracks.push(track);
+  setCustomTracks(tracks);
+  closeModal();
+  toast('💾 トラックを保存しました');
+  rerenderCurrentView();
 }
 
 // セルの右クリックメニュー（担当・コメント・ログ）
@@ -5931,7 +6199,7 @@ function renderBoard(){
   const statusF=document.getElementById('board-filter-status')?.value||'';
   const contractF=document.getElementById('board-filter-contract')?.value||'';
   const filteredCos=COMPANIES.filter(c=>{const contract=getContract(c.no);if(statusF&&c.status!==statusF)return false;if(contractF&&contract!==contractF)return false;return true;});
-  const cols=STAGES.map(stage=>{const companies=filteredCos.filter(c=>getStage(c.no)===stage.no);const cards=companies.map(c=>{const contract=getContract(c.no);const[cls,label]=contractInfo(contract);return`<div class="board-card" draggable="true" ondragstart="boardDragStart(event,${c.no})" ondragend="boardDragEnd(event)" onclick="goToCompany(${c.no})"><div class="board-card-name">${esc(c.short)}</div><div class="board-card-meta"><span class="board-card-contract ${cls}">${label}</span>${c.cs?`<span class="board-card-cs">${esc(c.cs.split(' ')[0])}</span>`:''}</div><div class="board-month" style="margin-top:4px">${c.status==='新規契約'?'🆕 新規':esc(c.course2||c.course1||'—')}</div></div>`;}).join('')||`<div class="board-empty">企業なし</div>`;return`<div class="board-col" ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="boardDrop(event,${stage.no})"><div class="board-col-header" style="border-color:${stage.color}"><div class="board-col-num" style="color:${stage.color}">${stage.no}</div><div class="board-col-title">${esc(stage.name)}<br><span style="font-family:'Space Mono';font-size:9px;color:var(--t-muted)">${stage.month}</span></div><span class="board-col-count" style="background:${stage.color}22;color:${stage.color}">${companies.length}</span></div>${cards}</div>`;}).join('');
+  const _RS=getResolvedStages();const cols=_RS.map(stage=>{const companies=filteredCos.filter(c=>getStage(c.no)===stage.no);const cards=companies.map(c=>{const contract=getContract(c.no);const[cls,label]=contractInfo(contract);return`<div class="board-card" draggable="true" ondragstart="boardDragStart(event,${c.no})" ondragend="boardDragEnd(event)" onclick="goToCompany(${c.no})"><div class="board-card-name">${esc(c.short)}</div><div class="board-card-meta"><span class="board-card-contract ${cls}">${label}</span>${c.cs?`<span class="board-card-cs">${esc(c.cs.split(' ')[0])}</span>`:''}</div><div class="board-month" style="margin-top:4px">${c.status==='新規契約'?'🆕 新規':esc(c.course2||c.course1||'—')}</div></div>`;}).join('')||`<div class="board-empty">企業なし</div>`;return`<div class="board-col" ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="boardDrop(event,${stage.no})"><div class="board-col-header" style="border-color:${stage.color}"><div class="board-col-num" style="color:${stage.color}">${stage.no}</div><div class="board-col-title">${esc(stage.name)}<br><span style="font-family:'Space Mono';font-size:9px;color:var(--t-muted)">${stage.month}</span></div><span class="board-col-count" style="background:${stage.color}22;color:${stage.color}">${companies.length}</span></div>${cards}</div>`;}).join('');
   boardEl.innerHTML=header+`<div class="board-wrap">${cols}</div>`;
 }
 let draggedCompanyNo=null;
@@ -5939,7 +6207,7 @@ function boardDragStart(e,no){draggedCompanyNo=no;e.target.classList.add('draggi
 function boardDragEnd(e){e.target.classList.remove('dragging');}
 function boardDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
 function boardDragLeave(e){e.currentTarget.classList.remove('drag-over');}
-function boardDrop(e,stageNo){e.preventDefault();e.currentTarget.classList.remove('drag-over');if(draggedCompanyNo!==null){setStage(draggedCompanyNo,stageNo);const c=COMPANIES.find(x=>x.no===draggedCompanyNo);toast(`${c?.short||''} → St.${stageNo} ${STAGES[stageNo-1]?.name||''}`);draggedCompanyNo=null;renderBoard();}}
+function boardDrop(e,stageNo){e.preventDefault();e.currentTarget.classList.remove('drag-over');if(draggedCompanyNo!==null){setStage(draggedCompanyNo,stageNo);const c=COMPANIES.find(x=>x.no===draggedCompanyNo);toast(`${c?.short||''} → St.${stageNo} ${getResolvedStages()[stageNo-1]?.name||''}`);draggedCompanyNo=null;renderBoard();}}
 function renderOverview(){
   const el = document.getElementById('page-overview');
   if(el) el.style.display = 'block';
@@ -6011,7 +6279,7 @@ function renderOverview(){
   // 各ステージの理想月
   const idealStageForMonth = (() => {
     let best = 1;
-    STAGES.forEach(s => { if(monthNames.indexOf(s.month) <= monthNames.indexOf(currentMonthName)) best = s.no; });
+    getResolvedStages().forEach(s => { if(monthNames.indexOf(s.month) <= monthNames.indexOf(currentMonthName)) best = s.no; });
     return best;
   })();
 
@@ -6127,7 +6395,7 @@ function renderOverview(){
         </div>
       </div>
     </div>
-    <div style="font-size:10px;color:var(--td)">現在 ${currentMonthName} / 理想ステージ St.${idealStageForMonth}「${STAGES[idealStageForMonth-1]?.name||''}」基準</div>`;
+    <div style="font-size:10px;color:var(--td)">現在 ${currentMonthName} / 理想ステージ St.${idealStageForMonth}「${getResolvedStages()[idealStageForMonth-1]?.name||''}」基準</div>`;
 
   // 契約ステータス分布
   const contractDistHtml = contractDist.map(d => {
