@@ -5951,7 +5951,8 @@ function renderOverview(){
   const viewCos = gf === 'disc' ? disc : gf === 'all' ? allCos : active;
 
   // ━━ 1. パートナー数 ━━
-  const contracted = viewCos.filter(c => ['S：契約書締結','A：契約中'].includes(getContract(c.no)));
+  const completed  = viewCos.filter(c => getContract(c.no) === 'S：契約書締結');
+  const renewing   = viewCos.filter(c => ['A：契約中','B：内諾確認済','C：社内調整中'].includes(getContract(c.no)));
   const newCos     = viewCos.filter(c => c.status === '新規契約');
   const discCos    = allCos.filter(c => getContract(c.no) === 'D：非継続');
 
@@ -6042,8 +6043,13 @@ function renderOverview(){
   const kpiCards = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">
     <!-- パートナー数 -->
     <div class="panel" style="text-align:center;padding:16px 10px">
-      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">契約中</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--ok);line-height:1">${contracted.length}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">契約完了</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--ok);line-height:1">${completed.length}</div>
+      <div style="font-size:10px;color:var(--td)">社</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px 10px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">契約更新中</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--accent);line-height:1">${renewing.length}</div>
       <div style="font-size:10px;color:var(--td)">社</div>
     </div>
     <div class="panel" style="text-align:center;padding:16px 10px">
