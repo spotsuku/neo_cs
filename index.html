@@ -1520,8 +1520,8 @@ function renderCompanyPage(c){
   // LS上書きがあれば適用（_cs_staffは除く）
   const _ov=LS.get('co_info_'+c.no);if(Object.keys(_ov).length>0){const {_cs_staff,..._ovRest}=_ov;c={...c,..._ovRest};}
   const contract=getContract(c.no);const[cls]=contractInfo(contract);const plans=LS.get('plans_'+c.no);
-  const gradRate=c.sent>0?Math.round(c.grad/c.sent*100):null;const gradColor=gradRate===100?'var(--ok)':gradRate!=null&&gradRate>=50?'var(--warn)':'var(--ng)';
   const stage=getStage(c.no);const stageData=STAGES[stage-1];
+  const _onboDone=LS.get(fyKey('onbo_'+c.no));let onboTotalCnt=0,onboDoneCnt=0;ONBO_PHASES.forEach(p=>{const tasks=getGlobalTasks(p.id);onboTotalCnt+=tasks.length;tasks.forEach(t=>{if(_onboDone[t.id])onboDoneCnt++;});});const onboPct=onboTotalCnt>0?Math.round(onboDoneCnt/onboTotalCnt*100):0;const onboColor=onboPct>=80?'var(--ok)':onboPct>=50?'var(--accent)':'var(--warn)';
   let risk='';
   if(contract==='D：非継続')risk=`<div class="risk-banner danger"><span class="risk-icon">🚨</span><span class="risk-text">非継続企業 — ウィンバック戦略を検討してください</span></div>`;
   else if(contract==='C：社内調整中')risk=`<div class="risk-banner warn"><span class="risk-icon">⚠️</span><span class="risk-text">社内調整中 — 継続確認の打ち合わせを設定してください</span></div>`;
@@ -1544,10 +1544,10 @@ function renderCompanyPage(c){
     <div class="co-kpi-val">${c.sent||0}</div>
     <div class="co-kpi-sub">名（1期）</div>
   </div>
-  <div class="co-kpi">
-    <div class="co-kpi-label">卒業率</div>
-    <div class="co-kpi-val" style="color:${gradColor}">${gradRate!=null?gradRate+'%':'—'}</div>
-    <div class="co-kpi-sub">${c.grad}/${c.sent}名</div>
+  <div class="co-kpi" style="cursor:pointer" onclick="switchMainTab('onboarding');setTimeout(()=>selectSbCompany(${c.no}),100)">
+    <div class="co-kpi-label">オンボ率</div>
+    <div class="co-kpi-val" style="color:${onboColor}">${onboPct}<span style="font-size:14px">%</span></div>
+    <div class="co-kpi-sub">${onboDoneCnt}/${onboTotalCnt}タスク</div>
   </div>
   <div class="co-kpi">
     <div class="co-kpi-label">企業満足度</div>
