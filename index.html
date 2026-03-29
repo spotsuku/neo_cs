@@ -4252,6 +4252,10 @@ function renderProgressTab(no){
                     style="font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--td);cursor:pointer;line-height:1.4"
                     onmouseover="this.style.background='var(--accent-lt)';this.style.color='var(--accent)'"
                     onmouseout="this.style.background='var(--surface)';this.style.color='var(--td)'">✏</button>
+                  <button onclick="setMsAssigneeCard(${no},'${m.id}')" title="担当者設定"
+                    style="font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--td);cursor:pointer;line-height:1.4"
+                    onmouseover="this.style.background='var(--accent-lt)';this.style.color='var(--accent)'"
+                    onmouseout="this.style.background='var(--surface)';this.style.color='var(--td)'">👤</button>
                   ${m.id&&(m.id.startsWith('custom_')||getCustomMs(no).find(cm=>cm.id===m.id))
                     ? `<button onclick="if(confirm('削除しますか？')){removeCustomMs(${no},'${m.id}');rerenderProgressSection(${no});}" title="削除"
                         style="font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--td);cursor:pointer;line-height:1.4"
@@ -4261,6 +4265,7 @@ function renderProgressTab(no){
                 </div>
               </div>
               ${m.desc?`<div style="font-size:10px;color:var(--td);margin-bottom:6px;line-height:1.5">${esc(m.desc)}</div>`:''}
+              ${(()=>{const ov=getMsOverrides(no);const a=ov[m.id]?.assignee||'';return a?`<div style="font-size:9px;color:var(--accent);margin-bottom:4px">👤 ${esc(a)}</div>`:'';})()}
               <select onchange="changeMsStatus(${no},'${m.id}',this);rerenderProgressMs(${no})"
                 style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--t2);cursor:pointer;width:100%">
                 ${selOpts}
@@ -5654,6 +5659,46 @@ function showFiscalYearManager(){
   overlay.style.display = 'flex';
 }
 
+// マイルストーン担当者設定
+function setMsAssigneeCard(no, msId){
+  const ov = getMsOverrides(no);
+  const current = ov[msId]?.assignee || '';
+  const name = currentUser?.name || currentUser?.email || '';
+  if(!name){ toast('ログインが必要です'); return; }
+  if(current === name){
+    if(!confirm(`担当者「${name}」を解除しますか？`)) return;
+    if(!ov[msId]) ov[msId] = {};
+    ov[msId].assignee = '';
+    toast('👤 担当を解除しました');
+  } else {
+    if(!ov[msId]) ov[msId] = {};
+    ov[msId].assignee = name;
+    toast('👤 自分を担当者に設定しました');
+  }
+  LS.set(fyKey('ms_overrides_'+no), ov);
+  rerenderProgressSection(no);
+}
+
+function setMsAssignee(no, msId){
+  // 現在の担当者
+  const ov = getMsOverrides(no);
+  const current = ov[msId]?.assignee || '';
+  // ログインユーザーを担当者にセット / クリア
+  if(current){
+    if(!confirm(`現在の担当者「${current}」を解除しますか？`)) return;
+    if(!ov[msId]) ov[msId] = {};
+    ov[msId].assignee = '';
+  } else {
+    const name = currentUser?.name || currentUser?.email || '';
+    if(!name){ toast('ログインが必要です'); return; }
+    if(!ov[msId]) ov[msId] = {};
+    ov[msId].assignee = name;
+  }
+  LS.set(fyKey('ms_overrides_'+no), ov);
+  renderMilestonePage();
+  toast('👤 担当者を更新しました');
+}
+
 function renderMilestonePage(){
   const page = document.getElementById('page-milestone');
   const defs = MILESTONE_DATA.defs;
@@ -5815,36 +5860,351 @@ function boardDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag
 function boardDragLeave(e){e.currentTarget.classList.remove('drag-over');}
 function boardDrop(e,stageNo){e.preventDefault();e.currentTarget.classList.remove('drag-over');if(draggedCompanyNo!==null){setStage(draggedCompanyNo,stageNo);const c=COMPANIES.find(x=>x.no===draggedCompanyNo);toast(`${c?.short||''} → St.${stageNo} ${STAGES[stageNo-1]?.name||''}`);draggedCompanyNo=null;renderBoard();}}
 function renderOverview(){
-  const el=document.getElementById('page-overview');if(el)el.style.display='block';
-  const disc=COMPANIES.filter(c=>getContract(c.no)==='D：非継続');
-  const activeCos = getGlobalFilter()==='disc' ? disc :
-                    getGlobalFilter()==='all'  ? COMPANIES :
-                    COMPANIES.filter(c=>getContract(c.no)!=='D：非継続');
-  const newCo=activeCos.filter(c=>c.status==='新規契約');
-  const s_count=activeCos.filter(c=>getContract(c.no)==='S：契約書締結').length;
-  const a_count=activeCos.filter(c=>getContract(c.no)==='A：契約中').length;
-  const total_rev=activeCos.reduce((s,c)=>s+(c.price||0),0);
-  const avg_sat=(()=>{const v=activeCos.filter(c=>c.ent_sat!=null).map(c=>c.ent_sat);return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):'—';})();
-const html=`<div class="section-header"><div class="section-num">📊</div><div class="section-title" style="font-family:'Bebas Neue';font-size:28px;letter-spacing:2px">パートナーサクセス概要ダッシュボード</div><div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-  <div style="display:flex;gap:4px;background:var(--surface2);border-radius:8px;padding:4px">
-    ${[['active','継続企業'],['all','全社'],['disc','非継続']].map(([v,l])=>
+  const el = document.getElementById('page-overview');
+  if(el) el.style.display = 'block';
+
+  const allCos = COMPANIES;
+  const disc   = allCos.filter(c => getContract(c.no) === 'D：非継続');
+  const active = allCos.filter(c => getContract(c.no) !== 'D：非継続');
+  const gf     = getGlobalFilter();
+  const viewCos = gf === 'disc' ? disc : gf === 'all' ? allCos : active;
+
+  // ━━ 1. パートナー数 ━━
+  const contracted = viewCos.filter(c => ['S：契約書締結','A：契約中'].includes(getContract(c.no)));
+  const newCos     = viewCos.filter(c => c.status === '新規契約');
+  const discCos    = allCos.filter(c => getContract(c.no) === 'D：非継続');
+
+  // ━━ 2. 企業平均満足度（担当者アンケート） ━━
+  const entSatVals = viewCos.filter(c => c.ent_sat != null).map(c => c.ent_sat);
+  const avgSat = entSatVals.length ? (entSatVals.reduce((a,b)=>a+b,0)/entSatVals.length).toFixed(1) : '—';
+  const avgGrow = (() => {
+    const v = viewCos.filter(c=>c.ent_grow!=null).map(c=>c.ent_grow);
+    return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '—';
+  })();
+
+  // ━━ 3. オンボ率 + 期限切れ・期限近接タスク ━━
+  let onboTotal = 0, onboDone = 0;
+  const overdueItems = [];   // {company, taskLabel, due, assignee}
+  const nearItems    = [];
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const phaseDues = LS.get(fyKey('onbo_phase_due'));
+
+  viewCos.forEach(c => {
+    const done = LS.get(fyKey('onbo_'+c.no));
+    ONBO_PHASES.forEach(p => {
+      const tasks = getGlobalTasks(p.id);
+      tasks.forEach(t => {
+        onboTotal++;
+        const st = getCheckState(done[t.id]);
+        if(st.val === 2) onboDone++;
+
+        // 期限チェック
+        const meta = LS.get(fyKey('onbo_meta_'+c.no));
+        const due = (meta[t.id]?.due) || phaseDues[p.id+'::'+t.id] || '';
+        if(due && st.val < 2){
+          const diff = Math.ceil((new Date(due) - today) / 86400000);
+          const item = {
+            company: c.short, companyNo: c.no,
+            taskLabel: t.label, phase: getPhaseName(p.id),
+            due, diff,
+            assignee: meta[t.id]?.owner || ''
+          };
+          if(diff < 0)      overdueItems.push(item);
+          else if(diff <= 7) nearItems.push(item);
+        }
+      });
+    });
+  });
+  const onboRate = onboTotal > 0 ? Math.round(onboDone/onboTotal*100) : 0;
+
+  // ━━ 4. 企業進捗（ステージ vs 理想時期） ━━
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // 1-12
+  // 年度: 4月開始として何ヶ月目か（4月=1, 5月=2...3月=12）
+  const fiscalMonth = ((currentMonth - 4 + 12) % 12) + 1;
+  // 理想ステージ = fiscalMonth を STAGES の month から推定
+  const monthNames = ['4月','5月','6月','7月','8月','9月','10月','11月','12月','1月','2月','3月'];
+  const currentMonthName = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'][currentMonth-1];
+  // 各ステージの理想月
+  const idealStageForMonth = (() => {
+    let best = 1;
+    STAGES.forEach(s => { if(monthNames.indexOf(s.month) <= monthNames.indexOf(currentMonthName)) best = s.no; });
+    return best;
+  })();
+
+  const onTrack  = viewCos.filter(c => getStage(c.no) >= idealStageForMonth);
+  const behind   = viewCos.filter(c => getStage(c.no) < idealStageForMonth);
+
+  // ━━ 5. 契約ステータス分布 ━━
+  const contractDist = ['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(ct => ({
+    label: ct, count: allCos.filter(c=>getContract(c.no)===ct).length
+  }));
+
+  // ━━ 6. コース別分布 ━━
+  const courseDist = ['リーダー育成','事業共創',''].map(ct => ({
+    label: ct||'未設定', count: allCos.filter(c=>(c.course2||'')===ct).length
+  })).filter(d=>d.count>0);
+
+  // ━━ HTML 組み立て ━━
+  const filterBtns = `<div style="display:flex;gap:4px;background:var(--surface2);border-radius:8px;padding:4px">
+    ${[['active','継続'],['all','全社'],['disc','非継続']].map(([v,l])=>
       `<button onclick="window._ovFilter='${v}';renderOverview()"
-        style="padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:none;
-          background:${getGlobalFilter()===v?'var(--accent)':'transparent'};
-          color:${getGlobalFilter()===v?'#fff':'var(--td)'}">
+        style="padding:5px 16px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:none;
+          background:${gf===v?'var(--accent)':'transparent'};
+          color:${gf===v?'#fff':'var(--td)'}">
         ${l}
-      </button>`
-    ).join('')}
-  </div>
-  <span style="font-family:'Space Mono';font-size:10px;color:var(--td)">NEO ACADEMIA 2期</span>
-</div></div><div class="ov-kpi-row"><div class="ov-kpi"><div class="ov-kpi-label">総パートナー数</div><div class="ov-kpi-val" style="color:var(--accent)">${COMPANIES.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">契約中（S+A）</div><div class="ov-kpi-val" style="color:var(--ok)">${s_count+a_count}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">新規契約</div><div class="ov-kpi-val" style="color:var(--purple)">${newCo.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">非継続</div><div class="ov-kpi-val" style="color:var(--ng)">${disc.length}</div><div class="ov-kpi-sub">社</div></div><div class="ov-kpi"><div class="ov-kpi-label">企業平均満足度</div><div class="ov-kpi-val" style="color:${scColor(avg_sat)}">${avg_sat}</div><div class="ov-kpi-sub">/10</div></div><div class="ov-kpi"><div class="ov-kpi-label">年間売上（継続）</div><div class="ov-kpi-val" style="color:var(--ok);font-size:28px">¥${(total_rev/1000000).toFixed(0)}M</div><div class="ov-kpi-sub">継続企業合計</div></div></div><div class="section-header"><div class="section-num">1</div><div class="section-title">顧客健全マトリクス</div><div style="margin-left:auto;display:flex;gap:8px;font-size:10px;align-items:center"><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ok);display:inline-block"></span>健全</span><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--warn);display:inline-block"></span>要注意</span><span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ng);display:inline-block"></span>リスク</span></div></div><div class="health-matrix"><table class="hm-table"><thead><tr><th>企業名</th><th>契約状況</th><th>ステータス</th><th>CS担当</th><th>コース</th><th>卒業率</th><th>企業満足</th><th>企業成長</th><th>健全スコア</th><th>面談数</th><th>操作</th></tr></thead><tbody>${COMPANIES.filter(c=>{
-  const contract=getContract(c.no);
-  if(getGlobalFilter()==='disc') return contract==='D：非継続';
-  if(getGlobalFilter()==='active') return contract!=='D：非継続';
-  return true; // all
-}).map(c=>{const contract=getContract(c.no);const[cls,label]=contractInfo(contract);const health=getHealthScore(c);const hColor=health>=7?'var(--ok)':health>=5?'var(--warn)':'var(--ng)';const gradRate=c.sent>0?Math.round(c.grad/c.sent*100)+'%':'—';const meetings=LS.getArr('meetings_'+c.no).length;return`<tr class="${c.status==='新規契約'?'is-new':''}"><td><span class="co-name-cell" onclick="goToCompany(${c.no})">${esc(c.short)}</span></td><td><span class="cs-tag ${cls}">${label}</span></td><td style="font-size:11px;color:var(--td)">${esc(c.status)}</td><td style="font-size:11px">${esc(c.cs)||'—'}</td><td style="font-size:11px">${esc(c.course2||c.course1||'—')}</td><td style="font-weight:700;font-size:13px">${gradRate}</td><td><span class="score-pill" style="color:${scColor(c.ent_sat)}">${c.ent_sat!=null?c.ent_sat:'—'}</span></td><td><span class="score-pill" style="color:${scColor(c.ent_grow)}">${c.ent_grow!=null?c.ent_grow:'—'}</span></td><td><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill" style="width:${health*10}%;background:${hColor}"></div></div><span style="font-family:'Bebas Neue';font-size:16px;color:${hColor}">${health}</span></div></td><td style="font-size:12px;font-weight:700;color:${meetings>=3?'var(--ok)':meetings>=1?'var(--warn)':'var(--td)'}">${meetings}</td><td><button onclick="goToCompany(${c.no})" style="font-size:10px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);cursor:pointer" onmouseover="this.style.background='var(--accent-lt)';this.style.color='var(--accent)'" onmouseout="this.style.background='var(--surface2)';this.style.color=''">詳細 →</button></td></tr>`;}).join('')}</tbody></table></div><div class="section-header"><div class="section-num">2</div><div class="section-title">契約ステータス分布</div></div><div class="grid3"><div class="panel"><div class="panel-title">契約状況</div>${['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(ct=>{const count=COMPANIES.filter(c=>getContract(c.no)===ct).length;const[cls,label]=contractInfo(ct);return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><span class="cs-tag ${cls}">${label}</span><div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="width:${Math.round(count/COMPANIES.length*100)}%;height:100%;background:${cls==='tag-s'?'var(--ok)':cls==='tag-a'?'var(--accent)':cls==='tag-d'?'var(--ng)':'var(--warn)'}"></div></div><span style="font-family:'Bebas Neue';font-size:20px;width:28px;text-align:right">${count}</span></div>`;}).join('')}</div><div class="panel"><div class="panel-title">コース別分布（2期）</div>${['リーダー育成','事業共創',''].map(ct=>{const label=ct||'未定';const count=COMPANIES.filter(c=>(c.course2||'')===ct).length;if(!count)return'';const colors={'リーダー育成':'var(--accent)','事業共創':'var(--ok)','未定':'var(--td)'};return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:${colors[label]||'var(--td)'};font-weight:700;width:90px">${label}</span><div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="width:${Math.round(count/COMPANIES.length*100)}%;height:100%;background:${colors[label]||'var(--td)'}"></div></div><span style="font-family:'Bebas Neue';font-size:20px;width:28px;text-align:right">${count}</span></div>`;}).join('')}</div><div class="panel"><div class="panel-title">要注意・フォローアップ</div>${COMPANIES.filter(c=>getContract(c.no)==='C：社内調整中'||(c.ent_sat!=null&&c.ent_sat<7)).slice(0,6).map(c=>{const risk=getContract(c.no)==='C：社内調整中'?'社内調整中':`満足度${c.ent_sat}`;return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;font-weight:600;flex:1;cursor:pointer;color:var(--accent)" onclick="goToCompany(${c.no})">${esc(c.short)}</span><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--warn-lt);color:var(--warn);font-weight:700">${risk}</span></div>`;}).join('')||'<div style="color:var(--td);font-size:12px">リスク企業なし</div>'}</div></div>`;
-  document.getElementById('page-overview').innerHTML=html;
+      </button>`).join('')}
+  </div>`;
+
+  // KPI カード
+  const kpiCards = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">
+    <!-- パートナー数 -->
+    <div class="panel" style="text-align:center;padding:16px 10px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">契約中</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--ok);line-height:1">${contracted.length}</div>
+      <div style="font-size:10px;color:var(--td)">社</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px 10px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">新規契約</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--purple);line-height:1">${newCos.length}</div>
+      <div style="font-size:10px;color:var(--td)">社</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px 10px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">退会・休会</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--ng);line-height:1">${discCos.length}</div>
+      <div style="font-size:10px;color:var(--td)">社</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px 10px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">担当者満足度</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:${scColor(avgSat)};line-height:1">${avgSat}</div>
+      <div style="font-size:10px;color:var(--td)">/ 10</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px 10px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">担当者成長実感</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:${scColor(avgGrow)};line-height:1">${avgGrow}</div>
+      <div style="font-size:10px;color:var(--td)">/ 10</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px 10px;cursor:pointer" onclick="switchMainTab('onboarding-all')">
+      <div style="font-size:10px;font-weight:700;color:var(--td);letter-spacing:1px;margin-bottom:6px">オンボ完了率</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:${onboRate>=80?'var(--ok)':onboRate>=50?'var(--accent)':'var(--warn)'};line-height:1">${onboRate}<span style="font-size:16px">%</span></div>
+      <div style="font-size:10px;color:var(--td)">${onboDone}/${onboTotal}タスク</div>
+    </div>
+  </div>`;
+
+  // オンボ期限アラート
+  const dueColor = (diff) => diff < 0 ? 'var(--ng)' : diff <= 3 ? 'var(--warn)' : '#0891b2';
+  const dueLabel = (diff) => diff < 0 ? `${Math.abs(diff)}日超過` : diff === 0 ? '今日期限' : `残${diff}日`;
+
+  const overdueHtml = overdueItems.length === 0 && nearItems.length === 0
+    ? `<div style="color:var(--td);font-size:12px;padding:12px 0;text-align:center">期限切れ・期限近接のタスクはありません ✅</div>`
+    : [...overdueItems.sort((a,b)=>a.diff-b.diff), ...nearItems.sort((a,b)=>a.diff-b.diff)]
+        .slice(0,10)
+        .map(item => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;
+            background:${dueColor(item.diff)}22;color:${dueColor(item.diff)};white-space:nowrap;flex-shrink:0">
+            ${dueLabel(item.diff)}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:var(--t1)">${esc(item.company)}</div>
+            <div style="font-size:11px;color:var(--td);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${esc(item.phase)} / ${esc(item.taskLabel)}
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--td);text-align:right;flex-shrink:0">
+            ${item.assignee ? `<div style="color:var(--accent)">👤 ${esc(item.assignee)}</div>` : '<div style="color:var(--td)">担当未設定</div>'}
+            <div style="font-size:9px">${esc(item.due)}</div>
+          </div>
+          <button onclick="selectCompany(${item.companyNo});switchMainTab('onboarding')"
+            style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--accent);cursor:pointer;font-size:10px;font-weight:700;flex-shrink:0">
+            →
+          </button>
+        </div>`).join('');
+
+  // 企業進捗パネル
+  const progressHtml = `
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div style="flex:1;background:var(--ok-lt);border:1px solid #6ee7b7;border-radius:8px;padding:12px">
+        <div style="font-size:10px;font-weight:700;color:var(--ok);margin-bottom:6px">✅ 順調（${onTrack.length}社）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${onTrack.slice(0,8).map(c=>`<span onclick="goToCompany(${c.no})" style="font-size:10px;padding:2px 8px;background:var(--ok)22;color:var(--ok);border-radius:4px;cursor:pointer;font-weight:700">${esc(c.short)}</span>`).join('')}
+          ${onTrack.length > 8 ? `<span style="font-size:10px;color:var(--td)">+${onTrack.length-8}社</span>` : ''}
+        </div>
+      </div>
+      <div style="flex:1;background:var(--warn-lt);border:1px solid #fcd34d;border-radius:8px;padding:12px">
+        <div style="font-size:10px;font-weight:700;color:var(--warn);margin-bottom:6px">⏰ 遅れ（${behind.length}社）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${behind.slice(0,8).map(c=>`<span onclick="goToCompany(${c.no})" style="font-size:10px;padding:2px 8px;background:var(--warn)22;color:var(--warn);border-radius:4px;cursor:pointer;font-weight:700">${esc(c.short)}</span>`).join('')}
+          ${behind.length > 8 ? `<span style="font-size:10px;color:var(--td)">+${behind.length-8}社</span>` : ''}
+        </div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--td)">現在 ${currentMonthName} / 理想ステージ St.${idealStageForMonth}「${STAGES[idealStageForMonth-1]?.name||''}」基準</div>`;
+
+  // 契約ステータス分布
+  const contractDistHtml = contractDist.map(d => {
+    const [cls,lbl] = contractInfo(d.label);
+    const pct = allCos.length ? Math.round(d.count/allCos.length*100) : 0;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span class="cs-tag ${cls}" style="width:110px;text-align:center;flex-shrink:0">${lbl}</span>
+      <div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${cls==='tag-s'?'var(--ok)':cls==='tag-a'?'var(--accent)':cls==='tag-d'?'var(--ng)':'var(--warn)'};border-radius:3px"></div>
+      </div>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;width:24px;text-align:right">${d.count}</span>
+    </div>`;
+  }).join('');
+
+  const courseDistHtml = courseDist.map(d => {
+    const col = d.label==='リーダー育成'?'var(--accent)':d.label==='事業共創'?'var(--ok)':'var(--td)';
+    const pct = allCos.length ? Math.round(d.count/allCos.length*100) : 0;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:11px;color:${col};font-weight:700;width:90px;flex-shrink:0">${esc(d.label)}</span>
+      <div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${col};border-radius:3px"></div>
+      </div>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;width:24px;text-align:right">${d.count}</span>
+    </div>`;
+  }).join('');
+
+  // AI分析ボタン
+  const aiSection = `
+    <div id="ov-ai-result" style="display:none;padding:14px;background:var(--surface2);border-radius:8px;font-size:12px;color:var(--t2);line-height:1.8;margin-top:10px;white-space:pre-wrap"></div>
+    <button id="ov-ai-btn" onclick="runOverviewAI()"
+      style="width:100%;padding:10px;background:linear-gradient(135deg,#1e3a5f,#1a56db);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px">
+      🤖 AI分析：全体の遅れ・緊急タスクを分析する
+    </button>`;
+
+  const html = `
+    <!-- ヘッダー -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px">パートナーサクセス 概要</div>
+        <div style="font-size:11px;color:var(--td);margin-top:2px">NEO ACADEMIA 福岡 / CS管理ダッシュボード</div>
+      </div>
+      ${filterBtns}
+    </div>
+
+    <!-- KPI -->
+    ${kpiCards}
+
+    <!-- 2カラムレイアウト -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+      <!-- オンボ期限アラート -->
+      <div class="panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="panel-title" style="margin:0;border:none;padding:0">⏰ 期限切れ・期限近接タスク</div>
+          <span style="font-size:10px;padding:2px 8px;background:${overdueItems.length>0?'var(--ng-lt)':'var(--ok-lt)'};color:${overdueItems.length>0?'var(--ng)':'var(--ok)'};border-radius:4px;font-weight:700">
+            超過 ${overdueItems.length}件
+          </span>
+        </div>
+        ${overdueHtml}
+        ${(overdueItems.length + nearItems.length) > 10 ? `<div style="font-size:11px;color:var(--td);text-align:center;padding:8px 0">他 ${(overdueItems.length+nearItems.length)-10}件 → <span onclick="switchMainTab('onboarding-all')" style="color:var(--accent);cursor:pointer">オンボ一覧で確認</span></div>` : ''}
+      </div>
+
+      <!-- 企業進捗 -->
+      <div class="panel">
+        <div class="panel-title" style="margin-bottom:10px">📈 企業進捗（ステージ vs 理想時期）</div>
+        ${progressHtml}
+      </div>
+
+    </div>
+
+    <!-- AI分析 + 契約分布 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+      <!-- AI分析 -->
+      <div class="panel">
+        <div class="panel-title" style="margin-bottom:4px">🤖 AI分析</div>
+        <div style="font-size:11px;color:var(--td);margin-bottom:8px">全体の遅れ・緊急タスクをAIが分析します</div>
+        ${aiSection}
+      </div>
+
+      <!-- 契約ステータス分布 -->
+      <div class="panel">
+        <div class="panel-title" style="margin-bottom:10px">📊 契約ステータス分布</div>
+        ${contractDistHtml}
+        <div style="margin-top:14px">
+          <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:8px">コース別分布</div>
+          ${courseDistHtml}
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  document.getElementById('page-overview').innerHTML = html;
 }
+
+// 概要ダッシュボード用 AI分析
+async function runOverviewAI(){
+  const btn = document.getElementById('ov-ai-btn');
+  const result = document.getElementById('ov-ai-result');
+  if(!btn || !result) return;
+
+  btn.textContent = '🤖 分析中...';
+  btn.disabled = true;
+  result.style.display = 'none';
+
+  try {
+    // 分析用データを収集
+    const today = new Date(); today.setHours(0,0,0,0);
+    const phaseDues = LS.get(fyKey('onbo_phase_due'));
+    const alerts = [];
+
+    COMPANIES.forEach(c => {
+      if(getContract(c.no) === 'D：非継続') return;
+      const done = LS.get(fyKey('onbo_'+c.no));
+      const stage = getStage(c.no);
+
+      ONBO_PHASES.forEach(p => {
+        getGlobalTasks(p.id).forEach(t => {
+          const meta = LS.get(fyKey('onbo_meta_'+c.no));
+          const due = (meta[t.id]?.due) || phaseDues[p.id+'::'+t.id] || '';
+          const st = getCheckState(done[t.id]);
+          if(due && st.val < 2){
+            const diff = Math.ceil((new Date(due) - today) / 86400000);
+            if(diff <= 7) alerts.push({co: c.short, task: t.label, diff, phase: getPhaseName(p.id)});
+          }
+        });
+      });
+    });
+
+    const prompt = `NEO ACADEMIA 福岡のパートナーサクセスダッシュボードのデータです。
+
+【期限切れ・期限近接タスク（7日以内）】
+${alerts.length > 0 ? alerts.map(a=>`- ${a.co}: ${a.phase}「${a.task}」 ${a.diff<0?Math.abs(a.diff)+'日超過':'残'+a.diff+'日'}`).join('\n') : 'なし'}
+
+【全社オンボ完了率】
+${COMPANIES.filter(c=>getContract(c.no)!=='D：非継続').map(c=>{
+  let done=0,total=0;
+  ONBO_PHASES.forEach(p=>{const tasks=getGlobalTasks(p.id);total+=tasks.length;tasks.forEach(t=>{if(getCheckState(LS.get(fyKey('onbo_'+c.no))[t.id]).val===2)done++;});});
+  return `${c.short}: ${total>0?Math.round(done/total*100):0}%`;
+}).join(' / ')}
+
+上記データをもとに、CSチームが今すぐ対応すべき緊急タスクと、全体的な遅れのパターンを3〜5点で簡潔に教えてください。日本語で、箇条書きで回答してください。`;
+
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt})
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || data.text || '分析できませんでした';
+
+    result.textContent = text;
+    result.style.display = 'block';
+  } catch(e) {
+    result.textContent = '分析に失敗しました: ' + e.message;
+    result.style.display = 'block';
+  }
+
+  btn.innerHTML = '🤖 AI分析：全体の遅れ・緊急タスクを再分析する';
+  btn.disabled = false;
+}
+
+
 function goToCompany(no){currentCompanyNo=no;switchMainTab('company');}
 
 // ━━━ Google認証 & ユーザー管理 ━━━
