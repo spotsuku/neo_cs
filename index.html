@@ -516,6 +516,19 @@ function applyGlobalMsEdits(){
         if(m) Object.assign(m, edits);
       });
     });
+  // 追加復元
+  const added = LS.getArr('ms_global_added');
+  added.forEach(item=>{
+    if(!MILESTONE_DATA.defs.find(d=>d.id===item.id)){
+      MILESTONE_DATA.defs.push({...item, col:''});
+      Object.keys(MILESTONE_DATA.by_no).forEach(k=>{
+        const co = MILESTONE_DATA.by_no[k];
+        if(co.milestones && !co.milestones.find(m=>m.id===item.id)){
+          co.milestones.push({...item, status:'pending', raw:'未着手'});
+        }
+      });
+    }
+  });
   } catch(e){ console.warn('[ms] applyGlobalMsEdits skipped:', e.message); }
 }
 
@@ -6069,6 +6082,86 @@ function toggleOnboByIdAndRefresh(no, taskId){
   cycleOnboCheck(no, taskId, t?.label || taskId);
 }
 
+// マイルストーン一覧から全社共通で追加
+function showMsAddGlobal(){
+  const typeColors = {meeting:'#3b82f6', notice:'#f59e0b', action:'#059669', contract:'#7c3aed'};
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){overlay=document.createElement('div');overlay.id='onbo-modal-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});document.body.appendChild(overlay);}
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:24px;width:460px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">＋ マイルストーンを全社に追加</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--td);margin-bottom:4px;font-weight:700">項目名（必須）</div>
+      <input id="ms-add-label" placeholder="例：Q2中間フォロー" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:var(--surface2);outline:none;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--td);margin-bottom:4px;font-weight:700">日付・時期</div>
+        <input id="ms-add-date" type="date" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:var(--surface2);outline:none;box-sizing:border-box;cursor:pointer">
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--td);margin-bottom:4px;font-weight:700">種別</div>
+        <select id="ms-add-type" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:var(--surface2);outline:none;box-sizing:border-box;cursor:pointer">
+          <option value="meeting">👥 評議会・MTG</option>
+          <option value="notice">📨 連絡・通知</option>
+          <option value="action">✅ アクション</option>
+          <option value="contract">📝 契約</option>
+        </select>
+      </div>
+    </div>
+    <button onclick="addMsGlobal()" style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px">＋ 全社に追加する</button>
+  </div>`;
+  overlay.style.display = 'flex';
+}
+
+function addMsGlobal(){
+  const label = document.getElementById('ms-add-label')?.value?.trim();
+  const dateRaw = document.getElementById('ms-add-date')?.value || '';
+  const type = document.getElementById('ms-add-type')?.value || 'action';
+  if(!label){ toast('項目名を入力してください'); return; }
+  const date = dateRaw ? formatMsDate(dateRaw) : '随時';
+  const id = 'global_' + Date.now();
+  // MILESTONE_DATA.defs に追加
+  MILESTONE_DATA.defs.push({id, label, date, type, col:''});
+  // 全企業の by_no にも追加
+  Object.keys(MILESTONE_DATA.by_no).forEach(k=>{
+    MILESTONE_DATA.by_no[k].milestones.push({id, label, date, type, status:'pending', raw:'未着手'});
+  });
+  // グローバル追加リストに保存
+  const added = LS.getArr('ms_global_added');
+  added.push({id, label, date, type});
+  LS.setArr('ms_global_added', added);
+  closeModal();
+  renderMilestonePage();
+  toast('✅ マイルストーンを全社に追加しました: ' + label);
+}
+
+// マイルストーン一覧から全社共通で削除
+function removeMsGlobal(msId){
+  // メモリ上から削除
+  MILESTONE_DATA.defs = MILESTONE_DATA.defs.filter(d=>d.id!==msId);
+  Object.keys(MILESTONE_DATA.by_no).forEach(k=>{
+    const co = MILESTONE_DATA.by_no[k];
+    if(co.milestones) co.milestones = co.milestones.filter(m=>m.id!==msId);
+  });
+  // グローバル削除リストに記録
+  const del = LS.getArr('ms_global_deleted');
+  if(!del.includes(msId)) del.push(msId);
+  LS.setArr('ms_global_deleted', del);
+  // グローバル追加リストからも除去
+  const added = LS.getArr('ms_global_added');
+  LS.setArr('ms_global_added', added.filter(m=>m.id!==msId));
+  // 全社のoverridesからも削除
+  COMPANIES.forEach(c=>{
+    const ov = getMsOverrides(c.no);
+    if(ov[msId]){ delete ov[msId]; LS.set(fyKey('ms_overrides_'+c.no), ov); }
+  });
+  renderMilestonePage();
+  toast('🗑 マイルストーンを全社から削除しました');
+}
+
 function showMsHeaderEdit(msId, currentLabel, currentDate){
   const overlay = document.getElementById('onbo-modal-overlay') || (() => {
     const el = document.createElement('div');
@@ -6310,12 +6403,17 @@ function renderMilestonePage(){
     const displayLabel = gOv.label || d.label;
     const displayDate  = gOv.date  || d.date;
     const col = typeColors[d.type] || '#64748b';
-    return `<th class="ms-type-${d.type}" title="クリックで編集"
-      style="cursor:pointer;min-width:90px"
-      onclick="showMsHeaderEdit('${esc(d.id)}','${esc(displayLabel)}','${esc(displayDate)}')">
-      <div style="font-size:9px;color:${col};font-family:'Space Mono',monospace">${esc(displayDate)}</div>
-      <div style="font-size:10px;font-weight:700;line-height:1.4">${esc(displayLabel)}</div>
-      <div style="font-size:9px;color:rgba(255,255,255,.5)">${typeLabels[d.type]||''}</div>
+    return `<th class="ms-type-${d.type}" style="min-width:90px;position:relative">
+      <div style="cursor:pointer" onclick="showMsHeaderEdit('${esc(d.id)}','${esc(displayLabel)}','${esc(displayDate)}')">
+        <div style="font-size:9px;color:${col};font-family:'Space Mono',monospace">${esc(displayDate)}</div>
+        <div style="font-size:10px;font-weight:700;line-height:1.4">${esc(displayLabel)}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.5)">${typeLabels[d.type]||''}</div>
+      </div>
+      <button onclick="event.stopPropagation();if(confirm('「${esc(displayLabel)}」を全社から削除しますか？')){removeMsGlobal('${esc(d.id)}');}"
+        style="position:absolute;top:2px;right:2px;font-size:9px;border:none;background:rgba(255,255,255,.2);color:rgba(255,255,255,.7);border-radius:3px;cursor:pointer;padding:1px 4px;line-height:1.2"
+        onmouseover="this.style.background='#ef4444';this.style.color='#fff'"
+        onmouseout="this.style.background='rgba(255,255,255,.2)';this.style.color='rgba(255,255,255,.7)'"
+        title="このマイルストーンを全社から削除">✕</button>
     </th>`;
   }).join('');
   
@@ -6370,8 +6468,12 @@ function renderMilestonePage(){
       <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px">🗓 CSマイルストーン管理</div>
       <div style="font-size:13px;color:var(--td);margin-top:2px">全社のタッチポイント・連絡・MTGの実施状況を一覧管理</div>
     </div>
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:${pct>=80?'var(--ok)':pct>=50?'var(--accent)':'var(--warn)'}">
-      ${pct}<span style="font-size:20px;color:var(--td)">%</span>
+    <div style="display:flex;align-items:center;gap:12px">
+      <button onclick="showMsAddGlobal()"
+        style="padding:8px 16px;border:1px solid var(--accent);background:var(--accent-lt);border-radius:7px;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">＋ マイルストーン追加</button>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:${pct>=80?'var(--ok)':pct>=50?'var(--accent)':'var(--warn)'}">
+        ${pct}<span style="font-size:20px;color:var(--td)">%</span>
+      </div>
     </div>
   </div>
 
