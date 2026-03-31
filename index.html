@@ -904,16 +904,42 @@ function _updateOnboCell(no, taskId, nextVal, done){
   if(!found) renderOnboardingAll();
 }
 
-// ⑦ 担当者設定
-function saveOnboOwner(no, taskId, ownerId){
+// ⑦ 担当者設定（名前とIDを個別指定可能）
+function saveOnboOwner(no, taskId, ownerId, ownerName){
   const meta = LS.get(fyKey('onbo_meta_'+no));
   if(!meta[taskId]) meta[taskId] = {};
-  meta[taskId].owner   = ownerId ? (currentUser?.name || currentUser?.email || ownerId) : '';
-  meta[taskId].ownerId = ownerId || '';
+  if(!ownerId && !ownerName){
+    meta[taskId].owner = '';
+    meta[taskId].ownerId = '';
+  } else {
+    meta[taskId].owner = ownerName || currentUser?.name || currentUser?.email || ownerId || '';
+    meta[taskId].ownerId = ownerId || '';
+  }
   LS.set(fyKey('onbo_meta_'+no), meta);
-  // セル部分更新
   const done = LS.get(fyKey('onbo_'+no));
   _updateOnboCell(no, taskId, getCheckState(done[taskId]).val, done);
+}
+// タスク列の全社一括担当者設定
+function setBulkTaskOwner(phaseId, taskId, ownerName, ownerId){
+  getFilteredCompanies().forEach(c=>{
+    const meta = LS.get(fyKey('onbo_meta_'+c.no));
+    if(!meta[taskId]) meta[taskId] = {};
+    meta[taskId].owner = ownerName || '';
+    meta[taskId].ownerId = ownerId || '';
+    LS.set(fyKey('onbo_meta_'+c.no), meta);
+  });
+}
+// 登録ユーザー一覧取得（Supabase + ローカルフォールバック）
+function getAllRegisteredUsers(){
+  // COMPANIESのCS担当者 + getUsers() + currentUser を統合
+  const names = new Map();
+  // CS担当者
+  COMPANIES.forEach(c=>{if(c.cs) names.set(c.cs, {name:c.cs, email:''});});
+  // getUsers()
+  getUsers().forEach(u=>{if(u.name && u.name!=='（未設定）') names.set(u.name, {name:u.name, email:u.id||''});});
+  // currentUser
+  if(currentUser) names.set(currentUser.name||currentUser.email, {name:currentUser.name||currentUser.email, email:currentUser.email||''});
+  return [...names.values()];
 }
 
 // ━━━ グローバルフィルター & 年度管理 ━━━
@@ -1954,7 +1980,13 @@ function renderOnboardingPage(c){
           <div class="onbo-task-check">${st.icon}</div>
           <div style="flex:1;min-width:0">
             <div class="onbo-task-label" style="word-break:break-all" id="onbo-label-${no}-${esc(t.id.replace(/[:# ]/g,'-'))}">${esc(label)}</div>
-            ${owner?`<div style="font-size:9px;color:var(--accent);margin-top:1px">👤 ${esc(owner)}</div>`:''}
+            <select onchange="if(this.value==='__clear__'){saveOnboOwner(${no},'${esc(t.id)}','','');rerenderOnbo(${no});}else if(this.value){const p=this.value.split('::');saveOnboOwner(${no},'${esc(t.id)}',p[1]||'',p[0]||'');rerenderOnbo(${no});}"
+              onclick="event.stopPropagation()"
+              style="padding:1px 4px;border:1px solid ${owner?'var(--accent)':'var(--border)'};border-radius:3px;font-size:9px;color:${owner?'var(--accent)':'var(--td)'};background:${owner?'var(--accent-lt)':'transparent'};outline:none;cursor:pointer;margin-top:1px;max-width:120px">
+              <option value="">${owner?'👤 '+esc(owner):'👤 担当者'}</option>
+              ${getAllRegisteredUsers().map(u=>`<option value="${esc(u.name)}::${esc(u.email)}">${esc(u.name)}</option>`).join('')}
+              ${owner?`<option value="__clear__">— 解除 —</option>`:''}
+            </select>
           </div>
         </div>
         <!-- 操作ボタン -->
@@ -5267,21 +5299,16 @@ function showOnboCellMenu(e, no, taskId, taskLabel){
     <!-- 担当者 -->
     <div style="margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px">👤 担当者</div>
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-        ${taskMeta.owner
-          ? `<div style="flex:1">
-              <div style="font-size:13px;font-weight:700;color:var(--t1)">${esc(taskMeta.owner)}</div>
-              <div style="font-size:10px;color:var(--td);margin-top:2px">${esc(taskMeta.ownerId||'')}</div>
-            </div>
-            <button onclick="saveOnboOwner(${no},'${taskId}','');renderOnboardingAll();"
-              style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--td);cursor:pointer;font-size:10px">
-              解除
-            </button>`
-          : `<div style="flex:1;color:var(--td);font-size:12px">未設定</div>`}
-        ${loginUser ? `<button onclick="saveOnboOwner(${no},'${taskId}','${esc(loginUser.email||'')}');closeModal();renderOnboardingAll();toast('👤 担当者を設定しました');"
-          style="padding:6px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+      <div style="padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+        <select id="onbo-owner-sel-${no}-${taskId}"
+          style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--t1);background:var(--surface);outline:none;cursor:pointer;margin-bottom:8px">
+          <option value="">未設定</option>
+          ${getAllRegisteredUsers().map(u=>`<option value="${esc(u.name)}::${esc(u.email)}" ${taskMeta.owner===u.name?'selected':''}>${esc(u.name)}</option>`).join('')}
+        </select>
+        ${loginUser ? `<button onclick="document.getElementById('onbo-owner-sel-${no}-${taskId}').value='${esc((currentUser?.name||currentUser?.email||'')+'::'+( currentUser?.email||''))}'"
+          style="width:100%;padding:6px;background:var(--accent-lt);color:var(--accent);border:1px solid var(--accent);border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">
           自分を担当者に
-        </button>` : '<div style="font-size:11px;color:var(--td)">ログインが必要です</div>'}
+        </button>` : ''}
       </div>
     </div>
 
@@ -5301,6 +5328,9 @@ function showOnboCellMenu(e, no, taskId, taskLabel){
     </div>
 
     <button onclick="(()=>{
+      const owSel = document.getElementById('onbo-owner-sel-${no}-${taskId}')?.value||'';
+      if(owSel){const p=owSel.split('::');saveOnboOwner(${no},'${taskId}',p[1]||'',p[0]||'');}
+      else{saveOnboOwner(${no},'${taskId}','','');}
       const c2 = document.getElementById('cell-comment-${no}-${taskId}')?.value||'';
       saveOnboComment(${no},'${taskId}',c2);
       renderOnboardingAll();
@@ -5623,6 +5653,16 @@ function renderOnboardingAll(){
           onfocus="this.style.borderColor='var(--accent)'"
           onblur="this.style.borderColor='${dueVal?color:'var(--border)'}'">
         ${dueVal&&icon?`<div style="font-size:9px;color:${color};font-weight:700;margin-top:2px;text-align:center">${icon} ${getDueDisplay(dueVal).text}</div>`:''}
+      </div>
+      <!-- 一括担当者 -->
+      <div style="padding:3px 4px;border-top:1px solid var(--border);background:var(--surface)">
+        <select onchange="if(this.value){const u=this.value==='__clear__'?['','']:this.value.split('::');setBulkTaskOwner('${esc(phase.id)}','${esc(t.id)}',u[0],u[1]);renderOnboardingAll();}this.value=''"
+          style="width:100%;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:9px;color:var(--td);background:var(--surface);outline:none;cursor:pointer"
+          title="全社一括で担当者を設定">
+          <option value="">👤 担当者一括</option>
+          ${getAllRegisteredUsers().map(u=>`<option value="${esc(u.name)}::${esc(u.email)}">${esc(u.name)}</option>`).join('')}
+          <option value="__clear__">— 解除 —</option>
+        </select>
       </div>
     </th>`;
   }).join('');
