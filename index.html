@@ -6794,7 +6794,6 @@ function signInWithGoogle(){
 
   // Google Identity Services で認証
   if(typeof google === 'undefined'){
-    // GSIライブラリが未ロードの場合はフォールバック（開発時）
     _devLoginFallback();
     return;
   }
@@ -6803,7 +6802,25 @@ function signInWithGoogle(){
     client_id: GOOGLE_CLIENT_ID,
     callback: handleGoogleCredential,
   });
-  google.accounts.id.prompt();
+  // ポップアップ方式を試行
+  google.accounts.id.prompt((notification)=>{
+    // ポップアップが表示されなかった場合（ブロック・FedCM無効等）
+    if(notification.isNotDisplayed() || notification.isSkippedMoment()){
+      // ボタンレンダリング方式にフォールバック
+      const btnContainer = document.getElementById('google-signin-btn');
+      if(btnContainer){
+        btnContainer.innerHTML = '';
+        btnContainer.style.padding = '0';
+        btnContainer.style.background = 'transparent';
+        btnContainer.style.boxShadow = 'none';
+        btnContainer.onclick = null;
+        google.accounts.id.renderButton(btnContainer, {
+          theme: 'outline', size: 'large', text: 'signin_with', width: 280
+        });
+        if(statusEl) statusEl.textContent = '下のボタンからログインしてください';
+      }
+    }
+  });
 }
 
 async function handleGoogleCredential(response){

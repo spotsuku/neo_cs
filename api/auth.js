@@ -105,10 +105,17 @@ async function upsertUser(email, name, picture) {
   // 新規登録（最初のユーザーは管理者）
   const allUsers = await getAllUsers();
   const role = allUsers.length === 0 ? 'admin' : 'member';
-  const rows = await sbReq(`/rest/v1/neo_users`, 'POST',
-    JSON.stringify({ email, name, picture, role, last_login: new Date().toISOString() }),
-    { 'Content-Type': 'application/json', 'Prefer': 'return=representation' });
-  return Array.isArray(rows) ? rows[0] : rows;
+  try {
+    const rows = await sbReq(`/rest/v1/neo_users`, 'POST',
+      JSON.stringify({ email, name, picture, role, last_login: new Date().toISOString() }),
+      { 'Content-Type': 'application/json', 'Prefer': 'return=representation' });
+    if (Array.isArray(rows) && rows[0]) return rows[0];
+    if (rows && rows.email) return rows;
+  } catch(e) {
+    console.error('[auth] upsertUser INSERT failed:', e.message);
+  }
+  // INSERT失敗時はメモリ上のユーザーオブジェクトを返す（DBなしでも動作）
+  return { email, name, picture, role, id: null };
 }
 
 function getUserByEmail(email) {
