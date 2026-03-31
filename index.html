@@ -6277,25 +6277,37 @@ function renderBoard(){
 function renderActionLogAll(){
   const el = document.getElementById('page-actionlog-all');
   if(!el) return;
-  const cos = getFilteredCompanies();
+  const allCos = getFilteredCompanies();
   const selWeek = window._logAllWeek || '';
+  const selCourse = window._logAllCourse || '';
+  const selCs = window._logAllCs || '';
+  let cos = allCos;
+  if(selCourse) cos = cos.filter(c=>(c.course2||c.course1||'')=== selCourse);
+  if(selCs) cos = cos.filter(c=>(c.cs||'')=== selCs);
+  const courses = [...new Set(allCos.map(c=>c.course2||c.course1||'').filter(Boolean))].sort();
+  const csList = [...new Set(allCos.map(c=>c.cs||'').filter(Boolean))].sort();
 
-  // 全企業の全ログ収集
-  const allLogs = [];
-  cos.forEach(c => {
-    const logs = LS.getArr(fyKey('weekly_logs_'+c.no));
-    logs.forEach((log,i) => {
-      allLogs.push({...log, companyNo:c.no, short:c.short, cs:c.cs||'', idx:i});
-    });
-  });
+  // フィルタUI
+  const filterRow = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:4px">
+      <span style="font-size:10px;font-weight:700;color:var(--td)">コース:</span>
+      <select onchange="window._logAllCourse=this.value;renderActionLogAll()"
+        style="padding:4px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;cursor:pointer">
+        <option value="">すべて</option>
+        ${courses.map(c=>`<option value="${esc(c)}" ${selCourse===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px">
+      <span style="font-size:10px;font-weight:700;color:var(--td)">担当者:</span>
+      <select onchange="window._logAllCs=this.value;renderActionLogAll()"
+        style="padding:4px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;cursor:pointer">
+        <option value="">すべて</option>
+        ${csList.map(c=>`<option value="${esc(c)}" ${selCs===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--td)">${cos.length}社表示</div>
+  </div>`;
 
-  // 週リスト取得（全ログのweekフィールドからユニーク）
-  const weeks = [...new Set(allLogs.map(l=>l.week).filter(Boolean))].sort();
-  // 日付でソート（新しい順）
-  const filtered = selWeek ? allLogs.filter(l=>l.week===selWeek) : allLogs;
-  filtered.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-
-  // ── 週フィルタ ──
   const weekBtns = `<div style="display:flex;gap:4px;flex-wrap:wrap">
     <button onclick="window._logAllWeek='';renderActionLogAll()"
       style="padding:5px 12px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid ${!selWeek?'var(--accent)':'var(--border)'};
@@ -6307,95 +6319,97 @@ function renderActionLogAll(){
     ).join('')}
   </div>`;
 
-  // ── テーブル行 ──
-  const rows = filtered.map(log => {
-    const doneId = `la-done-${log.companyNo}-${log.idx}`;
-    const goodId = `la-good-${log.companyNo}-${log.idx}`;
-    const moreId = `la-more-${log.companyNo}-${log.idx}`;
-    const nextId = `la-next-${log.companyNo}-${log.idx}`;
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:10px 8px;white-space:nowrap;vertical-align:top">
-        <div style="font-size:12px;font-weight:700;color:var(--t1);cursor:pointer" onclick="goToCompany(${log.companyNo})">${esc(log.short)}</div>
-        <div style="font-size:9px;color:var(--accent);margin-top:2px">👤 ${esc(log.cs)}</div>
+  // ── 企業別行（全企業常に表示）──
+  const companyRows = cos.map(c => {
+    const logs = LS.getArr(fyKey('weekly_logs_'+c.no));
+    const filteredLogs = selWeek ? logs.filter(l=>l.week===selWeek) : logs;
+    const logCount = filteredLogs.length;
+    const pfx = `la-${c.no}`;
+    const isExpanded = window['_laExpand_'+c.no] !== false;
+
+    const logRows = filteredLogs.map((log,i) => {
+      const origIdx = logs.indexOf(log);
+      return `<tr style="border-bottom:1px solid var(--border);background:${i%2===0?'var(--surface)':'var(--surface2)'}">
+        <td style="padding:4px 8px;vertical-align:top;font-size:10px;color:var(--td);text-align:center;font-family:'Space Mono',monospace;white-space:nowrap">
+          ${esc(log.date||'')}<br><span style="color:var(--accent);font-weight:700">${esc(log.week||'')}</span>
+        </td>
+        <td style="padding:4px 3px;vertical-align:top"><textarea rows="1" onblur="updateLogField(${c.no},${origIdx},'done',this.value)" style="width:100%;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.5;box-sizing:border-box" onfocus="this.style.borderColor='var(--accent)'">${esc(log.done||'')}</textarea></td>
+        <td style="padding:4px 3px;vertical-align:top"><textarea rows="1" onblur="updateLogField(${c.no},${origIdx},'good',this.value)" style="width:100%;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.5;box-sizing:border-box" onfocus="this.style.borderColor='var(--ok)'">${esc(log.good||'')}</textarea></td>
+        <td style="padding:4px 3px;vertical-align:top"><textarea rows="1" onblur="updateLogField(${c.no},${origIdx},'more',this.value)" style="width:100%;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.5;box-sizing:border-box" onfocus="this.style.borderColor='var(--warn)'">${esc(log.more||'')}</textarea></td>
+        <td style="padding:4px 3px;vertical-align:top"><textarea rows="1" onblur="updateLogField(${c.no},${origIdx},'next',this.value)" style="width:100%;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.5;box-sizing:border-box;font-weight:600" onfocus="this.style.borderColor='var(--ng)'">${esc(log.next||'')}</textarea></td>
+        <td style="padding:4px 4px;vertical-align:top;text-align:center"><button onclick="if(confirm('削除しますか？')){const l=LS.getArr(fyKey('weekly_logs_'+${c.no}));l.splice(${origIdx},1);LS.setArr(fyKey('weekly_logs_'+${c.no}),l);renderActionLogAll();}" style="font-size:10px;border:none;background:none;cursor:pointer;color:var(--td);padding:2px 4px" onmouseover="this.style.color='var(--ng)'" onmouseout="this.style.color='var(--td)'">✕</button></td>
+      </tr>`;
+    }).join('');
+
+    const newRow = `<tr style="border-bottom:2px solid var(--border);background:var(--accent-lt)">
+      <td style="padding:4px 8px;vertical-align:middle;text-align:center">
+        <input id="${pfx}-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;padding:3px;border:1px solid var(--border);border-radius:4px;font-size:9px;background:var(--surface);outline:none;box-sizing:border-box">
+        <select id="${pfx}-week" style="width:100%;padding:2px;border:1px solid var(--border);border-radius:4px;font-size:9px;background:var(--surface);outline:none;margin-top:2px">${['第1週','第2週','第3週','第4週','第5週'].map(w=>`<option value="${w}">${w}</option>`).join('')}</select>
       </td>
-      <td style="padding:10px 6px;white-space:nowrap;vertical-align:top;font-size:11px;color:var(--td);font-family:'Space Mono',monospace;text-align:center">
-        <div>${esc(log.date||'')}</div>
-        <div style="font-size:9px;color:var(--accent);font-weight:700">${esc(log.week||'')}</div>
-      </td>
-      <td style="padding:6px 4px;vertical-align:top">
-        <textarea id="${doneId}" rows="2" onblur="updateLogField(${log.companyNo},${log.idx},'done',this.value)"
-          style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.5;box-sizing:border-box"
-          onfocus="this.style.borderColor='var(--accent)'" >${esc(log.done||'')}</textarea>
-      </td>
-      <td style="padding:6px 4px;vertical-align:top">
-        <textarea id="${goodId}" rows="2" onblur="updateLogField(${log.companyNo},${log.idx},'good',this.value)"
-          style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.5;box-sizing:border-box"
-          onfocus="this.style.borderColor='var(--ok)'" >${esc(log.good||'')}</textarea>
-      </td>
-      <td style="padding:6px 4px;vertical-align:top">
-        <textarea id="${moreId}" rows="2" onblur="updateLogField(${log.companyNo},${log.idx},'more',this.value)"
-          style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.5;box-sizing:border-box"
-          onfocus="this.style.borderColor='var(--warn)'" >${esc(log.more||'')}</textarea>
-      </td>
-      <td style="padding:6px 4px;vertical-align:top">
-        <textarea id="${nextId}" rows="2" onblur="updateLogField(${log.companyNo},${log.idx},'next',this.value)"
-          style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:vertical;font-family:'Noto Sans JP',sans-serif;line-height:1.5;box-sizing:border-box;font-weight:700"
-          onfocus="this.style.borderColor='var(--ng)'" >${esc(log.next||'')}</textarea>
-      </td>
+      <td style="padding:4px 3px;vertical-align:top"><textarea id="${pfx}-done" rows="1" placeholder="実施事項" style="width:100%;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box"></textarea></td>
+      <td style="padding:4px 3px;vertical-align:top"><textarea id="${pfx}-good" rows="1" placeholder="Good" style="width:100%;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box"></textarea></td>
+      <td style="padding:4px 3px;vertical-align:top"><textarea id="${pfx}-more" rows="1" placeholder="More" style="width:100%;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box"></textarea></td>
+      <td style="padding:4px 3px;vertical-align:top"><textarea id="${pfx}-next" rows="1" placeholder="Next" style="width:100%;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box"></textarea></td>
+      <td style="padding:4px 4px;vertical-align:middle;text-align:center"><button onclick="addLogForCompany(${c.no})" style="padding:4px 8px;background:var(--accent);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">＋</button></td>
     </tr>`;
+
+    return `<tr style="background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer" onclick="window['_laExpand_${c.no}']=(window['_laExpand_${c.no}']===false?true:false);renderActionLogAll()">
+      <td colspan="6" style="padding:8px 10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;color:var(--td)">${isExpanded?'▼':'▶'}</span>
+          <div style="font-size:13px;font-weight:700;color:var(--t1)">${esc(c.short)}</div>
+          <span style="font-size:9px;color:var(--accent)">👤 ${esc(c.cs||'')}</span>
+          <span style="font-size:9px;padding:2px 6px;border-radius:3px;background:var(--surface3);color:var(--td)">${esc(c.course2||c.course1||'')}</span>
+          <span style="font-size:10px;color:var(--td);margin-left:auto">${logCount}件</span>
+        </div>
+      </td>
+    </tr>
+    ${isExpanded ? newRow + logRows : ''}`;
   }).join('');
 
-  // ── 新規入力行 ──
-  const addRow = `<tr style="background:var(--accent-lt)">
-    <td style="padding:10px 8px;vertical-align:top">
-      <select id="la-new-company" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none">
-        ${cos.map(c=>`<option value="${c.no}">${esc(c.short)}</option>`).join('')}
-      </select>
-    </td>
-    <td style="padding:10px 6px;vertical-align:top">
-      <input id="la-new-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;padding:5px;border:1px solid var(--border);border-radius:5px;font-size:10px;background:var(--surface);outline:none;box-sizing:border-box">
-      <select id="la-new-week" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:5px;font-size:10px;background:var(--surface);outline:none;margin-top:4px">
-        ${['第1週','第2週','第3週','第4週','第5週'].map(w=>`<option value="${w}">${w}</option>`).join('')}
-      </select>
-    </td>
-    <td style="padding:6px 4px;vertical-align:top"><textarea id="la-new-done" rows="2" placeholder="実施事項" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box"></textarea></td>
-    <td style="padding:6px 4px;vertical-align:top"><textarea id="la-new-good" rows="2" placeholder="Good" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box"></textarea></td>
-    <td style="padding:6px 4px;vertical-align:top"><textarea id="la-new-more" rows="2" placeholder="More" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box"></textarea></td>
-    <td style="padding:6px 4px;vertical-align:top">
-      <textarea id="la-new-next" rows="2" placeholder="ネクストアクション" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--surface);outline:none;resize:vertical;box-sizing:border-box"></textarea>
-      <button onclick="addLogFromAll()" style="width:100%;margin-top:4px;padding:6px;background:var(--accent);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">＋ 追加</button>
-    </td>
-  </tr>`;
-
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:16px;flex-wrap:wrap">
       <div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px">📝 アクションログ一覧</div>
-        <div style="font-size:13px;color:var(--td);margin-top:4px">全社の週次ログを一覧で閲覧・編集できます（${filtered.length}件）</div>
+        <div style="font-size:13px;color:var(--td);margin-top:4px">全社の週次ログを一覧で閲覧・編集できます</div>
       </div>
       ${weekBtns}
     </div>
+    ${filterRow}
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
         <thead>
           <tr style="background:var(--surface2);border-bottom:2px solid var(--border)">
-            <th style="padding:8px;text-align:left;font-size:10px;color:var(--td);min-width:100px;font-family:'Space Mono',monospace">企業</th>
             <th style="padding:8px;text-align:center;font-size:10px;color:var(--td);min-width:80px;font-family:'Space Mono',monospace">日付 / 週</th>
             <th style="padding:8px;text-align:left;font-size:10px;color:var(--td);font-family:'Space Mono',monospace;min-width:140px">✅ 実施事項</th>
             <th style="padding:8px;text-align:left;font-size:10px;color:var(--ok);font-family:'Space Mono',monospace;min-width:140px">👍 Good</th>
             <th style="padding:8px;text-align:left;font-size:10px;color:var(--warn);font-family:'Space Mono',monospace;min-width:140px">🔧 More</th>
             <th style="padding:8px;text-align:left;font-size:10px;color:var(--ng);font-family:'Space Mono',monospace;min-width:140px">🎯 Next</th>
+            <th style="padding:8px;width:30px"></th>
           </tr>
         </thead>
-        <tbody>
-          ${addRow}
-          ${rows}
-        </tbody>
+        <tbody>${companyRows}</tbody>
       </table>
     </div>
-    ${filtered.length===0?'<div style="text-align:center;padding:40px;color:var(--td);font-size:13px">まだアクションログがありません。上のフォームから追加してください。</div>':''}
   `;
 }
+
+function addLogForCompany(no){
+  const pfx='la-'+no;
+  const date=document.getElementById(pfx+'-date')?.value||'';
+  const week=document.getElementById(pfx+'-week')?.value||'';
+  const done=document.getElementById(pfx+'-done')?.value||'';
+  const good=document.getElementById(pfx+'-good')?.value||'';
+  const more=document.getElementById(pfx+'-more')?.value||'';
+  const next=document.getElementById(pfx+'-next')?.value||'';
+  if(!done&&!good&&!more&&!next){toast('内容を入力してください');return;}
+  const logs=LS.getArr(fyKey('weekly_logs_'+no));
+  logs.unshift({date,week,done,good,more,next});
+  LS.setArr(fyKey('weekly_logs_'+no),logs);
+  toast('📝 ログを追加しました');
+  renderActionLogAll();
+}
+
 
 function updateLogField(companyNo, idx, field, value){
   const logs = LS.getArr(fyKey('weekly_logs_'+companyNo));
@@ -6403,22 +6417,6 @@ function updateLogField(companyNo, idx, field, value){
     logs[idx][field] = value;
     LS.setArr(fyKey('weekly_logs_'+companyNo), logs);
   }
-}
-
-function addLogFromAll(){
-  const no = parseInt(document.getElementById('la-new-company')?.value);
-  const date = document.getElementById('la-new-date')?.value || '';
-  const week = document.getElementById('la-new-week')?.value || '';
-  const done = document.getElementById('la-new-done')?.value || '';
-  const good = document.getElementById('la-new-good')?.value || '';
-  const more = document.getElementById('la-new-more')?.value || '';
-  const next = document.getElementById('la-new-next')?.value || '';
-  if(!no || (!done && !good && !more && !next)){toast('内容を入力してください');return;}
-  const logs = LS.getArr(fyKey('weekly_logs_'+no));
-  logs.unshift({date, week, done, good, more, next});
-  LS.setArr(fyKey('weekly_logs_'+no), logs);
-  toast('📝 ログを追加しました');
-  renderActionLogAll();
 }
 
 let draggedCompanyNo=null;
