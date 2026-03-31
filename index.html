@@ -1007,16 +1007,42 @@ function onBulkOwnerSelect(sel, phaseId, taskId){
   renderOnboardingAll();
 }
 // 登録ユーザー一覧取得（Supabase + ローカルフォールバック）
+// 全ユーザー統合リスト（Supabaseキャッシュ + CS担当者 + ローカル）
+let _cachedAllUsers = null;
 function getAllRegisteredUsers(){
-  // COMPANIESのCS担当者 + getUsers() + currentUser を統合
   const names = new Map();
-  // CS担当者
-  COMPANIES.forEach(c=>{if(c.cs) names.set(c.cs, {name:c.cs, email:''});});
-  // getUsers()
-  getUsers().forEach(u=>{if(u.name && u.name!=='（未設定）') names.set(u.name, {name:u.name, email:u.id||''});});
+  // Supabaseキャッシュ（最優先）
+  if(_cachedAllUsers && _cachedAllUsers.length > 0){
+    _cachedAllUsers.forEach(u=>{
+      const n = u.name || u.email;
+      if(n) names.set(n, {name:n, email:u.email||''});
+    });
+  }
+  // CS担当者（Supabase未登録でも表示）
+  COMPANIES.forEach(c=>{if(c.cs && !names.has(c.cs)) names.set(c.cs, {name:c.cs, email:''});});
+  // getUsers()（レガシー）
+  getUsers().forEach(u=>{if(u.name && u.name!=='（未設定）' && !names.has(u.name)) names.set(u.name, {name:u.name, email:u.id||''});});
   // currentUser
-  if(currentUser) names.set(currentUser.name||currentUser.email, {name:currentUser.name||currentUser.email, email:currentUser.email||''});
+  if(currentUser){
+    const n = currentUser.name||currentUser.email;
+    if(!names.has(n)) names.set(n, {name:n, email:currentUser.email||''});
+  }
   return [...names.values()];
+}
+// Supabaseからユーザー一覧を取得してキャッシュ
+async function fetchAllUsers(){
+  if(!currentUser) return;
+  try {
+    const res = await fetch('/api/auth', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'users', email: currentUser.email})
+    });
+    const data = await res.json();
+    if(data.users && Array.isArray(data.users)){
+      _cachedAllUsers = data.users;
+      console.log('[users] Loaded', data.users.length, 'users from server');
+    }
+  } catch(e){ console.warn('[users] fetch failed:', e.message); }
 }
 
 // ━━━ グローバルフィルター & 年度管理 ━━━
@@ -6194,42 +6220,52 @@ function showFiscalYearManager(){
 
 // マイルストーン担当者設定
 function setMsAssigneeCard(no, msId){
-  const ov = getMsOverrides(no);
-  const current = ov[msId]?.assignee || '';
-  const name = currentUser?.name || currentUser?.email || '';
-  if(!name){ toast('ログインが必要です'); return; }
-  if(current === name){
-    if(!confirm(`担当者「${name}」を解除しますか？`)) return;
-    if(!ov[msId]) ov[msId] = {};
-    ov[msId].assignee = '';
-    toast('👤 担当を解除しました');
-  } else {
-    if(!ov[msId]) ov[msId] = {};
-    ov[msId].assignee = name;
-    toast('👤 自分を担当者に設定しました');
-  }
-  LS.set(fyKey('ms_overrides_'+no), ov);
-  rerenderProgressSection(no);
+  _openMsAssigneeModal(no, msId, 'card');
 }
 
 function setMsAssignee(no, msId){
-  // 現在の担当者
+  _openMsAssigneeModal(no, msId, 'milestone');
+}
+
+function _openMsAssigneeModal(no, msId, source){
   const ov = getMsOverrides(no);
   const current = ov[msId]?.assignee || '';
-  // ログインユーザーを担当者にセット / クリア
-  if(current){
-    if(!confirm(`現在の担当者「${current}」を解除しますか？`)) return;
-    if(!ov[msId]) ov[msId] = {};
-    ov[msId].assignee = '';
-  } else {
-    const name = currentUser?.name || currentUser?.email || '';
-    if(!name){ toast('ログインが必要です'); return; }
-    if(!ov[msId]) ov[msId] = {};
-    ov[msId].assignee = name;
-  }
+  const users = getAllRegisteredUsers();
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){overlay=document.createElement('div');overlay.id='onbo-modal-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});document.body.appendChild(overlay);}
+  const userBtns = users.map((u,i)=>{
+    const isActive = current === u.name;
+    return `<button onclick="_saveMsAssignee(${no},'${msId}','${esc(u.name)}','${source}')"
+      style="width:100%;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:${isActive?'700':'400'};cursor:pointer;text-align:left;
+        border:1px solid ${isActive?'var(--accent)':'var(--border)'};
+        background:${isActive?'var(--accent-lt)':'var(--surface2)'};
+        color:${isActive?'var(--accent)':'var(--t2)'};margin-bottom:4px">
+      ${isActive?'✓ ':''}${esc(u.name)}
+    </button>`;
+  }).join('');
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:24px;width:360px;max-width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">👤 担当者を選択</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    ${current?`<div style="font-size:11px;color:var(--td);margin-bottom:12px">現在: <strong>${esc(current)}</strong></div>`:''}
+    <div style="display:flex;flex-direction:column;gap:0;margin-bottom:12px">${userBtns}</div>
+    <button onclick="_saveMsAssignee(${no},'${msId}','','${source}')"
+      style="width:100%;padding:8px;background:var(--surface2);color:var(--td);border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer">
+      担当者を解除
+    </button>
+  </div>`;
+  overlay.style.display = 'flex';
+}
+function _saveMsAssignee(no, msId, name, source){
+  const ov = getMsOverrides(no);
+  if(!ov[msId]) ov[msId] = {};
+  ov[msId].assignee = name;
   LS.set(fyKey('ms_overrides_'+no), ov);
-  renderMilestonePage();
-  toast('👤 担当者を更新しました');
+  closeModal();
+  if(source==='card') rerenderProgressSection(no);
+  else renderMilestonePage();
+  toast(name ? '👤 '+name+' を担当者に設定しました' : '担当者を解除しました');
 }
 
 function renderMilestonePage(){
@@ -7030,6 +7066,9 @@ function onLoginSuccess(user){
 
   // リアルタイム同期を開始
   REALTIME_SYNC.start();
+
+  // ユーザー一覧をバックグラウンドで取得
+  fetchAllUsers();
 
   console.log('[auth] ログイン成功:', user.email, '権限:', user.role);
 }

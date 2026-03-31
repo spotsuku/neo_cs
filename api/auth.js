@@ -58,8 +58,8 @@ module.exports = async function handler(req, res) {
   if (action === 'users') {
     const { email } = body;
     const requester = await getUserByEmail(email);
-    if (!requester || requester.role !== 'admin') {
-      return res.status(403).json({ error: '管理者権限が必要です' });
+    if (!requester) {
+      return res.status(403).json({ error: 'ログインが必要です' });
     }
     const users = await getAllUsers();
     return res.status(200).json({ users });
