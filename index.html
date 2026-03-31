@@ -568,13 +568,16 @@ function changeMsStatus(no, msId, selectEl){
   const newStatus = selectEl.value;
   const rawLabel = MS_STATUS_LABELS[newStatus] || newStatus;
   setMsStatus(no, msId, newStatus, rawLabel);
-  // セルのクラスを即時更新
-  const pip = selectEl.closest('td')?.querySelector('.ms-pip');
+  // セルの即時更新
+  const td = selectEl.closest('td');
+  const pip = td?.querySelector('.ms-pip');
   if(pip){
     pip.className = 'ms-pip '+newStatus;
     pip.textContent = rawLabel;
   }
-  // サイドバーのドットも更新
+  if(td){
+    td.style.background = newStatus==='done'?'#d1fae522':(newStatus==='wip'||newStatus==='ready')?'#eff6ff22':'transparent';
+  }
   refreshSbHealthDot(no);
   toast('✅ ステータスを更新しました');
 }
@@ -6391,7 +6394,7 @@ function renderMilestonePage(){
   const typeFilter = window._msTypeFilter || '';
 
   // グローバルフィルターを適用
-  let rows = getFilteredCompanies().filter(c=>byNo[String(c.no)]);
+  let rows = getFilteredCompanies();
   if(filterVal==='new')   rows=rows.filter(c=>c.status==='新規契約');
 
   const filteredDefs = typeFilter ? defs.filter(d=>d.type===typeFilter) : defs;
@@ -6416,29 +6419,30 @@ function renderMilestonePage(){
         title="このマイルストーンを全社から削除">✕</button>
     </th>`;
   }).join('');
-  
+
   const tbody = rows.map(c=>{
-    const d = byNo[String(c.no)];
+    const msAll = getMsForCompany(c.no);
     const contract = getContract(c.no);
-    // journey は使わずステージ番号と契約状況を表示
     const stage    = getStage(c.no);
     const stageLabel = `St.${stage}`;
     const stageColor = stage>=11?'var(--ok)':stage>=9?'var(--accent)':stage>=7?'var(--warn)':'var(--td)';
-    const msDone = d ? d.milestones.filter(m=>m.status==='done').length : 0;
-    const msTotal = d ? d.milestones.length : 0;
+    const msDone = msAll.filter(m=>{const s=getMsStatus(c.no,m.id);return s.status==='done';}).length;
+    const msTotal = msAll.length;
     const pctCo = msTotal>0 ? Math.round(msDone/msTotal*100) : 0;
     const [tagCls,tagLabel] = contractInfo(contract);
-    
+
     const msCols = filteredDefs.map(md=>{
-      const mEntry = d?.milestones.find(m=>m.id===md.id);
-      if(!mEntry) return '<td></td>';
+      const mEntry = msAll.find(m=>m.id===md.id);
+      if(!mEntry) return '<td style="text-align:center;padding:4px 6px;color:var(--td)">—</td>';
       const cur = getMsStatus(c.no, md.id);
       const selOpts = MS_STATUS_OPTIONS.map(o=>`<option value="${o.value}" ${cur.status===o.value?'selected':''}>${o.label}</option>`).join('');
       const pipLabel = cur.raw==='未調整'||cur.raw==='未着手'||!cur.raw?'—':esc(cur.raw);
       const editedLabel = cur.label || md.label;
-      return `<td style="text-align:center;padding:4px 6px">
+      const assignee = getMsOverrides(c.no)[md.id]?.assignee || '';
+      return `<td style="text-align:center;padding:4px 6px;background:${cur.status==='done'?'#d1fae522':cur.status==='wip'||cur.status==='ready'?'#eff6ff22':'transparent'}">
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
           <span class="ms-pip ${cur.status}" style="width:100%;font-size:9px" title="${esc(editedLabel)}">${pipLabel}</span>
+          ${assignee?`<div style="font-size:8px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">👤 ${esc(assignee)}</div>`:''}
           <select onchange="changeMsStatus(${c.no},'${md.id}',this)" style="font-size:8px;padding:1px 2px;border:1px solid var(--border);border-radius:3px;background:var(--surface2);width:100%;cursor:pointer;color:var(--td)">
             ${selOpts}
           </select>
