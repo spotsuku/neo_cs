@@ -142,6 +142,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
 .onbo-task.done .onbo-task-check{background:var(--ok);border-color:var(--ok);color:#fff;}
 .onbo-task-label{font-size:11px;color:var(--t2);line-height:1.4;}
 .onbo-task.done .onbo-task-label{color:var(--ok);font-weight:600;}
+.onbo-task.progress{background:var(--warn-lt);}
+.onbo-task.progress .onbo-task-check{background:var(--warn);border-color:var(--warn);color:#fff;}
+.onbo-task.progress .onbo-task-label{color:var(--warn);font-weight:600;}
 .survey-score-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
 .survey-score-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;text-align:center;flex:1;min-width:80px;}
 .survey-score-val{font-family:'Bebas Neue',sans-serif;font-size:32px;line-height:1;}
@@ -1526,7 +1529,7 @@ function renderCompanyPage(c){
   const _ov=LS.get('co_info_'+c.no);if(Object.keys(_ov).length>0){const {_cs_staff,..._ovRest}=_ov;c={...c,..._ovRest};}
   const contract=getContract(c.no);const[cls]=contractInfo(contract);const plans=LS.get('plans_'+c.no);
   const stage=getStage(c.no);const stageData=getResolvedStages()[stage-1];
-  const _onboDone=LS.get(fyKey('onbo_'+c.no));let onboTotalCnt=0,onboDoneCnt=0;ONBO_PHASES.forEach(p=>{const tasks=getGlobalTasks(p.id);onboTotalCnt+=tasks.length;tasks.forEach(t=>{if(_onboDone[t.id])onboDoneCnt++;});});const onboPct=onboTotalCnt>0?Math.round(onboDoneCnt/onboTotalCnt*100):0;const onboColor=onboPct>=80?'var(--ok)':onboPct>=50?'var(--accent)':'var(--warn)';
+  const _onboDone=LS.get(fyKey('onbo_'+c.no));let onboTotalCnt=0,onboDoneCnt=0;ONBO_PHASES.forEach(p=>{const tasks=getGlobalTasks(p.id);onboTotalCnt+=tasks.length;tasks.forEach(t=>{if(getCheckState(_onboDone[t.id]).val===2)onboDoneCnt++;});});const onboPct=onboTotalCnt>0?Math.round(onboDoneCnt/onboTotalCnt*100):0;const onboColor=onboPct>=80?'var(--ok)':onboPct>=50?'var(--accent)':'var(--warn)';
   let risk='';
   if(contract==='D：非継続')risk=`<div class="risk-banner danger"><span class="risk-icon">🚨</span><span class="risk-text">非継続企業 — ウィンバック戦略を検討してください</span></div>`;
   else if(contract==='C：社内調整中')risk=`<div class="risk-banner warn"><span class="risk-icon">⚠️</span><span class="risk-text">社内調整中 — 継続確認の打ち合わせを設定してください</span></div>`;
@@ -1734,6 +1737,53 @@ function saveOnboMeta(no, taskId, field, value){
   LS.set(fyKey('onbo_meta_'+no), meta);
 }
 
+// 担当者解決: タスク個別 > 企業デフォルト
+function getTaskOwner(no, taskId){
+  const meta = LS.get(fyKey('onbo_meta_'+no));
+  if(meta[taskId]?.owner) return meta[taskId].owner;
+  if(meta._default_owner?.name) return meta._default_owner.name;
+  return '';
+}
+function getTaskOwnerId(no, taskId){
+  const meta = LS.get(fyKey('onbo_meta_'+no));
+  if(meta[taskId]?.ownerId) return meta[taskId].ownerId;
+  if(meta._default_owner?.email) return meta._default_owner.email;
+  return '';
+}
+function setDefaultOwner(no, name, email){
+  const meta = LS.get(fyKey('onbo_meta_'+no));
+  meta._default_owner = {name: name||'', email: email||''};
+  LS.set(fyKey('onbo_meta_'+no), meta);
+}
+function openBulkOwnerModal(no){
+  const meta = LS.get(fyKey('onbo_meta_'+no));
+  const cur = meta._default_owner || {};
+  const loginUser = typeof currentUser!=='undefined' ? currentUser : null;
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){overlay=document.createElement('div');overlay.id='onbo-modal-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});document.body.appendChild(overlay);}
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:24px;width:420px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">👤 一括担当者設定</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--td);margin-bottom:14px">この企業のオンボタスクに一括でデフォルト担当者を設定します。個別に設定されたタスクはそちらが優先されます。</div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">担当者名</div>
+      <input id="bulk-owner-name" value="${esc(cur.name||'')}" placeholder="担当者名" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:var(--surface);outline:none;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">メールアドレス（任意）</div>
+      <input id="bulk-owner-email" value="${esc(cur.email||'')}" placeholder="email@example.com" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:var(--surface);outline:none;box-sizing:border-box">
+    </div>
+    ${loginUser?`<button onclick="document.getElementById('bulk-owner-name').value='${esc(loginUser.name||loginUser.email||'')}';document.getElementById('bulk-owner-email').value='${esc(loginUser.email||'')}'" style="width:100%;padding:8px;background:var(--accent-lt);color:var(--accent);border:1px solid var(--accent);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:12px">自分を設定</button>`:''}
+    <div style="display:flex;gap:8px">
+      <button onclick="setDefaultOwner(${no},document.getElementById('bulk-owner-name').value,document.getElementById('bulk-owner-email').value);closeModal();rerenderOnbo(${no});toast('👤 デフォルト担当者を設定しました')" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">💾 保存</button>
+      <button onclick="setDefaultOwner(${no},'','');closeModal();rerenderOnbo(${no});toast('担当者を解除しました')" style="padding:10px 16px;background:var(--surface2);color:var(--td);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">解除</button>
+    </div>
+  </div>`;
+  overlay.style.display = 'flex';
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 全社共通タスク管理
 // LS key: 'onbo_tasks_PHASEID' = {list:[{id,label}]}
@@ -1875,27 +1925,33 @@ function renderOnboardingPage(c){
   ONBO_PHASES.forEach(p=>{
     const tasks = getGlobalTasks(p.id);
     totalTasks += tasks.length;
-    tasks.forEach(t=>{ if(done[t.id]) doneTasks++; });
+    tasks.forEach(t=>{ if(getCheckState(done[t.id]).val===2) doneTasks++; });
   });
   const pct = totalTasks > 0 ? Math.round(doneTasks/totalTasks*100) : 0;
 
   // フェーズカード生成
   const phaseCards = ONBO_PHASES.map(phase=>{
     const tasks   = getOnboTasks(no, phase.id);
-    const pDone   = tasks.filter(t=>done[t.id]).length;
+    const pDone   = tasks.filter(t=>getCheckState(done[t.id]).val===2).length;
     const allDone = tasks.length > 0 && pDone === tasks.length;
 
     const taskItems = tasks.map(t=>{
-      const isDone    = !!done[t.id];
+      const st       = getCheckState(done[t.id]);
+      const stClass  = st.val===2?'done':st.val===1?'progress':'';
       const overLabel = getOnboLabel(no, t.id);
       const label     = overLabel || t.label;
+      const owner     = getTaskOwner(no, t.id);
 
-      return `<div class="onbo-task ${isDone?'done':''}" style="position:relative;display:flex;align-items:center;gap:0;padding:0">
+      return `<div class="onbo-task ${stClass}" style="position:relative;display:flex;align-items:center;gap:0;padding:0">
         <!-- チェック部分 -->
         <div onclick="toggleOnboById(${no},'${esc(t.id)}')"
-          style="display:flex;align-items:center;gap:10px;flex:1;padding:9px 12px;cursor:pointer;min-width:0">
-          <div class="onbo-task-check">${isDone?'✓':''}</div>
-          <div class="onbo-task-label" style="flex:1;min-width:0;word-break:break-all" id="onbo-label-${no}-${esc(t.id.replace(/[:# ]/g,'-'))}">${esc(label)}</div>
+          style="display:flex;align-items:center;gap:10px;flex:1;padding:9px 12px;cursor:pointer;min-width:0"
+          title="クリックで状態切替: ${st.label}">
+          <div class="onbo-task-check">${st.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div class="onbo-task-label" style="word-break:break-all" id="onbo-label-${no}-${esc(t.id.replace(/[:# ]/g,'-'))}">${esc(label)}</div>
+            ${owner?`<div style="font-size:9px;color:var(--accent);margin-top:1px">👤 ${esc(owner)}</div>`:''}
+          </div>
         </div>
         <!-- 操作ボタン -->
         <div class="onbo-task-actions" style="display:flex;gap:2px;padding:0 6px;flex-shrink:0;opacity:0;transition:opacity .15s"
@@ -1952,9 +2008,15 @@ function renderOnboardingPage(c){
   }).join('');
 
   return `<div style="padding:28px 36px 80px">
-    <div style="margin-bottom:16px">
-      <h2 style="font-family:'Bebas Neue';font-size:36px;letter-spacing:2px">${esc(c.short)}</h2>
-      <div style="font-size:13px;color:var(--td);margin-top:4px">オンボーディング進捗 — タスクは✏で名前変更・✕で削除・下部から追加できます</div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h2 style="font-family:'Bebas Neue';font-size:36px;letter-spacing:2px">${esc(c.short)}</h2>
+        <div style="font-size:13px;color:var(--td);margin-top:4px">オンボーディング進捗 — クリックで未着手→着手中→完了を切り替え</div>
+      </div>
+      <button onclick="openBulkOwnerModal(${no})"
+        style="padding:8px 16px;border:1px solid var(--accent);border-radius:7px;background:var(--accent-lt);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
+        👤 一括担当者設定
+      </button>
     </div>
 
     <!-- 総合進捗 -->
@@ -2124,13 +2186,16 @@ function rerenderOnboSmart(no){
   }
 }
 
-// idベースのトグル（カスタム項目対応）
+// idベースの3ステートサイクル（カスタム項目対応）
 function toggleOnboById(no, taskId){
   const done = LS.get(fyKey('onbo_'+no));
-  done[taskId] = !done[taskId];
-  LS.set('onbo_'+no, done);
+  const curState = getCheckState(done[taskId]);
+  const next = (curState.val + 1) % 3;
+  done[taskId] = next;
+  LS.set(fyKey('onbo_'+no), done);
   rerenderOnbo(no);
-  toast(done[taskId] ? '✅ 完了しました' : '↩ 未完了に戻しました');
+  const ns = ONBO_CHECK_STATES[next];
+  toast(ns.icon+' '+ns.label+' に変更しました');
 }
 
 // 名前変更インライン
@@ -5468,7 +5533,7 @@ function renderOnboardingAll(){
     ONBO_PHASES.forEach(p=>{
       const tasks = getGlobalTasks(p.id);
       cTotal += tasks.length;
-      tasks.forEach(t=>{ if(done[t.id]) cDone++; });
+      tasks.forEach(t=>{ if(getCheckState(done[t.id]).val===2) cDone++; });
     });
     totalTasks += cTotal;
     totalDone  += cDone;
@@ -5562,7 +5627,7 @@ function renderOnboardingAll(){
   const tableRows = filtered.map(({c})=>{
     const done  = LS.get(fyKey('onbo_'+c.no));
     const tasks = getGlobalTasks(phase.id);
-    const pDone = tasks.filter(t=>done[t.id]).length;
+    const pDone = tasks.filter(t=>getCheckState(done[t.id]).val===2).length;
     const pct   = tasks.length>0 ? Math.round(pDone/tasks.length*100) : 0;
 
     const cells = tasks.map(t=>{
@@ -5572,7 +5637,7 @@ function renderOnboardingAll(){
       const indivDue = meta&&meta[t.id]&&meta[t.id].due ? meta[t.id].due : null;
       const commonDue = phaseDues[phase.id+'::'+t.id] || null;
       const due     = indivDue || commonDue || '';
-      const owner   = (meta&&meta[t.id]&&meta[t.id].owner) ? meta[t.id].owner : '';
+      const owner   = getTaskOwner(c.no, t.id);
 
       let cellBg = 'transparent';
       let dueNode = '';
