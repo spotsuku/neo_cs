@@ -5673,9 +5673,8 @@ function showOnboLog(no){
 function renderOnboardingAll(){
   const page = document.getElementById('page-onboarding-all');
   if(!page) return;
-  // スクロール位置を保存（.main コンテナ or page自身）
-  const scrollParent = page.closest('.main') || page.parentElement;
-  const savedScroll = scrollParent ? scrollParent.scrollTop : 0;
+  // スクロール位置を保存
+  const savedScroll = window.scrollY || document.documentElement.scrollTop || 0;
 
   const filterPhase  = window._onboFilterPhase  || 'p1';
   const filterStatus = window._onboFilterStatus || 'all';
@@ -5964,7 +5963,7 @@ function renderOnboardingAll(){
   `;
 
   // スクロール位置を復元
-  if(scrollParent) requestAnimationFrame(()=>{ scrollParent.scrollTop = savedScroll; });
+  requestAnimationFrame(()=>{ window.scrollTo(0, savedScroll); });
 
   // タスク管理パネルをDOMで構築（テンプレートリテラル内のクォート問題を回避）
   setTimeout(()=>buildTaskMgmtPanel(phase.id), 0);
