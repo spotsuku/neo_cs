@@ -810,6 +810,117 @@ const COMPANIES=[
 {no:28,name:"株式会社学思館",short:"学思館",contract:"A：契約中",status:"新規契約",course1:"",course2:"リーダー育成",recruit:"",labor:"",sent:0,grad:0,price:3000000,rep:"",addr:"",cs:"",ai:"未検討",camp:"未検討",vision:"",short_goal:"",escort:"",success:"",ent_sat:null,ent_grow:null,ent_recommend:null},
 {no:29,name:"株式会社ゼンリン",short:"ゼンリン",contract:"A：契約中",status:"新規契約",course1:"",course2:"リーダー育成",recruit:"",labor:"",sent:0,grad:0,price:3000000,rep:"",addr:"",cs:"",ai:"未検討",camp:"未検討",vision:"",short_goal:"",escort:"",success:"越境学習を通じて、派遣したアカデミア生が他社を巻き込んでプロジェクトを推進した学びを社内に伝播させる",ent_sat:null,ent_grow:null,ent_recommend:null}
 ];
+// ── 動的に追加された企業をLSから復元 ──
+(function restoreCustomCompanies(){
+  try {
+    const saved = JSON.parse(localStorage.getItem('neo_ps_custom_companies')||'[]');
+    if(Array.isArray(saved)){
+      saved.forEach(c=>{
+        if(!COMPANIES.find(x=>x.no===c.no)) COMPANIES.push(c);
+      });
+    }
+  } catch(e){}
+})();
+
+function showAddCompanyModal(){
+  const maxNo = Math.max(...COMPANIES.map(c=>c.no), 0);
+  const nextNo = maxNo + 1;
+  const csUsers = getAllRegisteredUsers ? getAllRegisteredUsers().map(u=>u.name) : [];
+  let overlay = document.getElementById('onbo-modal-overlay');
+  if(!overlay){overlay=document.createElement('div');overlay.id='onbo-modal-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});document.body.appendChild(overlay);}
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:24px;width:520px;max-width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">＋ 新規会員企業を追加</div>
+      <button onclick="closeModal()" style="border:none;background:none;cursor:pointer;font-size:20px;color:var(--td)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">企業名（正式）<span style="color:var(--ng)">*</span></div>
+        <input id="ac-name" placeholder="例：株式会社○○" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">略称（表示名）<span style="color:var(--ng)">*</span></div>
+        <input id="ac-short" placeholder="例：○○" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">契約ステータス</div>
+        <select id="ac-contract" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none;box-sizing:border-box">
+          ${['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中'].map(v=>`<option value="${v}">${v}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">顧客種別</div>
+        <select id="ac-status" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none;box-sizing:border-box">
+          <option value="新規契約">新規契約</option>
+          <option value="既存顧客">既存顧客</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">コース</div>
+        <select id="ac-course" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none;box-sizing:border-box">
+          <option value="リーダー育成">リーダー育成</option>
+          <option value="事業共創">事業共創</option>
+          <option value="両方実施">両方実施</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">CS担当</div>
+        <select id="ac-cs" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none;box-sizing:border-box">
+          <option value="">未設定</option>
+          ${csUsers.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">代表者</div>
+        <input id="ac-rep" placeholder="" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--td);margin-bottom:4px">年間単価</div>
+        <input id="ac-price" type="number" value="3000000" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none;box-sizing:border-box">
+      </div>
+    </div>
+    <button onclick="addCompany()" style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">＋ 追加する</button>
+  </div>`;
+  overlay.style.display = 'flex';
+}
+
+function addCompany(){
+  const name = document.getElementById('ac-name')?.value?.trim();
+  const short = document.getElementById('ac-short')?.value?.trim();
+  if(!name || !short){ toast('企業名と略称は必須です'); return; }
+  const maxNo = Math.max(...COMPANIES.map(c=>c.no), 0);
+  const newCo = {
+    no: maxNo + 1,
+    name,
+    short,
+    contract: document.getElementById('ac-contract')?.value || 'A：契約中',
+    status: document.getElementById('ac-status')?.value || '新規契約',
+    course1: document.getElementById('ac-course')?.value || '',
+    course2: document.getElementById('ac-course')?.value || '',
+    recruit: '', labor: '',
+    sent: 0, grad: 0,
+    price: parseInt(document.getElementById('ac-price')?.value) || 3000000,
+    rep: document.getElementById('ac-rep')?.value?.trim() || '',
+    addr: '',
+    cs: document.getElementById('ac-cs')?.value || '',
+    ai: '未検討', camp: '未検討',
+    vision: '', short_goal: '', escort: '', success: '',
+    ent_sat: null, ent_grow: null, ent_recommend: null
+  };
+  COMPANIES.push(newCo);
+  // LSに永続化
+  const saved = JSON.parse(localStorage.getItem('neo_ps_custom_companies')||'[]');
+  saved.push(newCo);
+  localStorage.setItem('neo_ps_custom_companies', JSON.stringify(saved));
+  if(typeof LSdb !== 'undefined' && LSdb.save) LSdb.save('custom_companies', saved);
+  closeModal();
+  // サイドバー再描画
+  const sbInner = document.getElementById('sb-list-inner');
+  if(sbInner) sbInner.innerHTML = renderSidebarList(COMPANIES, newCo.no);
+  selectCompany(newCo.no);
+  toast('✅ ' + short + ' を追加しました');
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // オンボーディング拡張機能
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1424,7 +1535,7 @@ function switchMainTab(tab){
 function renderAppLayout(tab){
   const app=document.getElementById('app-company');
   const savedNo=currentCompanyNo;
-  app.innerHTML=`<div class="sidebar"><div class="sb-header"><div class="sb-title" style="display:flex;align-items:center;justify-content:space-between">// COMPANIES <span id="sb-count" style="font-size:9px;color:var(--td)"></span></div><div class="sb-search"><input type="text" id="sb-search-input" placeholder="企業名で検索..." oninput="filterSidebar(this.value)"></div></div><div class="sb-filters">
+  app.innerHTML=`<div class="sidebar"><div class="sb-header"><div class="sb-title" style="display:flex;align-items:center;justify-content:space-between">// COMPANIES <span id="sb-count" style="font-size:9px;color:var(--td)"></span></div><div class="sb-search" style="display:flex;gap:6px"><input type="text" id="sb-search-input" placeholder="企業名で検索..." oninput="filterSidebar(this.value)" style="flex:1"><button onclick="showAddCompanyModal()" style="padding:0 10px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:14px;cursor:pointer;flex-shrink:0" title="新規企業を追加">＋</button></div></div><div class="sb-filters">
   <button class="sb-filter-btn active" onclick="setSbFilter(this,'all')">全社</button>
   <button class="sb-filter-btn" onclick="setSbFilter(this,'active')">継続</button>
   <button class="sb-filter-btn" onclick="setSbFilter(this,'new')">新規</button>
