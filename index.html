@@ -5673,6 +5673,9 @@ function showOnboLog(no){
 function renderOnboardingAll(){
   const page = document.getElementById('page-onboarding-all');
   if(!page) return;
+  // スクロール位置を保存（.main コンテナ or page自身）
+  const scrollParent = page.closest('.main') || page.parentElement;
+  const savedScroll = scrollParent ? scrollParent.scrollTop : 0;
 
   const filterPhase  = window._onboFilterPhase  || 'p1';
   const filterStatus = window._onboFilterStatus || 'all';
@@ -5959,6 +5962,9 @@ function renderOnboardingAll(){
       💡 企業名クリックで詳細へ ／ ヘッダーの日付欄に共通期日を設定すると全社に適用されます（個別設定が優先）
     </div>
   `;
+
+  // スクロール位置を復元
+  if(scrollParent) requestAnimationFrame(()=>{ scrollParent.scrollTop = savedScroll; });
 
   // タスク管理パネルをDOMで構築（テンプレートリテラル内のクォート問題を回避）
   setTimeout(()=>buildTaskMgmtPanel(phase.id), 0);
