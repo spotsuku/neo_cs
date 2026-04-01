@@ -2156,7 +2156,7 @@ function renderOnboardingPage(c){
 
     return `<div class="onbo-phase" style="margin-bottom:14px;border:1px solid ${allDone?'var(--ok)':'var(--border)'};border-radius:10px;overflow:hidden;background:${allDone?'var(--ok-lt)':'var(--surface)'}">
       <div class="onbo-phase-header" style="padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border)">
-        <div class="onbo-phase-title" style="color:${phase.color}">${esc(phase.title)}</div>
+        <div class="onbo-phase-title" style="color:${phase.color}">${esc(getPhaseName(phase.id))}</div>
         <div class="onbo-phase-progress" style="color:${allDone?'var(--ok)':'var(--td)'}">${pDone}/${tasks.length}</div>
       </div>
       <div class="onbo-tasks" style="padding:0">${taskItems}</div>
