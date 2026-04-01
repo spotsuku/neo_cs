@@ -5516,7 +5516,7 @@ function showOnboCellMenu(e, no, taskId, taskLabel){
       <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px">ステータス</div>
       <div style="display:flex;gap:6px">
         ${ONBO_CHECK_STATES.map(s=>`
-          <button onclick="(()=>{const d=LS.get('onbo_'+${no});const cur=getCheckState(d['${taskId}']).val;d['${taskId}']=${s.val};addOnboLog(${no},'${taskId}','${taskLabel.replace(/'/g, "\\'")}',cur,${s.val});localStorage.setItem('neo_ps_onbo_${no}',JSON.stringify(d));LSdb._call({key:'onbo_${no}',value:d});closeModal();renderOnboardingAll();toast('${s.icon} ${s.label}');})()"
+          <button onclick="(()=>{const d=LS.get('onbo_'+${no});const cur=getCheckState(d['${taskId}']).val;d['${taskId}']=${s.val};addOnboLog(${no},'${taskId}','${taskLabel.replace(/'/g, "\\'")}',cur,${s.val});localStorage.setItem('neo_ps_onbo_${no}',JSON.stringify(d));LSdb._call({key:'onbo_${no}',value:d});_updateOnboCell(${no},'${taskId}',${s.val},d);closeModal();toast('${s.icon} ${s.label}');})()"
             style="flex:1;padding:10px 6px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
               border:2px solid ${st.val===s.val?s.color:'var(--border)'};
               background:${st.val===s.val?s.bg:'var(--surface2)'};
@@ -5563,7 +5563,6 @@ function showOnboCellMenu(e, no, taskId, taskLabel){
       else{saveOnboOwner(${no},'${taskId}','','');}
       const c2 = document.getElementById('cell-comment-${no}-${taskId}')?.value||'';
       saveOnboComment(${no},'${taskId}',c2);
-      renderOnboardingAll();
       closeModal();
       toast('💾 保存しました');
     })()"
@@ -6073,11 +6072,12 @@ function renderOnboardingAll(){
     </div>
   `;
 
-  // スクロール位置を復元
-  requestAnimationFrame(()=>{ window.scrollTo(0, savedScroll); });
+  // スクロール位置を復元（buildTaskMgmtPanel後にも再復元）
+  const _restoreScroll = ()=>{ window.scrollTo(0, savedScroll); };
+  requestAnimationFrame(_restoreScroll);
 
   // タスク管理パネルをDOMで構築（テンプレートリテラル内のクォート問題を回避）
-  setTimeout(()=>buildTaskMgmtPanel(phase.id), 0);
+  setTimeout(()=>{ buildTaskMgmtPanel(phase.id); requestAnimationFrame(_restoreScroll); }, 0);
 }
 
 function buildTaskMgmtPanel(phaseId){
