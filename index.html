@@ -3517,10 +3517,11 @@ function renderMembersTab(no){
           ${esc((m.name||'?')[0])}
         </div>
         <div style="flex:1">
-          <div style="font-size:15px;font-weight:700;color:var(--t1)">${esc(m.name||'未設定')}</div>
+          <div style="font-size:15px;font-weight:700;color:var(--t1)">${esc(m.name||'未設定')}${m.kana?` <span style="font-size:11px;font-weight:400;color:var(--td)">(${esc(m.kana)})</span>`:''}</div>
           <div style="font-size:11px;color:var(--td);margin-top:2px">
             ${esc(m.dept||'')}${m.role?` / ${esc(m.role)}`:''}
           </div>
+          ${m.email?`<div style="font-size:10px;color:var(--accent);margin-top:2px;font-family:'Space Mono',monospace">${esc(m.email)}</div>`:''}
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="editMemberProfile(${no},${mi})"
@@ -3546,7 +3547,7 @@ function renderMembersTab(no){
         <div>
           <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:8px;letter-spacing:1px">🧑 プロフィール</div>
           <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:12px">
-            ${[['部署',m.dept],['役職',m.role],['参加選考',m.recruit_type],['成長スキル',m._grow_skill],['挑戦スキル',m._challenge_skill],['ステップ',m._step]].map(([l,v])=>v?`
+            ${[['ふりがな',m.kana],['メール',m.email],['部署',m.dept],['役職',m.role],['参加選考',m.recruit_type],['成長スキル',m._grow_skill],['挑戦スキル',m._challenge_skill],['ステップ',m._step]].map(([l,v])=>v?`
               <div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
                 <span style="font-size:10px;color:var(--td);width:80px;flex-shrink:0">${l}</span>
                 <span style="font-size:12px;color:var(--t2)">${esc(v)}</span>
@@ -3652,6 +3653,8 @@ function _showMemberForm(no, mi, m){
 
   const fields = [
     {id:'mb-name', label:'氏名 *', placeholder:'山田 太郎', value: m?.name||'', type:'text'},
+    {id:'mb-kana', label:'ふりがな', placeholder:'やまだ たろう', value: m?.kana||'', type:'text'},
+    {id:'mb-email', label:'メールアドレス', placeholder:'taro@example.com', value: m?.email||'', type:'email'},
     {id:'mb-dept', label:'部署', placeholder:'営業部', value: m?.dept||'', type:'text'},
     {id:'mb-role', label:'役職', placeholder:'主任', value: m?.role||'', type:'text'},
   ];
@@ -3747,6 +3750,8 @@ function _showMemberForm(no, mi, m){
     const skillVals = window._skillVals[prefix] || {};
     const obj = {
       name,
+      kana: document.getElementById('mb-kana')?.value?.trim() || '',
+      email: document.getElementById('mb-email')?.value?.trim() || '',
       dept: document.getElementById('mb-dept')?.value?.trim() || '',
       role: document.getElementById('mb-role')?.value?.trim() || '',
       recruit_type: document.getElementById('mb-recruit')?.value || '選抜',
