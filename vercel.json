@@ -8,9 +8,17 @@
       "memory": 128,
       "maxDuration": 15
     },
+    "api/db-all.js": {
+      "memory": 128,
+      "maxDuration": 15
+    },
     "api/auth.js": {
       "memory": 128,
       "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
