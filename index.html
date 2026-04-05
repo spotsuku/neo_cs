@@ -6679,7 +6679,7 @@ function renderActionLogAll(){
   for(let i=-12;i<=1;i++){
     const mon = new Date(thisMonday); mon.setDate(mon.getDate()+i*7);
     const sun = new Date(mon); sun.setDate(sun.getDate()+6);
-    const key = mon.toISOString().slice(0,10);
+    const key = mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
     const label = `${mon.getMonth()+1}/${mon.getDate()}〜${sun.getMonth()+1}/${sun.getDate()}`;
     const isCurrent = i===0;
     weekTabs.push({key, label: isCurrent ? label+' (今週)' : label, mon, sun, isCurrent});
@@ -6757,7 +6757,7 @@ function renderActionLogAll(){
       </tr>`;
     }).join('');
 
-    const defDate = selTab ? selTab.key : new Date().toISOString().slice(0,10);
+    const _today = new Date(); const defDate = _today.getFullYear()+'-'+String(_today.getMonth()+1).padStart(2,'0')+'-'+String(_today.getDate()).padStart(2,'0');
     const newRow = `<tr style="border-bottom:2px solid var(--border);background:var(--accent-lt)">
       <td style="padding:4px 8px;vertical-align:middle;text-align:center">
         <input id="${pfx}-date" type="date" value="${defDate}" style="width:100%;padding:3px;border:1px solid var(--border);border-radius:4px;font-size:9px;background:var(--surface);outline:none;box-sizing:border-box">
