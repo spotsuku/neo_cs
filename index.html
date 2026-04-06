@@ -1666,7 +1666,7 @@ function editContact(no, i){
 
 function _showContactForm(no, i, ct){
   const isEdit = i !== null;
-  const tags = ['担当者','経営層','決裁者/窓口','窓口/受講生','受講生','その他'];
+  const tags = ['担当役員','決裁者','担当責任者','担当者','評議員','経営層','窓口/受講生','受講生','その他'];
   showModal(`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="font-size:16px;font-weight:700">${isEdit?'✏ 担当者編集':'＋ 担当者を追加'}</div>
@@ -1736,6 +1736,7 @@ function _showContactForm(no, i, ct){
       const el = document.getElementById('contacts-${no}');
       const c2 = {...(COMPANIES.find(x=>x.no===${no})||{}),...LS.get('co_info_'+${no})};
       if(el) el.innerHTML = renderContacts(c2);
+      if(document.getElementById('page-staff-all')?.style.display!=='none') renderStaffAll();
       toast('💾 担当者情報を保存しました');
     })()"
       style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
@@ -1750,6 +1751,7 @@ function _showContactForm(no, i, ct){
       const el=document.getElementById('contacts-${no}');
       const c2={...(COMPANIES.find(x=>x.no===${no})||{}),...LS.get('co_info_'+${no})};
       if(el) el.innerHTML=renderContacts(c2);
+      if(document.getElementById('page-staff-all')?.style.display!=='none') renderStaffAll();
       toast('🗑 削除しました');
     })()"
       style="width:100%;padding:10px;background:var(--surface2);color:var(--ng);border:1px solid var(--ng);border-radius:8px;font-size:12px;cursor:pointer;margin-top:8px">
@@ -6883,22 +6885,48 @@ function _getContactsByRole(no){
 function renderStaffAll(){
   const el = document.getElementById('page-staff-all');
   if(!el) return;
-  const cos = getFilteredCompanies();
+  const allCos = getFilteredCompanies();
+  const selCourse = window._staffCourse || '';
+  const cos = selCourse ? allCos.filter(c=>(c.course2||c.course1||'')===selCourse) : allCos;
+  const courses = [...new Set(allCos.map(c=>c.course2||c.course1||'').filter(Boolean))].sort();
+
+  // コースタブ
+  const courseTabs = `<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+    <button onclick="window._staffCourse='';renderStaffAll()"
+      style="padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid ${!selCourse?'var(--accent)':'var(--border)'};
+        background:${!selCourse?'var(--accent)':'var(--surface2)'};color:${!selCourse?'#fff':'var(--td)'};cursor:pointer">全コース</button>
+    ${courses.map(c=>`<button onclick="window._staffCourse='${esc(c)}';renderStaffAll()"
+      style="padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid ${selCourse===c?'var(--accent)':'var(--border)'};
+        background:${selCourse===c?'var(--accent)':'var(--surface2)'};color:${selCourse===c?'#fff':'var(--td)'};cursor:pointer">${esc(c)}</button>`).join('')}
+  </div>`;
 
   const tbody = cos.map(c=>{
     const roleMap = _getContactsByRole(c.no);
     const contract = getContract(c.no);
     const [tagCls, tagLabel] = contractInfo(contract);
-    const cells = STAFF_ROLES.map(role=>{
+    const cells = STAFF_ROLES.map((role,ri)=>{
       const people = roleMap[role] || [];
-      if(people.length === 0) return `<td style="padding:8px;border-bottom:1px solid var(--border);color:var(--td);font-size:11px;text-align:center">—</td>`;
-      const pHtml = people.map(p=>`
-        <div style="margin-bottom:4px">
-          <div style="font-size:12px;font-weight:600;color:var(--t1)">${esc(p.name||'')}</div>
-          ${p.role?`<div style="font-size:9px;color:var(--td)">${esc(p.role)}</div>`:''}
-          ${p.email?`<div style="font-size:9px;color:var(--accent)">${esc(p.email)}</div>`:''}
-        </div>`).join('');
-      return `<td style="padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top">${pHtml}</td>`;
+      const pHtml = people.map((p,pi)=>{
+        // contacts_{no}.list から該当のインデックスを取得
+        const saved = LS.get('contacts_'+c.no);
+        const allContacts = (saved && Array.isArray(saved.list)) ? saved.list : [];
+        const idx = allContacts.findIndex(x=>x.name===p.name && x.role===p.role);
+        return `<div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:4px;cursor:pointer"
+          onclick="editContact(${c.no},${idx>=0?idx:0})" title="クリックで編集">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;color:var(--t1)">${esc(p.name||'')}</div>
+            ${p.role?`<div style="font-size:9px;color:var(--td)">${esc(p.role)}</div>`:''}
+            ${p.email?`<div style="font-size:9px;color:var(--accent)">${esc(p.email)}</div>`:''}
+          </div>
+        </div>`;
+      }).join('');
+      return `<td style="padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top">
+        ${pHtml}
+        <button onclick="addContact(${c.no})" title="担当者を追加"
+          style="font-size:10px;padding:2px 8px;border:1px dashed var(--border);border-radius:4px;background:transparent;color:var(--td);cursor:pointer;width:100%;margin-top:2px"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--td)'">＋</button>
+      </td>`;
     }).join('');
     return `<tr>
       <td style="padding:8px 10px;border-bottom:1px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:1;min-width:130px;cursor:pointer" onclick="goToCompany(${c.no})">
@@ -6913,10 +6941,11 @@ function renderStaffAll(){
   }).join('');
 
   el.innerHTML = `
-    <div style="margin-bottom:20px">
+    <div style="margin-bottom:16px">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px">👥 担当者一覧</div>
-      <div style="font-size:13px;color:var(--td);margin-top:4px">企業カルテの担当者情報を種別ごとに表示します（${cos.length}社）・ 編集は各企業カルテの「担当者情報」タブから行えます</div>
+      <div style="font-size:13px;color:var(--td);margin-top:4px">各企業の担当者を種別ごとに管理（${cos.length}社）・ 名前クリックで編集、＋で追加</div>
     </div>
+    ${courseTabs}
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:800px">
         <thead>
