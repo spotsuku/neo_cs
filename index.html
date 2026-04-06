@@ -1802,7 +1802,7 @@ function renderCompanyPage(c){
   const savedSuccess=plans.success!=null?plans.success:c.success;
   const contractOptions=['S：契約書締結','A：契約中','B：内諾確認済','C：社内調整中','D：非継続'].map(opt=>`<option value="${opt}" ${opt===contract?'selected':''}>${opt}</option>`).join('');
   const selCls=cls.replace('tag-','sel-');
-  return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''} ${c.cs?`<span class="badge b-gray">CS: ${esc(c.cs)}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div>${getCoAlerts(c)}
+  return`<div style="padding:28px 36px 80px">${risk}<div class="co-header"><div class="co-number">// COMPANY #${c.no}</div><div class="co-name">${esc(c.short)}</div><div style="font-size:13px;color:var(--td);margin-top:4px">${esc(c.name)}</div><div class="co-meta"><select class="contract-select ${selCls}" id="contract-sel-${c.no}" onchange="changeContract(${c.no},this)">${contractOptions}</select><span class="badge ${c.status==='既存顧客'?'b-accent':'b-purple'}">${c.status}</span>${c.course2?`<span class="badge b-gray">${c.course2}</span>`:''}<span class="badge" style="background:${(stageData?.color||'#888')+'22'};color:${stageData?.color||'#888'};border-color:${stageData?.color||'#ccc'}">St.${stage} ${stageData?.name||''}</span></div></div>${getCoAlerts(c)}
 <div class="co-kpi-row">
   <div class="co-kpi">
     <div class="co-kpi-label">企業進捗</div>
@@ -6673,9 +6673,11 @@ function renderActionLogAll(){
   const selCs = window._logAllCs || '';
   let cos = allCos;
   if(selCourse) cos = cos.filter(c=>(c.course2||c.course1||'')=== selCourse);
-  if(selCs) cos = cos.filter(c=>(c.cs||'')=== selCs);
+  // CS担当者はカルテで手動設定した担当者を使用
+  const _getMainCs = (no)=>{ const s=getCoCSStaff(no); return s.length>0?s[0].name:''; };
+  if(selCs) cos = cos.filter(c=>_getMainCs(c.no)=== selCs);
   const courses = [...new Set(allCos.map(c=>c.course2||c.course1||'').filter(Boolean))].sort();
-  const csList = [...new Set(allCos.map(c=>c.cs||'').filter(Boolean))].sort();
+  const csList = [...new Set(allCos.map(c=>_getMainCs(c.no)).filter(Boolean))].sort();
 
   // ── 週タブ生成（月曜始まり）──
   const fy = getFiscalYear();
@@ -6784,7 +6786,7 @@ function renderActionLogAll(){
         <div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:12px;color:var(--td)">${isExpanded?'▼':'▶'}</span>
           <div style="font-size:13px;font-weight:700;color:var(--t1)">${esc(c.short)}</div>
-          <span style="font-size:9px;color:var(--accent)">👤 ${esc(c.cs||'')}</span>
+          <span style="font-size:9px;color:var(--accent)">👤 ${esc(_getMainCs(c.no))}</span>
           <span style="font-size:9px;padding:2px 6px;border-radius:3px;background:var(--surface3);color:var(--td)">${esc(c.course2||c.course1||'')}</span>
           <span style="font-size:10px;color:var(--td);margin-left:auto">${logCount}件</span>
         </div>
