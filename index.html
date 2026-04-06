@@ -285,6 +285,14 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
     Googleでログイン
   </div>
   <div id="login-status" style="font-size:12px;color:#475569;min-height:20px"></div>
+  <div onclick="onLoginSuccess({email:'dev@neoacademia.jp',name:'開発ユーザー',picture:'',role:'admin'})"
+    style="display:flex;align-items:center;gap:8px;padding:10px 24px;
+      background:transparent;border:1px solid #334155;border-radius:12px;cursor:pointer;
+      font-size:13px;color:#64748b;transition:all .2s"
+    onmouseover="this.style.borderColor='#4da6ff';this.style.color='#4da6ff'"
+    onmouseout="this.style.borderColor='#334155';this.style.color='#64748b'">
+    🔧 ログイン（開発モード）
+  </div>
 </div>
 
 <nav class="top-nav">
@@ -7327,18 +7335,9 @@ const GOOGLE_CLIENT_ID = '411975871767-foeu86boj63re000cfjv1j6p0vsdq35k.apps.goo
 
 let currentUser = null;  // {email, name, picture, role}
 
-// ── 開発モード: Google OAuth がブロックされる場合のバイパス ──
-const DEV_MODE = true; // 本番デプロイ時は false に変更
-
 function signInWithGoogle(){
   const statusEl = document.getElementById('login-status');
   if(statusEl) statusEl.textContent = '認証中...';
-
-  if(DEV_MODE){
-    // 開発モード: メール入力で即ログイン
-    _devLoginFallback();
-    return;
-  }
 
   // Google Identity Services で認証
   if(typeof google === 'undefined'){
@@ -7390,24 +7389,8 @@ async function handleGoogleCredential(response){
 }
 
 function _devLoginFallback(){
-  // 開発モード: 名前とメールを入力して即ログイン
-  const overlay = document.getElementById('login-overlay');
-  if(overlay){
-    const statusEl = document.getElementById('login-status');
-    // ログインボタンを開発用フォームに差し替え
-    const btn = document.getElementById('google-signin-btn');
-    if(btn) btn.style.display = 'none';
-    if(statusEl) statusEl.innerHTML = `
-      <div style="background:#1e293b;border-radius:12px;padding:20px;width:320px;text-align:left">
-        <div style="font-size:13px;font-weight:700;color:#94a3b8;margin-bottom:12px">🔧 開発モードログイン</div>
-        <input id="dev-name" placeholder="名前" value="" style="width:100%;padding:10px;margin-bottom:8px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box">
-        <input id="dev-email" placeholder="メールアドレス" value="" style="width:100%;padding:10px;margin-bottom:12px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box">
-        <button onclick="(()=>{const n=document.getElementById('dev-name')?.value?.trim()||'開発ユーザー';const e=document.getElementById('dev-email')?.value?.trim()||'dev@local';onLoginSuccess({email:e,name:n,picture:'',role:'admin'});})()"
-          style="width:100%;padding:12px;background:#1a56db;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">
-          ログイン（開発モード）
-        </button>
-      </div>`;
-  }
+  // Google認証がブロックされた場合のフォールバック
+  onLoginSuccess({email:'dev@neoacademia.jp', name:'開発ユーザー', picture:'', role:'admin'});
 }
 
 function onLoginSuccess(user){
