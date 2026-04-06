@@ -5863,19 +5863,29 @@ function renderOnboardingAll(){
   }
 
   // ── タスクヘッダー ──
+  const totalCos = filtered.length;
   const thCells = allTasks.map(t=>{
     const dueVal = phaseDues[phase.id+'::'+t.id] || '';
     const {color, text, icon, bg} = getDueDisplay(dueVal);
+    // タスク別の完了社数を集計
+    let taskDone = 0;
+    filtered.forEach(({c})=>{
+      const done = LS.get(fyKey('onbo_'+c.no));
+      if(getCheckState(done[t.id]).val===2) taskDone++;
+    });
+    const taskPct = totalCos>0 ? Math.round(taskDone/totalCos*100) : 0;
+    const taskColor = taskDone===totalCos?'var(--ok)':taskDone>0?'var(--accent)':'var(--td)';
     return `<th style="padding:0;font-weight:700;
       border-right:1px solid var(--border);
       min-width:108px;max-width:130px;vertical-align:bottom;text-align:center">
       <!-- タスク名 -->
-      <div style="padding:8px 8px 6px;font-size:11px;font-weight:700;
+      <div style="padding:8px 8px 4px;font-size:11px;font-weight:700;
         color:#fff;background:${phase.color};
-        line-height:1.5;min-height:44px;
-        display:flex;align-items:center;justify-content:center;
+        line-height:1.5;min-height:36px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
         word-break:break-all;text-align:center;letter-spacing:.3px">
-        ${esc(t.label)}
+        <div>${esc(t.label)}</div>
+        <div style="font-size:9px;font-weight:400;opacity:.8;margin-top:2px">${taskDone}/${totalCos}社完了</div>
       </div>
       <!-- 共通期日入力 -->
       <div style="padding:5px 6px;background:${bg};border-top:1px solid ${dueVal?color+'44':'var(--border)'}">
@@ -6115,7 +6125,7 @@ function buildTaskMgmtPanel(phaseId){
     labelSpan.textContent = t.label;
     chip.appendChild(labelSpan);
 
-    if(!isAdmin()) { chipsWrap.appendChild(chip); return; } // 管理者以外は閲覧のみ
+    if(!canEdit()) { chipsWrap.appendChild(chip); return; } // 未ログインは閲覧のみ
 
     const renameBtn = document.createElement('button');
     renameBtn.textContent = '✏';
@@ -6146,7 +6156,7 @@ function buildTaskMgmtPanel(phaseId){
   });
   inner.appendChild(chipsWrap);
 
-  if(isAdmin()){
+  if(canEdit()){
   const formWrap = document.createElement('div');
   formWrap.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
 
@@ -6182,7 +6192,7 @@ function buildTaskMgmtPanel(phaseId){
   };
   formWrap.appendChild(addBtn);
   inner.appendChild(formWrap);
-  } // end if(isAdmin())
+  } // end if(canEdit())
 
   wrap.appendChild(inner);
   el.appendChild(wrap);
