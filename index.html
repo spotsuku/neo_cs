@@ -6942,12 +6942,12 @@ function renderPlanAll(){
       <div style="font-size:13px;color:var(--td);margin-top:4px">各企業のアカウントプランを一覧で確認・編集（${cos.length}社）</div>
     </div>
     ${courseTabs}
-    <div style="overflow-x:auto">
+    <div style="overflow:auto;max-height:calc(100vh - 220px)">
       <table style="width:100%;border-collapse:collapse;min-width:900px">
         <thead>
           <tr style="background:var(--surface2);border-bottom:2px solid var(--border)">
-            <th style="padding:10px;text-align:left;font-size:11px;color:var(--td);font-family:'Space Mono',monospace;position:sticky;left:0;background:var(--surface2);z-index:2;min-width:120px">企業</th>
-            ${PLAN_FIELDS.map(f=>`<th style="padding:10px;text-align:left;font-size:10px;color:var(--t1);font-weight:700;min-width:180px">${esc(f.label)}</th>`).join('')}
+            <th style="padding:10px;text-align:left;font-size:11px;color:var(--td);font-family:'Space Mono',monospace;position:sticky;left:0;top:0;background:var(--surface2);z-index:3;min-width:120px">企業</th>
+            ${PLAN_FIELDS.map(f=>`<th style="padding:10px;text-align:left;font-size:10px;color:var(--t1);font-weight:700;min-width:180px;position:sticky;top:0;background:var(--surface2);z-index:1">${esc(f.label)}</th>`).join('')}
           </tr>
         </thead>
         <tbody>${tbody}</tbody>
@@ -7047,12 +7047,12 @@ function renderStaffAll(){
       <div style="font-size:13px;color:var(--td);margin-top:4px">各企業の担当者を種別ごとに管理（${cos.length}社）・ 名前クリックで編集、＋で追加</div>
     </div>
     ${courseTabs}
-    <div style="overflow-x:auto">
+    <div style="overflow:auto;max-height:calc(100vh - 220px)">
       <table style="width:100%;border-collapse:collapse;min-width:800px">
         <thead>
           <tr style="background:var(--surface2);border-bottom:2px solid var(--border)">
-            <th style="padding:10px;text-align:left;font-size:11px;color:var(--td);font-family:'Space Mono',monospace;position:sticky;left:0;background:var(--surface2);z-index:2;min-width:130px">企業</th>
-            ${STAFF_ROLES.map(r=>`<th style="padding:10px;text-align:center;font-size:11px;color:var(--t1);font-weight:700;min-width:140px">${esc(r)}</th>`).join('')}
+            <th style="padding:10px;text-align:left;font-size:11px;color:var(--td);font-family:'Space Mono',monospace;position:sticky;left:0;top:0;background:var(--surface2);z-index:3;min-width:130px">企業</th>
+            ${STAFF_ROLES.map(r=>`<th style="padding:10px;text-align:center;font-size:11px;color:var(--t1);font-weight:700;min-width:140px;position:sticky;top:0;background:var(--surface2);z-index:1">${esc(r)}</th>`).join('')}
           </tr>
         </thead>
         <tbody>${tbody}</tbody>
