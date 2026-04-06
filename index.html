@@ -308,6 +308,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
     <div class="nav-tab" id="ntab-milestone" onclick="switchMainTab('milestone')">🗓 マイルストーン</div>
     <div class="nav-tab" id="ntab-actionlog-all" onclick="switchMainTab('actionlog-all')">📝 ログ一覧</div>
     <div class="nav-tab" id="ntab-staff-all" onclick="switchMainTab('staff-all')">👥 担当者一覧</div>
+    <div class="nav-tab" id="ntab-plan-all" onclick="switchMainTab('plan-all')">📋 活用方針</div>
     <div class="nav-tab" id="ntab-board" onclick="switchMainTab('board')">📌 ボードビュー</div>
   </div>
   <!-- 同期インジケーター -->
@@ -361,6 +362,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--t1);
 <div id="page-milestone" class="page" style="padding:28px 36px 80px"></div>
 <div id="page-actionlog-all" class="page" style="display:none;padding:28px 36px 80px"></div>
 <div id="page-staff-all" class="page" style="display:none;padding:28px 36px 80px"></div>
+<div id="page-plan-all" class="page" style="display:none;padding:28px 36px 80px"></div>
 <div id="toast"></div>
 <script>
 const MB_SURVEY = {"1": [{"name": "下原元気", "sat": 10.0, "grow": 10.0, "fun": 10.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "共感する力", "challenge_skill": "質問力", "grow_factor": "仲間と進める期間が多く、仲間と信頼関係を築くことが出来た。", "grow_comment": "やり抜いた経験です。成長したと感じています！", "meaning": "活動を通じて、自分のやりたい事を言語化する事が出来るようになりました。私はタカギの事が大好きです。このタカギの魅力を届ける事や、WaterWaveを地域と一体となって盛り上げる事に携わりたいと強く思っています。様々な学びの中で、20年後の自分を描けるか、カリスマカンタロウさんの講義を思い出します。2", "sat_comment": "また参加したいくらい、名残惜しく、これからも関わりを持ちたい！", "challenge_will": "はい", "leader": "はい"}], "2": [{"name": "森山稜平", "sat": 9.0, "grow": 10.0, "fun": 9.0, "rec": null, "step": "ステップ1. 授業に主体的に取り組んでいる", "grow_skill": "傾聴力", "challenge_skill": "巻き込み力", "grow_factor": "もともと自信はあったものの、他社・学生など環境が違う中でさらに磨かれた", "grow_comment": "仕事の進み具合が劇的に良くなったと感じるため。", "meaning": "広告制作という仕事上、出来ないこと、難しいこと人を動かすことが多くあり壁にぶつかることがある。その時に出来ない理由ではなくどうやったらできるのかを考えるようにもうすでになっている。今後もこの考え方を忘れないようにしていきたい。", "sat_comment": "講義や活動内容についてはかなり満足しています。ただ社会人である以上、仕事との調整がかなり難しい部分があり時間的な拘束時間の長さは正直感じた。また、企業側のアワードの課題提出についてはアカデミア生との熱力に差があるところもあったのは否めない。", "challenge_will": "はい", "leader": "はい"}, {"name": "小西達也", "sat": 10.0, "grow": 10.0, "fun": 10.0, "rec": null, "step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "grow_skill": "傾聴力", "challenge_skill": "伝える力", "grow_factor": "他社の方がたくさんいる環境でやれたこと。", "grow_comment": "プレイフルになった。賞をいただけたこともその実感につながった。", "meaning": "まずはプロジェクトマネジメントととして、プロジェクトを背負う覚悟と責任が変わった。 新たなプロジェクトを自ら作り、自ら実行し、やり切ること。 最終的に成果にも責任を持って社内プロジェクトを推進していく。  動員や物を買っていただくことについて、共感とアウトカムが重要であると感じた。 自分の挑戦への共", "sat_comment": "本当に自分のマインドが変わり、行動も変わったため。", "challenge_will": "はい", "leader": "はい"}, {"name": "小島直樹", "sat": 8.0, "grow": 7.0, "fun": 8.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "傾聴力", "challenge_skill": "伝える力", "grow_factor": "西鉄のPJリーダー、NEOの応援団長の姿を見て自分のロールモデルになったため", "grow_comment": "学びは多かったがリーダーを経験することができなかったため", "meaning": "NEOで学んだことは、企画を成功させるために大切なことはリーダーが誰よりも熱をもってとりくむこと、チームのモチベーションをあげること、きつくてもやりきることなどです。今後自社の仕事で様々な企画やプロジェクトに経験させていただくときに、NEOで学んだ上記のことを忘れず取り組んでまいります。", "sat_comment": "普段できない貴重な経験ができたため。自分が心の底からやり切れたといえなかったことがマイナス点です。", "challenge_will": "はい", "leader": "はい"}], "5": [{"name": "野口亮太", "sat": 8.0, "grow": 8.0, "fun": 8.0, "rec": null, "step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "grow_skill": "共感する力", "challenge_skill": "巻き込み力", "grow_factor": "アワードに挑戦してやり切ると決めたこと。", "grow_comment": "今までやったことないアプリ開発にチャレンジして、自分のできることが広がったから。", "meaning": "NEOでの経験を踏まえて、アウトプットを出し続けていくことで事業を前に進めることができると強く実感しました。今後の仕事においても積極的にアウトプットを出し続けて、自分の実現したいビジョンに向かって仲間を巻き込みながら行動していきたいです。", "sat_comment": "素敵な仲間との出会いと挑戦の機会をもらえたから。", "challenge_will": "はい", "leader": "はい"}], "6": [{"name": "上野裕太", "sat": 8.0, "grow": 7.0, "fun": 7.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "共感する力", "challenge_skill": "伝える力", "grow_factor": "チームであらゆる経験ができたこと", "grow_comment": "スキルや知識を持った方が多く、そのような方と話をすることで多くのことを学んだ", "meaning": "ここで得た人脈が財産。業界を超えて福岡を良くするために何ができるのか、真剣に考えていける仲間ができたこと。その環境が整ったことが財産です。また、Neo合説は、地域の企業があつまり若者に福岡の魅力を伝える大切な機会となりました。", "sat_comment": "取り組みの趣旨や想いは共感。今後も応援したいとおもいます。", "challenge_will": "はい", "leader": "はい"}, {"name": "芥川裕介", "sat": 7.0, "grow": 7.0, "fun": 8.0, "rec": null, "step": "ステップ2. アカデミア以外(会社や学校で)でこれまでと違う行動をし始めている", "grow_skill": "伝える力", "challenge_skill": "伝える力", "grow_factor": "仕事、家庭とのバランスで苦戦したが良き経験となりました。", "grow_comment": "たくさんの出会い", "meaning": "会社で求められていること、自分の武器と世の中の課題をうまくマッチングできるビジネスをつくりあげたい。そして会社の良き部分はしっかり残しつつ、自分の武器を活かした事業を創る。xxxxxxxxxxxxxxxx", "sat_comment": "試行錯誤しながらもみんなが一歩前進できたから", "challenge_will": "はい", "leader": "はい"}, {"name": "鬼木良輔", "sat": 10.0, "grow": 10.0, "fun": 10.0, "rec": null, "step": "ステップ5. アカデミア終了後も継続、収益化するプロジェクトを目指し活動している", "grow_skill": "巻き込み力", "challenge_skill": "質問力", "grow_factor": "NEOでは、様々なステークホルダーの人々をコミュニケーションを図る機会が多かったため。", "grow_comment": "各段に視座が上がった。また、構造化するスキル、PMスキル習得の経験を積むことができた。", "meaning": "NEOでの経験において、一番自分の人生に影響を与えてくれていることは、三木校長との出会いである。縁もゆかりも無い福岡で、本気で応援資本主義を実現するため、リスクをとって堂々とステークホルダーを巻き込んでいる姿がカッコよかった。それを見て、小銭稼ぎではなく、福岡および銀行を本気で変革するために人生を使", "sat_comment": "事務局の運営者には感謝です。いつも素晴らしい場作りありがとうございます。", "challenge_will": "はい", "leader": "はい"}], "7": [{"name": "後藤駿", "sat": 10.0, "grow": 8.0, "fun": 10.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "共感する力", "challenge_skill": "巻き込み力", "grow_factor": "多くの価値観が違う人と話せた。大学生からも学ぶことが多かった", "grow_comment": "チーム活動があまり得意ではありませんでしたが、チームで成果を出せました。集団での立ち回りなど成長できました！", "meaning": "前提に縛られずHowで考え、周りを巻き込むことが活かせると思った。 今までは与えられたリソースの中でどうやれるかを考えていた。 たけしくんやまゆこちゃんを見て、自分自身も協力したいと思ったので、偉い人も同じことを思うだろうなと思った。 言うだけはタダなので、思いついたことは行動に変えてみようと思いま", "sat_comment": "辛いこともありましたが楽しかったです！", "challenge_will": "はい", "leader": "はい"}, {"name": "仲矢大雅", "sat": 10.0, "grow": 8.0, "fun": 9.0, "rec": null, "step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "grow_skill": "質問力", "challenge_skill": "巻き込み力", "grow_factor": "答えのないことに対して仮説立て取り組むことができるようになった", "grow_comment": "思考力や言語化力が飛躍的にのびた", "meaning": "仕事について、プロジェクトややりたいことの進め方を学べた。また進めるにあたって周りを巻き込むことの重要性、1人でできることの限界を知ることができたので社内では学んだ巻き込み力を発揮、成長させていきたい。 キャリアについて、1年弱でさまざまな企業や学生と話し、自分の視野の低さを認識できた。 視座を高め", "sat_comment": "学生企業問わずフラットに関わることができた。また、最近の企業では味わえないような仕事ができた", "challenge_will": "はい", "leader": "いいえ"}, {"name": "秋吉翔太", "sat": 10.0, "grow": 10.0, "fun": 10.0, "rec": null, "step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "grow_skill": "伝える力", "challenge_skill": "質問力", "grow_factor": "事務局が、1番辛い時に、一歩踏み出すための支援をしてくれたから。", "grow_comment": "社内に提案する機会が増えて、実際に動いてきていると感じているから。具体的な事例として、QUSIS須内くんとの繋がりで、QTnetの新規事業部がインターンとして初めて大学生を採用することになった。社内から、一緒にawardに応募して、NTTデ", "meaning": "NEOにいるメンバーは行動力や実行力が高く学ぶ点がとても多かったから。またプロジェクトのリーダーをやらせていただく中で、チームを巻き込む力やスピード感がまだまだ足りないこと感じた。本気でやったからこそ知れた自分の強みと弱みがあるので、今後の社会人経験のなかで、あるべき姿へと流れを変えていくために、も", "sat_comment": "1番辛い時に、必ず手を差し伸べてくれた。これが成長を後押ししてくれたから。", "challenge_will": "はい", "leader": "はい"}], "8": [{"name": "福永諒", "sat": 8.0, "grow": 7.0, "fun": 8.0, "rec": null, "step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "grow_skill": "巻き込み力", "challenge_skill": "巻き込み力", "grow_factor": "特段なし。", "grow_comment": "5を１つのラインとして判断。スキルとしては、既に身につけていたものが多い。マインド面ではやや成長。マネジメント面での成長があり、この点数。", "meaning": "マネジメント経験を得たため、今後の社会人人生において有意義に活用したいと考える。マネジメントは一定以上の層しか経験する事が出来ず、その他では非常に有用。", "sat_comment": "総合的に判断して。", "challenge_will": "はい", "leader": "はい"}, {"name": "河野浩樹", "sat": 8.0, "grow": 8.0, "fun": 5.0, "rec": null, "step": "", "grow_skill": "", "challenge_skill": "", "grow_factor": "", "grow_comment": "", "meaning": "", "sat_comment": "", "challenge_will": "", "leader": ""}], "10": [{"name": "塩田昂明", "sat": 9.0, "grow": 8.0, "fun": 9.0, "rec": null, "step": "", "grow_skill": "", "challenge_skill": "", "grow_factor": "", "grow_comment": "", "meaning": "", "sat_comment": "", "challenge_will": "", "leader": ""}], "11": [{"name": "西岡寛史", "sat": 7.0, "grow": 6.0, "fun": 8.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "共感する力", "challenge_skill": "伝える力", "grow_factor": "バックボーンが異なる人に対しての対応を考えながら参加しました。", "grow_comment": "AWARD、実装においてはチームの想いと会社の規定が合わず難しい部分を感じました。", "meaning": "新規事業開発を行う際の構想を考える中で実践する機会になりました。 これまで会社において重要視してきたことは1の仕事を1.1や1.2に改善することで0から1を生み出す経験はしてきませんでした。 今回、NEOで様々な年代、業種の人と自社企業の課題について考える中で社内では考えつかないアイデアが出てきて、", "sat_comment": "社会人生活では体験しない研修になりました。", "challenge_will": "はい", "leader": "いいえ"}], "12": [{"name": "緒方伊吹", "sat": 10.0, "grow": 9.0, "fun": 7.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "質問力", "challenge_skill": "伝える力", "grow_factor": "社外の方とコミュニケーションを取らざるを得ない環境なので、その部分が成長できた", "grow_comment": "アカデミア生の姿を見てネオに参加する前と卒業したあとでは視座が明らかに高くなってると実感してる。", "meaning": "グリッド力です。 何事もやり切るということを学び、それをアカデミア生から感じ取れてすごく刺激を受けました。１つのプロジェクトに対しても熱意を持って、どうやったら成功するか、仮説を繰り返し続け、思考を止めない姿に感銘を受け、自分の業務の中でもいかにクリエイティブに思考するかを常に考えることが当たり前に", "sat_comment": "この経験は当たり前じゃ無いし恵まれてるなと感じてます。", "challenge_will": "はい", "leader": "はい"}, {"name": "友田滉己", "sat": 4.0, "grow": 4.0, "fun": 4.0, "rec": null, "step": "", "grow_skill": "", "challenge_skill": "", "grow_factor": "", "grow_comment": "", "meaning": "", "sat_comment": "", "challenge_will": "", "leader": ""}, {"name": "平山美穂", "sat": 7.0, "grow": 6.0, "fun": 8.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "共感する力", "challenge_skill": "巻き込み力", "grow_factor": "企業の枠を超えてメンバーと繋がることができたからです。", "grow_comment": "Neoをやり切れた、という時点で成長できたと思っています。また、次の成長のために必要なこともNeoで学ばせていただきました。", "meaning": "Neoのおかげで、幅広いバックグラウンドの仲間を得ることができました。これからも頼り・頼られる仲であり続けたいと思っています。ここでいただいたご縁を、ある意味「図々しく」活用させていただくことが自分の成長につながると思っています。自分が抱え込みかけている業務があるので、積極的に相談し、周りから助けて", "sat_comment": "貴重な機会をいただき感謝しています。まだまだ良くなると思っています。", "challenge_will": "はい", "leader": "はい"}], "13": [{"name": "柴尾龍一郎", "sat": 9.0, "grow": 8.0, "fun": 9.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "伝える力", "challenge_skill": "巻き込み力", "grow_factor": "NEO福岡で色んな方とお話することで、対人力が身についた。", "grow_comment": "今回、NEO福岡を通じて限界に挑むことができた。", "meaning": "今回、NEO福岡に参加することで、色んな方とお話することができ、コミュニケーション能力も上がったため、今後、所長業務をする中で、ドライバーと会話し、現場の業務改善をすることができると感じる。また、言語化能力も向上したと感じるため、言葉にして色んな方と色んな仕事で繋がっていきたいと思う。", "sat_comment": "今回、NEO福岡を通して自分自身を見つめ直す機会を貰った。", "challenge_will": "はい", "leader": "はい"}, {"name": "坂井友紀", "sat": 10.0, "grow": 10.0, "fun": 10.0, "rec": null, "step": "ステップ5. アカデミア終了後も継続、収益化するプロジェクトを目指し活動している", "grow_skill": "巻き込み力", "challenge_skill": "共感する力", "grow_factor": "発言ができる環境にあった", "grow_comment": "殻をやぶれた", "meaning": "仲間の増やしかた、色んな出会いそしてneo福岡の進め方は勉強になりました。 この中で仲間になった人これからの自分の人生を作って行きたいし仲間の人生も応援したい。 特に自分はエネルギーをもらいました。 そこは本当に感謝してます。 企業として正しいかは分かりませんが僕自信は成長させて頂いたのでこれを会社", "sat_comment": "皆大好きです！", "challenge_will": "はい", "leader": "はい"}], "14": [{"name": "小野恭敬", "sat": 10.0, "grow": 10.0, "fun": 9.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "巻き込み力", "challenge_skill": "共感する力", "grow_factor": "結局、自分のことを自分がでコントロールせねば成長や人からの信頼はないということ", "grow_comment": "仲間もできた、最高", "meaning": "拡張と収縮があるということを強く意識できる機会になった。自らの仕事を超えた、いわゆるやらなくても企業にとっては悪影響がないことについてどれだけ社会意識を持って進めていくか。それはつまり拡張であり、自分がどこまで既存の仕事とは別にどこまで攻めれるかと、どのラインまで来たら守るか、のラインを想像できた。", "sat_comment": "最高！時間の拘束も含めて、結果自分のキャパのギリギリを攻めた感じが素晴らしい", "challenge_will": "はい", "leader": "はい"}, {"name": "鎌田敏弘", "sat": 10.0, "grow": 5.0, "fun": 10.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "質問力", "challenge_skill": "巻き込み力", "grow_factor": "プレゼンや課題を通して、リソースを発見したり提案としてまとめるところ", "grow_comment": "アワードあたりから、コミットが薄くなったため。妥協してしまったなぁと思う。", "meaning": "プロジェクトマネジメントの経験。リソースを見つけること、人を巻き込むこと、計画をたてること。仕事の基本だが改めてそこを鍛え直そうと思った。 終わりを描いて、完了させること。小さくても決断をしていくこと。 メンバーへの情報共有。", "sat_comment": "自分の課題に気づかせてくれたところ。社外に仲間と思える人が増えたこと。", "challenge_will": "はい", "leader": "はい"}, {"name": "亀川将哉", "sat": 9.0, "grow": 7.0, "fun": 9.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "質問力", "challenge_skill": "伝える力", "grow_factor": "一学期の講義後にほぼ毎回懇親会に参加して、いろんな人と話し、関係性を作ることができたから", "grow_comment": "委員会活動やプロジェクトなど、まだまだできることがあったが、本業と両立することに躊躇してしまうことがあったため。", "meaning": "自分のNEOでの学びのテーマは、会社の看板を外し、社外のコミュニティでどんな影響力を広げることができるのか、どんなリーダーシップを持てるのか、でした。 これまでは社内で影響力を広げたり、リーダーシップを貼れるかの挑戦をしていたのだが、今回は所属も年齢もバラバラのコミュニティの中でどう動けるのかの腕試", "sat_comment": "出会に感謝！運営事務局の熱量に尊敬！！", "challenge_will": "はい", "leader": "はい"}], "15": [{"name": "尾塚哲平", "sat": 7.0, "grow": 8.0, "fun": 8.0, "rec": null, "step": "ステップ2. アカデミア以外(会社や学校で)でこれまでと違う行動をし始めている", "grow_skill": "巻き込み力", "challenge_skill": "伝える力", "grow_factor": "多くのアカデミア生と関わることができたため", "grow_comment": "振り返りや意味づけの繰り返しにより、普段の業務でも振り返りを行うことを意識するようになったため", "meaning": "プロジェクトを通しての経験になるが、改めて企画から実行にうつすということは現場での活動が絶対に必要だと感じましたので、今後は現場スタッフをもっと巻き込んで目的をしっかりと伝えて行きながら活動をしていきます。", "sat_comment": "業務やプライベートとの両立がある中での活動だったため大変でしたが、学びや出会いがあったので満足しております", "challenge_will": "はい", "leader": "はい"}, {"name": "井上裕也", "sat": 7.0, "grow": 7.0, "fun": 7.0, "rec": null, "step": "", "grow_skill": "", "challenge_skill": "", "grow_factor": "", "grow_comment": "", "meaning": "", "sat_comment": "", "challenge_will": "", "leader": ""}], "16": [{"name": "畑野元征", "sat": 7.0, "grow": 10.0, "fun": 10.0, "rec": null, "step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "grow_skill": "伝える力", "challenge_skill": "質問力", "grow_factor": "少人数でのプロジェクトということで、自分が動かないと物事が前に進まない状況であったため。 また、ビジョン（目標）に対して強く共感をしており、自社を変えたいと強く思っていたため。", "grow_comment": "一番大きかったのは学びのプロセスを実体験をもとに学ぶことができたことです。 事象を客観視して、抽象化し、自身の解釈で「学びに変換する力」と自分が働きかけ、環境を変え、それをもとに「自己を変革する力」。この重要な2つの力を心の底から理解、実践", "meaning": "以下のような、組織の課題解決のプロセスで活かせると感じました。 自分の業務、部署、またはそれより高い視点で、自社の成長に必要なことは何なのか「問いを立てる」こと。 その課題解決に向けて、「人を巻き込み」「チームを作り」「組織を前に動かす」こと。 困難なことがあっても、「笑顔」で「他人をリスペクト」し", "sat_comment": "自己の学び（スクール）という観点では非常に満足しています。 一方で、NEOACADEMIAという観点ではスクールとコミュニティの境界が曖昧で、儀式的な行為など、強制的にコミュニティの活動に参加させられている感覚があったのが不快でした。 また", "challenge_will": "はい", "leader": "はい"}, {"name": "牛島由佳理", "sat": 7.0, "grow": 10.0, "fun": 8.0, "rec": null, "step": "ステップ5. アカデミア終了後も継続、収益化するプロジェクトを目指し活動している", "grow_skill": "傾聴力", "challenge_skill": "伝える力", "grow_factor": "プロジェクトを通して自分自身が成長できた", "grow_comment": "前向きになれた", "meaning": "新しいことに挑戦する機会を逃さない、躊躇を乗り越える大切さを仕事でも活かしたい。 どうしても売上、利益ばかり考えてしまう為、躊躇する部分があるが、今後はバイヤーとして新しいことにどんどんチャレンジして会社に還元したい。", "sat_comment": "楽しく学ぶことができました。", "challenge_will": "はい", "leader": "はい"}], "17": [{"name": "鈴木和奏", "sat": 6.0, "grow": 4.0, "fun": 9.0, "rec": null, "step": "ステップ2. アカデミア以外(会社や学校で)でこれまでと違う行動をし始めている", "grow_skill": "傾聴力", "challenge_skill": "伝える力", "grow_factor": "決められた期間の中で物事を進めていく必要があり、期限内に判断しながら進めていく経験が多くありました。その中で、意見をまとめながら方向性を決めて進めるなど、仕事として物事を進めていく力が成長したと感じています。", "grow_comment": "これまで一人で制作することは多かったのですが、NEOでは初めて会う人たちとチームで課題に取り組み、最後までやりきる経験ができました。そうした意味では新しい経験にはなりましたが、大きくスキルが変わったというよりは、新しい取り組み方を体験できた", "meaning": "仕事として物事を進める力に活かせると感じています。ワークショップでは、決められた期間の中でアイデアを出し合い、方向性を決めながら進める経験が多くありました。普段の仕事でも、限られた時間の中で判断しながら進める場面は多いため、そうした経験を今後の仕事にも活かしていきたいと思っています。", "sat_comment": "活動自体はとても楽しく、普段関わることのない人たちとプレイフルに課題に取り組めたことは良い経験でした。ただ、学びの内容はマインド面に寄っている部分が多く、実際の仕事にどう活かすかという点では人によると感じました。そのため、楽しさは大きかった", "challenge_will": "はい", "leader": "いいえ"}], "18": [{"name": "SamuelImanishimwe", "sat": 7.0, "grow": 6.0, "fun": 8.0, "rec": null, "step": "", "grow_skill": "", "challenge_skill": "", "grow_factor": "", "grow_comment": "", "meaning": "", "sat_comment": "", "challenge_will": "", "leader": ""}], "20": [{"name": "峯達哉", "sat": 6.0, "grow": 7.0, "fun": 5.0, "rec": null, "step": "", "grow_skill": "", "challenge_skill": "", "grow_factor": "", "grow_comment": "", "meaning": "", "sat_comment": "", "challenge_will": "", "leader": ""}, {"name": "牛嶋香莉", "sat": 10.0, "grow": 8.0, "fun": 10.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "共感する力", "challenge_skill": "巻き込み力", "grow_factor": "ACADEMIAでは業種も年齢も全く異なる方たちと関わることがほとんどだったため、関係を深めるためにチーム内でのコミュニケーションを意識して行動していた。", "grow_comment": "アカデミアを通して、企画力や推進力など様々な力を身に付けることができたため", "meaning": "NEO AWARDで得たAIの実践的理解と課題解決プロセスの習熟は、日々の業務改善や新しい仕組みづくりに直結すると考えています。業務の中にある課題をゼロベースで見直し、「AIをどう活用すれば効率化や新たな価値創造ができるか」を自ら企画・実装していきたいです。", "sat_comment": "半年間の参加でしたが、非常に濃い時間でした。 NEO福岡に参加することで、人脈の獲得や自己成長につなげることが出来、貴重な経験をすることが出来ました。", "challenge_will": "はい", "leader": "はい"}], "21": [{"name": "森永愛弓", "sat": 10.0, "grow": 7.0, "fun": 10.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "共感する力", "challenge_skill": "巻き込み力", "grow_factor": "お酒学のイベントを実施までやり切ったこと", "grow_comment": "AIを使って合説イベントのワークシートを作成するなど、今までしてこなかった経験をすることができた。イベントの立ち上がりを知ることができた。", "meaning": "NEOに参加して一番初めに驚いたことはコミュニティが心理的安全性を保たれた状態で、皆が活発に行動・発言していることでした。今までの自分は、自分にできる範囲で物事を考える癖がついてしまっていたため、自分の能力や経験にとらわれず意見を発信する受講生から学びを得ました。できる条件がそろってからではなく、や", "sat_comment": "なんとかイベントも終えることができ、やり切った感があります。福岡の大企業の方ともお話する機会がたくさんあり楽しみながら参加できました。", "challenge_will": "はい", "leader": "はい"}], "23": [{"name": "小嶺岬夕", "sat": 10.0, "grow": 10.0, "fun": 10.0, "rec": null, "step": "ステップ4. AWARD・CITY FES/公認プロジェクト/委員会/事業を立ち上げ、リーダーをしている", "grow_skill": "伝える力", "challenge_skill": "質問力", "grow_factor": "自分でビジネスをゼロから企画し提案する過程を経験できたことが大きいです。また、それを実行に移すためにマッチデイにてブース出店するなど実施することができました。", "grow_comment": "視座や考え方が大きく変わりました！", "meaning": "1.業務を作業ではなく、意義をもって取り組む姿勢に変わりました。常に目的意識を持って、誰にどんな影響が出るかを捉えるようになりました。 2.人を頼る姿勢。自分1人で問題を抱える癖がありましたが、最近は1on1を依頼したり自分から質問したりなどチームメンバーとの距離も縮まり関わり方も変化している 3.", "sat_comment": "全てを通して非常に良い経験ができました！！ここで終わらせず社内に持ち帰ります！", "challenge_will": "はい", "leader": "はい"}, {"name": "園田朱莉", "sat": 9.0, "grow": 8.0, "fun": 9.0, "rec": null, "step": "ステップ3. テーマを決めAWARD・CITY FES/委員会/プロジェクトに参加している", "grow_skill": "質問力", "challenge_skill": "巻き込み力", "grow_factor": "アワードの提案。発表の際や意見を言う際、どうすれば相手に想いが伝わるか？を常に考え、自分の仕事にもその考えを持ち帰ることができた。", "grow_comment": "新しい環境に身を置き、プレイフルに活動できた。", "meaning": "普段の営業業務では、既存のビジネスの更改など過去に必ず例があるビジネスしか経験がなかった。NEOでは、0→1のビジネスを初めて経験し、愚直な取組や他人の巻き込み方、責任を持ってやり抜くことがいかに重要かを学ぶことができた。自分たちの取組だけでなく、他のチームの取組に参加することで、より刺激的に学ぶこ", "sat_comment": "会社の本業がある中、プレイフルに取り組むことができた！", "challenge_will": "はい", "leader": "はい"}]};
@@ -1514,13 +1516,15 @@ function switchMainTab(tab){
   document.getElementById('page-onboarding-all').style.display=tab==='onboarding-all'?'block':'none';
   document.getElementById('page-actionlog-all').style.display=tab==='actionlog-all'?'block':'none';
   document.getElementById('page-staff-all').style.display=tab==='staff-all'?'block':'none';
+  document.getElementById('page-plan-all').style.display=tab==='plan-all'?'block':'none';
   document.getElementById('app-company').style.display=['company','onboarding','meetings','survey'].includes(tab)?'flex':'none';
-  ['overview','company','onboarding','meetings','survey','board','milestone','onboarding-all','actionlog-all','staff-all'].forEach(t=>{const btn=document.getElementById('ntab-'+t);if(btn)btn.classList.toggle('active',t===tab);});
+  ['overview','company','onboarding','meetings','survey','board','milestone','onboarding-all','actionlog-all','staff-all','plan-all'].forEach(t=>{const btn=document.getElementById('ntab-'+t);if(btn)btn.classList.toggle('active',t===tab);});
   currentMainTab=tab;
   if(tab==='board'){renderBoard();return;}
   if(tab==='milestone'){renderMilestonePage();return;}
   if(tab==='actionlog-all'){renderActionLogAll();return;}
   if(tab==='staff-all'){renderStaffAll();return;}
+  if(tab==='plan-all'){renderPlanAll();return;}
   if(tab==='onboarding-all'){
     // loadAll完了待機後に描画（初回のみ）
     if(!LSdb._loaded){
@@ -6865,6 +6869,93 @@ function updateLogField(companyNo, idx, field, value){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 担当者一覧ページ（企業の担当者情報）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 活用方針一覧ページ
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const PLAN_FIELDS = [
+  {key:'vision',     label:'長期ビジョン（1〜3年）'},
+  {key:'short_goal', label:'短期ゴール（3ヶ月）'},
+  {key:'escort',     label:'伴走方針・アクション'},
+  {key:'success',    label:'1年後のサクセス定義'},
+];
+
+function _getPlanVal(c, field){
+  const plans = LS.get('plans_'+c.no);
+  if(plans[field] != null) return plans[field];
+  return c[field] || '';
+}
+
+function savePlanField(no, field, value){
+  const plans = LS.get('plans_'+no);
+  plans[field] = value;
+  LS.set('plans_'+no, plans);
+}
+
+function renderPlanAll(){
+  const el = document.getElementById('page-plan-all');
+  if(!el) return;
+  const allCos = getFilteredCompanies();
+  const selCourse = window._planCourse || '';
+  const cos = selCourse ? allCos.filter(c=>(c.course2||c.course1||'')===selCourse) : allCos;
+  const courses = [...new Set(allCos.map(c=>c.course2||c.course1||'').filter(Boolean))].sort();
+
+  const courseTabs = `<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+    <button onclick="window._planCourse='';renderPlanAll()"
+      style="padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid ${!selCourse?'var(--accent)':'var(--border)'};
+        background:${!selCourse?'var(--accent)':'var(--surface2)'};color:${!selCourse?'#fff':'var(--td)'};cursor:pointer">全コース</button>
+    ${courses.map(c=>`<button onclick="window._planCourse='${esc(c)}';renderPlanAll()"
+      style="padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid ${selCourse===c?'var(--accent)':'var(--border)'};
+        background:${selCourse===c?'var(--accent)':'var(--surface2)'};color:${selCourse===c?'#fff':'var(--td)'};cursor:pointer">${esc(c)}</button>`).join('')}
+  </div>`;
+
+  const taStyle = 'width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--t2);background:var(--surface);outline:none;resize:none;overflow:hidden;font-family:\"Noto Sans JP\",sans-serif;line-height:1.6;box-sizing:border-box;min-height:28px';
+
+  const tbody = cos.map(c=>{
+    const contract = getContract(c.no);
+    const [tagCls, tagLabel] = contractInfo(contract);
+    const cells = PLAN_FIELDS.map(f=>{
+      const val = _getPlanVal(c, f.key);
+      return `<td style="padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:top">
+        <textarea oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+          onblur="savePlanField(${c.no},'${f.key}',this.value)"
+          style="${taStyle}"
+          onfocus="this.style.borderColor='var(--accent)'">${esc(val)}</textarea>
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:1;min-width:120px;cursor:pointer;vertical-align:top" onclick="goToCompany(${c.no})">
+        <div style="font-size:12px;font-weight:700;color:var(--accent)">${esc(c.short)}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
+          <span class="cs-tag ${tagCls}" style="font-size:8px">${tagLabel}</span>
+          <span style="font-size:9px;color:var(--td)">${esc(c.course2||c.course1||'')}</span>
+        </div>
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px">📋 活用方針一覧</div>
+      <div style="font-size:13px;color:var(--td);margin-top:4px">各企業のアカウントプランを一覧で確認・編集（${cos.length}社）</div>
+    </div>
+    ${courseTabs}
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:900px">
+        <thead>
+          <tr style="background:var(--surface2);border-bottom:2px solid var(--border)">
+            <th style="padding:10px;text-align:left;font-size:11px;color:var(--td);font-family:'Space Mono',monospace;position:sticky;left:0;background:var(--surface2);z-index:2;min-width:120px">企業</th>
+            ${PLAN_FIELDS.map(f=>`<th style="padding:10px;text-align:left;font-size:10px;color:var(--t1);font-weight:700;min-width:180px">${esc(f.label)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>
+  `;
+  // auto-resize on load
+  el.querySelectorAll('textarea').forEach(ta=>{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';});
+}
+
 const STAFF_ROLES = ['担当役員','決裁者','担当責任者','担当者','評議員'];
 
 function _getContactsByRole(no){
