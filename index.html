@@ -6853,52 +6853,52 @@ function updateLogField(companyNo, idx, field, value){
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 担当者一覧ページ
+// 担当者一覧ページ（企業の担当者情報）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const STAFF_ROLES = ['担当役員','決裁者','担当責任者','担当者','評議員'];
 
-function getCoStaffMap(no){
-  // co_info_{no}._contacts から役割別に取得
-  const ov = LS.get('co_info_'+no);
-  const contacts = ov._contacts || {};
-  // 後方互換: _cs_staff からもマージ
-  const csStaff = getCoCSStaff(no);
-  const result = {};
-  STAFF_ROLES.forEach(r=>{ result[r] = contacts[r] || ''; });
-  // _cs_staffの最初の担当者を「担当者」にフォールバック
-  if(!result['担当者'] && csStaff.length>0) result['担当者'] = csStaff[0].name;
-  return result;
-}
-
-function saveCoStaffMap(no, role, name){
-  const ov = LS.get('co_info_'+no);
-  if(!ov._contacts) ov._contacts = {};
-  ov._contacts[role] = name.trim();
-  LS.set('co_info_'+no, ov);
+function _getContactsByRole(no){
+  const saved = LS.get('contacts_'+no);
+  const known = {
+    1:[{name:'髙城寿太朗',role:'顧問',tag:'担当者'}],
+    4:[{name:'松尾 恵美',role:'経営戦略室長',tag:'決裁者/窓口'}],
+  };
+  const contacts = (saved && Array.isArray(saved.list)) ? saved.list : (known[no]||[]);
+  // tag → STAFF_ROLES にマッピング
+  const map = {};
+  STAFF_ROLES.forEach(r=>{ map[r] = []; });
+  contacts.forEach(ct=>{
+    const tag = ct.tag || '';
+    // タグからロールへの変換
+    if(tag.includes('役員') || tag.includes('経営層')) map['担当役員'].push(ct);
+    else if(tag.includes('決裁')) map['決裁者'].push(ct);
+    else if(tag.includes('責任')) map['担当責任者'].push(ct);
+    else if(tag.includes('評議')) map['評議員'].push(ct);
+    else if(tag.includes('担当') || tag.includes('窓口') || tag.includes('受講')) map['担当者'].push(ct);
+    else map['担当者'].push(ct); // デフォルト
+  });
+  return map;
 }
 
 function renderStaffAll(){
   const el = document.getElementById('page-staff-all');
   if(!el) return;
   const cos = getFilteredCompanies();
-  const users = getAllRegisteredUsers();
 
   const tbody = cos.map(c=>{
-    const staffMap = getCoStaffMap(c.no);
+    const roleMap = _getContactsByRole(c.no);
     const contract = getContract(c.no);
     const [tagCls, tagLabel] = contractInfo(contract);
     const cells = STAFF_ROLES.map(role=>{
-      const cur = staffMap[role] || '';
-      return `<td style="padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle">
-        <select onchange="saveCoStaffMap(${c.no},'${esc(role)}',this.value);this.style.color=this.value?'var(--t1)':'var(--td)';this.style.fontWeight=this.value?'600':'400'"
-          style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;
-            color:${cur?'var(--t1)':'var(--td)'};font-weight:${cur?'600':'400'};
-            background:var(--surface);outline:none;cursor:pointer">
-          <option value="">—</option>
-          ${users.map(u=>`<option value="${esc(u.name)}" ${cur===u.name?'selected':''}>${esc(u.name)}</option>`).join('')}
-          ${cur && !users.find(u=>u.name===cur) ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : ''}
-        </select>
-      </td>`;
+      const people = roleMap[role] || [];
+      if(people.length === 0) return `<td style="padding:8px;border-bottom:1px solid var(--border);color:var(--td);font-size:11px;text-align:center">—</td>`;
+      const pHtml = people.map(p=>`
+        <div style="margin-bottom:4px">
+          <div style="font-size:12px;font-weight:600;color:var(--t1)">${esc(p.name||'')}</div>
+          ${p.role?`<div style="font-size:9px;color:var(--td)">${esc(p.role)}</div>`:''}
+          ${p.email?`<div style="font-size:9px;color:var(--accent)">${esc(p.email)}</div>`:''}
+        </div>`).join('');
+      return `<td style="padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top">${pHtml}</td>`;
     }).join('');
     return `<tr>
       <td style="padding:8px 10px;border-bottom:1px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:1;min-width:130px;cursor:pointer" onclick="goToCompany(${c.no})">
@@ -6915,7 +6915,7 @@ function renderStaffAll(){
   el.innerHTML = `
     <div style="margin-bottom:20px">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px">👥 担当者一覧</div>
-      <div style="font-size:13px;color:var(--td);margin-top:4px">各企業の担当者を種別ごとに管理できます（${cos.length}社）</div>
+      <div style="font-size:13px;color:var(--td);margin-top:4px">企業カルテの担当者情報を種別ごとに表示します（${cos.length}社）・ 編集は各企業カルテの「担当者情報」タブから行えます</div>
     </div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:800px">
