@@ -5813,6 +5813,7 @@ function renderOnboardingAll(){
   const filterPhase  = window._onboFilterPhase  || 'p1';
   const filterStatus = window._onboFilterStatus || 'all';
   const filterCo     = window._onboFilterCo     || '';
+  const filterCourse = window._onboFilterCourse || '';
 
   // ── KPI集計 ──
   let totalTasks=0, totalDone=0;
@@ -5841,6 +5842,10 @@ function renderOnboardingAll(){
   if(filterStatus==='none')     filtered = filtered.filter(s=>s.pct===0);
   if(filterCo) filtered = filtered.filter(s=>
     s.c.short.includes(filterCo)||s.c.name.includes(filterCo));
+  if(filterCourse) filtered = filtered.filter(s=>(s.c.course2||s.c.course1||'')===filterCourse);
+
+  // コース一覧
+  const courses = [...new Set(companyStats.map(s=>s.c.course2||s.c.course1||'').filter(Boolean))].sort();
 
   const phase = ONBO_PHASES.find(p=>p.id===filterPhase) || ONBO_PHASES[0];
 
@@ -6053,6 +6058,19 @@ function renderOnboardingAll(){
 
     <!-- フィルターバー -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:0">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:10px;font-weight:700;color:var(--td);flex-shrink:0">コース</span>
+        <button onclick="window._onboFilterCourse='';renderOnboardingAll()"
+          style="padding:4px 12px;font-size:11px;border-radius:5px;font-weight:700;
+            border:1px solid ${!filterCourse?'var(--accent)':'var(--border)'};
+            background:${!filterCourse?'var(--accent)':'var(--surface2)'};
+            color:${!filterCourse?'#fff':'var(--td)'};cursor:pointer">全コース</button>
+        ${courses.map(co=>`<button onclick="window._onboFilterCourse='${esc(co)}';renderOnboardingAll()"
+          style="padding:4px 12px;font-size:11px;border-radius:5px;font-weight:700;
+            border:1px solid ${filterCourse===co?'var(--accent)':'var(--border)'};
+            background:${filterCourse===co?'var(--accent)':'var(--surface2)'};
+            color:${filterCourse===co?'#fff':'var(--td)'};cursor:pointer">${esc(co)}</button>`).join('')}
+      </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span style="font-size:10px;font-weight:700;color:var(--td);flex-shrink:0">進捗</span>
         ${[
