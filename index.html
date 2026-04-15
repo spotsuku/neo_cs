@@ -1775,7 +1775,7 @@ function _showContactForm(no, i, ct){
 
 function selectContactTag(tag){
   window._selectedContactTag = tag;
-  ['担当者','経営層','決裁者/窓口','窓口/受講生','受講生','その他'].forEach(t=>{
+  ['担当役員','決裁者','担当責任者','担当者','評議員','経営層','窓口/受講生','受講生','その他'].forEach(t=>{
     const btn = document.getElementById('ct-tag-'+t);
     if(!btn) return;
     const active = t === tag;
