@@ -1632,9 +1632,9 @@ function renderContacts(c){
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
             <div style="font-size:14px;font-weight:700;color:var(--t1)">${esc(ct.name||'—')}</div>
-            <span style="font-size:10px;padding:2px 8px;border-radius:4px;
-              background:${tagColors[ct.tag]||'var(--accent)'}22;
-              color:${tagColors[ct.tag]||'var(--accent)'};font-weight:700">${esc(ct.tag||'')}</span>
+            ${(ct.tags||[ct.tag]).filter(Boolean).map(tg=>`<span style="font-size:10px;padding:2px 8px;border-radius:4px;
+              background:${tagColors[tg]||'var(--accent)'}22;
+              color:${tagColors[tg]||'var(--accent)'};font-weight:700">${esc(tg)}</span>`).join('')}
           </div>
           <div style="font-size:12px;color:var(--td);margin-bottom:6px">${esc(ct.role||'')}</div>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -1678,7 +1678,8 @@ function editContact(no, i){
 
 function _showContactForm(no, i, ct){
   const isEdit = i !== null;
-  const tags = ['担当役員','決裁者','担当責任者','担当者','評議員','経営層','窓口/受講生','受講生','その他'];
+  const tags = ['担当役員','決裁者','担当責任者','NEO全体責任','選抜責任','テーマ責任','担当者','評議員','経営層','窓口/受講生','受講生','その他'];
+  const ctTags = ct?.tags || (ct?.tag ? [ct.tag] : ['担当者']);
   showModal(`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="font-size:16px;font-weight:700">${isEdit?'✏ 担当者編集':'＋ 担当者を追加'}</div>
@@ -1712,13 +1713,14 @@ function _showContactForm(no, i, ct){
     </div>
     <div style="margin-bottom:10px">
       <div style="font-size:10px;color:var(--td);margin-bottom:6px">タグ</div>
+      <div style="font-size:9px;color:var(--td);margin-bottom:4px">※ 複数選択可</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${tags.map(t=>`<button id="ct-tag-${t}"
           onclick="selectContactTag('${t}')"
           style="padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;
-            border:1px solid ${(ct?.tag||'担当者')===t?'var(--accent)':'var(--border)'};
-            background:${(ct?.tag||'担当者')===t?'var(--accent)':'var(--surface2)'};
-            color:${(ct?.tag||'担当者')===t?'#fff':'var(--td)'}">${t}</button>`).join('')}
+            border:1px solid ${ctTags.includes(t)?'var(--accent)':'var(--border)'};
+            background:${ctTags.includes(t)?'var(--accent)':'var(--surface2)'};
+            color:${ctTags.includes(t)?'#fff':'var(--td)'}">${t}</button>`).join('')}
       </div>
     </div>
     <div style="margin-bottom:16px">
@@ -1738,7 +1740,8 @@ function _showContactForm(no, i, ct){
         role:  document.getElementById('ct-role').value.trim(),
         email: document.getElementById('ct-email').value.trim(),
         tel:   document.getElementById('ct-tel').value.trim(),
-        tag:   window._selectedContactTag || '${ct?.tag||'担当者'}',
+        tag:   (window._selectedContactTags||[])[0] || '担当者',
+        tags:  [...(window._selectedContactTags||['担当者'])],
         note:  document.getElementById('ct-note').value.trim(),
       };
       if(${isEdit?'true':'false'}) contacts[${i??0}] = obj; else contacts.push(obj);
@@ -1771,14 +1774,20 @@ function _showContactForm(no, i, ct){
     </button>`:''}
   `, '500px');
   window._selectedContactTag = ct?.tag || '担当者';
-}
+  // 複数タグ対応: tags配列があればそれを使用、なければtagから配列化
+  window._selectedContactTags = ct?.tags ? [...ct.tags] : (ct?.tag ? [ct.tag] : ['担当者']);
 
 function selectContactTag(tag){
-  window._selectedContactTag = tag;
-  ['担当役員','決裁者','担当責任者','担当者','評議員','経営層','窓口/受講生','受講生','その他'].forEach(t=>{
+  // 複数選択トグル
+  const arr = window._selectedContactTags || [];
+  const idx = arr.indexOf(tag);
+  if(idx >= 0) arr.splice(idx, 1); else arr.push(tag);
+  window._selectedContactTags = arr;
+  window._selectedContactTag = arr[0] || '';
+  ['担当役員','決裁者','担当責任者','NEO全体責任','選抜責任','テーマ責任','担当者','評議員','経営層','窓口/受講生','受講生','その他'].forEach(t=>{
     const btn = document.getElementById('ct-tag-'+t);
     if(!btn) return;
-    const active = t === tag;
+    const active = arr.includes(t);
     btn.style.border = active ? '1px solid var(--accent)' : '1px solid var(--border)';
     btn.style.background = active ? 'var(--accent)' : 'var(--surface2)';
     btn.style.color = active ? '#fff' : 'var(--td)';
@@ -6976,7 +6985,7 @@ function renderPlanAll(){
   el.querySelectorAll('textarea').forEach(ta=>{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';});
 }
 
-const STAFF_ROLES = ['担当役員','決裁者','担当責任者','担当者','評議員'];
+const STAFF_ROLES = ['担当役員','決裁者','NEO全体責任','選抜責任','テーマ責任','担当者','評議員'];
 
 function _getContactsByRole(no){
   const saved = LS.get('contacts_'+no);
@@ -6989,14 +6998,22 @@ function _getContactsByRole(no){
   const map = {};
   STAFF_ROLES.forEach(r=>{ map[r] = []; });
   contacts.forEach(ct=>{
-    const tag = ct.tag || '';
-    // タグからロールへの変換
-    if(tag.includes('役員') || tag.includes('経営層')) map['担当役員'].push(ct);
-    else if(tag.includes('決裁')) map['決裁者'].push(ct);
-    else if(tag.includes('責任')) map['担当責任者'].push(ct);
-    else if(tag.includes('評議')) map['評議員'].push(ct);
-    else if(tag.includes('担当') || tag.includes('窓口') || tag.includes('受講')) map['担当者'].push(ct);
-    else map['担当者'].push(ct); // デフォルト
+    // tags配列があればそれを使用、なければtag単一から配列化
+    const ctTags = ct.tags || (ct.tag ? [ct.tag] : ['担当者']);
+    let placed = false;
+    ctTags.forEach(tag=>{
+      // 完全一致を優先
+      if(map[tag] !== undefined){ map[tag].push(ct); placed = true; return; }
+      // 部分一致フォールバック
+      if(tag.includes('役員') || tag.includes('経営層')){ map['担当役員'].push(ct); placed = true; }
+      else if(tag.includes('決裁')){ map['決裁者'].push(ct); placed = true; }
+      else if(tag === '担当責任者' || tag.includes('全体責任')){ map['NEO全体責任'].push(ct); placed = true; }
+      else if(tag.includes('選抜責任')){ map['選抜責任'].push(ct); placed = true; }
+      else if(tag.includes('テーマ責任')){ map['テーマ責任'].push(ct); placed = true; }
+      else if(tag.includes('評議')){ map['評議員'].push(ct); placed = true; }
+      else if(tag.includes('担当') || tag.includes('窓口') || tag.includes('受講')){ map['担当者'].push(ct); placed = true; }
+    });
+    if(!placed) map['担当者'].push(ct); // デフォルト
   });
   return map;
 }
