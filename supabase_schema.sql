@@ -32,3 +32,21 @@ create policy "allow_all" on ps_data
 -- インデックス
 create index if not exists ps_data_key_idx on ps_data(key);
 
+-- ユーザー管理テーブル
+create table if not exists neo_users (
+  id          bigserial primary key,
+  email       text not null unique,
+  name        text,
+  picture     text,
+  role        text default 'member',  -- 'admin' or 'member'
+  last_login  timestamptz,
+  created_at  timestamptz default now()
+);
+
+alter table neo_users enable row level security;
+
+create policy "allow_all_neo_users" on neo_users
+  for all using (true) with check (true);
+
+create index if not exists neo_users_email_idx on neo_users(email);
+
