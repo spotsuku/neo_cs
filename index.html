@@ -6036,7 +6036,11 @@ function renderOnboardingAll(){
     +'<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1;color:#1a56db">'+inProgress+'社</div><div style="font-size:10px;font-weight:700;color:var(--t1);margin-top:2px">🔄 進行中</div><div style="font-size:9px;color:var(--td)">一部完了</div></div>'
     +'<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1;color:var(--td)">'+notStarted+'社</div><div style="font-size:10px;font-weight:700;color:var(--t1);margin-top:2px">⬜ 未着手</div><div style="font-size:9px;color:var(--td)">チェックなし</div></div>'
     +'</div>';
-  const taskMgmtHtml = window._onboHideHeader ? '' : '<div id="task-mgmt-panel-'+phase.id+'"></div>';
+  const taskMgmtHtml = '<div style="margin-bottom:6px">'
+    + '<button onclick="window._onboHideTaskMgmt=!window._onboHideTaskMgmt;renderOnboardingAll()" style="padding:2px 8px;font-size:10px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--td);cursor:pointer">'
+    + (window._onboHideTaskMgmt ? '▶ タスク管理を表示' : '▼ タスク管理を閉じる')
+    + '</button></div>'
+    + (window._onboHideTaskMgmt ? '' : '<div id="task-mgmt-panel-'+phase.id+'"></div>');
 
   // デフォルトで詳細を隠す（初回のみ）
   if(window._onboHideHeader === undefined) window._onboHideHeader = true;
