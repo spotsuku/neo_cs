@@ -1776,6 +1776,7 @@ function _showContactForm(no, i, ct){
   window._selectedContactTag = ct?.tag || '担当者';
   // 複数タグ対応: tags配列があればそれを使用、なければtagから配列化
   window._selectedContactTags = ct?.tags ? [...ct.tags] : (ct?.tag ? [ct.tag] : ['担当者']);
+}
 
 function selectContactTag(tag){
   // 複数選択トグル
@@ -6027,6 +6028,16 @@ function renderOnboardingAll(){
     </tr>`;
   }).join('');
 
+  // KPIカードHTML（テンプレートリテラルのネスト回避）
+  const kpiCardsHtml = window._onboHideHeader ? '' :
+    '<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">'
+    +'<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1;color:var(--accent)">'+pctAll+'%</div><div style="font-size:10px;font-weight:700;color:var(--t1);margin-top:2px">全体進捗</div><div style="font-size:9px;color:var(--td)">'+totalDone+'/'+totalTasks+'タスク</div></div>'
+    +'<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1;color:var(--ok)">'+completed+'社</div><div style="font-size:10px;font-weight:700;color:var(--t1);margin-top:2px">✅ 完了</div><div style="font-size:9px;color:var(--td)">全タスク完了</div></div>'
+    +'<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1;color:#1a56db">'+inProgress+'社</div><div style="font-size:10px;font-weight:700;color:var(--t1);margin-top:2px">🔄 進行中</div><div style="font-size:9px;color:var(--td)">一部完了</div></div>'
+    +'<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center"><div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1;color:var(--td)">'+notStarted+'社</div><div style="font-size:10px;font-weight:700;color:var(--t1);margin-top:2px">⬜ 未着手</div><div style="font-size:9px;color:var(--td)">チェックなし</div></div>'
+    +'</div>';
+  const taskMgmtHtml = window._onboHideHeader ? '' : '<div id="task-mgmt-panel-'+phase.id+'"></div>';
+
   page.innerHTML = `
     <!-- ヘッダー: タイトル + ツール + KPI要約を1行に凝縮 -->
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
@@ -6053,21 +6064,7 @@ function renderOnboardingAll(){
       </div>
     </div>
 
-    ${window._onboHideHeader ? '' : `
-    <!-- KPIカード（折りたたみ可能） -->
-    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      ${[
-        {label:'全体進捗', val:pctAll+'%',      color:'var(--accent)', sub:totalDone+'/'+totalTasks+'タスク'},
-        {label:'✅ 完了',  val:completed+'社',  color:'var(--ok)',     sub:'全タスク完了'},
-        {label:'🔄 進行中',val:inProgress+'社', color:'#1a56db',       sub:'一部完了'},
-        {label:'⬜ 未着手',val:notStarted+'社', color:'var(--td)',     sub:'チェックなし'},
-      ].map(k=>`<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;color:${k.color}">${k.val}</div>
-        <div style="font-size:10px;font-weight:700;color:var(--t1);margin-top:2px">${k.label}</div>
-        <div style="font-size:9px;color:var(--td);margin-top:1px">${k.sub}</div>
-      </div>`).join('')}
-    </div>
-    `}
+    ${kpiCardsHtml}
 
     <!-- フィルターバー -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px">
@@ -6112,7 +6109,7 @@ function renderOnboardingAll(){
       ${phaseTabs}
     </div>
 
-    ${window._onboHideHeader ? '' : `<div id="task-mgmt-panel-${phase.id}"></div>`}
+    ${taskMgmtHtml}
 
     <!-- テーブル -->
     <div id="onbo-table-wrap" style="overflow:auto;border:1px solid var(--border);border-radius:10px;max-height:calc(100vh - ${window._onboHideHeader?'200':'340'}px)">
