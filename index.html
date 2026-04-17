@@ -6038,81 +6038,67 @@ function renderOnboardingAll(){
     +'</div>';
   const taskMgmtHtml = window._onboHideHeader ? '' : '<div id="task-mgmt-panel-'+phase.id+'"></div>';
 
+  // デフォルトで詳細を隠す（初回のみ）
+  if(window._onboHideHeader === undefined) window._onboHideHeader = true;
+
   page.innerHTML = `
-    <!-- ヘッダー: タイトル + ツール + KPI要約を1行に凝縮 -->
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;flex-shrink:0">📊 オンボーディング一覧</div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
+    <!-- ヘッダー行1: タイトル + ツール + ミニKPI（常に1行） -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;flex-shrink:0">📊 オンボ一覧</div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
         ${isAdmin() ? `<button onclick="showPhaseNameEditor()"
-          style="padding:4px 10px;font-size:10px;border:1px solid var(--accent);border-radius:5px;
-            background:var(--accent-lt);color:var(--accent);cursor:pointer;font-weight:700">✏ フェーズ名編集</button>` : ''}
+          style="padding:3px 8px;font-size:10px;border:1px solid var(--accent);border-radius:4px;
+            background:var(--accent-lt);color:var(--accent);cursor:pointer;font-weight:700">✏ フェーズ名</button>` : ''}
         <button onclick="showOnboLog(null)"
-          style="padding:4px 10px;font-size:10px;border:1px solid var(--border);border-radius:5px;
+          style="padding:3px 8px;font-size:10px;border:1px solid var(--border);border-radius:4px;
             background:var(--surface2);color:var(--t2);cursor:pointer">📋 変更ログ</button>
         <button onclick="window._onboHideHeader=!window._onboHideHeader;renderOnboardingAll()"
-          style="padding:4px 10px;font-size:10px;border:1px solid var(--border);border-radius:5px;
+          style="padding:3px 8px;font-size:10px;border:1px solid var(--border);border-radius:4px;
             background:var(--surface2);color:var(--td);cursor:pointer" title="KPI・タスク管理を表示/非表示">
-          ${window._onboHideHeader?'▼ 詳細を表示':'▲ 詳細を隠す'}
+          ${window._onboHideHeader?'▼ 詳細':'▲ 閉じる'}
         </button>
       </div>
-      <!-- コンパクトKPI -->
-      <div style="display:flex;gap:12px;align-items:center;margin-left:auto;flex-wrap:wrap">
-        <div style="font-size:11px;color:var(--td)"><strong style="font-size:16px;color:var(--accent);font-family:'Bebas Neue',sans-serif">${pctAll}%</strong> <span style="color:var(--td);font-size:10px">(${totalDone}/${totalTasks})</span></div>
+      <!-- ミニKPI -->
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="font-size:11px;color:var(--td)"><strong style="font-size:16px;color:var(--accent);font-family:'Bebas Neue',sans-serif">${pctAll}%</strong> <span style="font-size:10px">(${totalDone}/${totalTasks})</span></div>
         <div style="font-size:11px;color:var(--td)">✅ <strong style="color:var(--ok)">${completed}</strong>社</div>
         <div style="font-size:11px;color:var(--td)">🔄 <strong style="color:#1a56db">${inProgress}</strong>社</div>
         <div style="font-size:11px;color:var(--td)">⬜ <strong>${notStarted}</strong>社</div>
       </div>
-    </div>
-
-    ${kpiCardsHtml}
-
-    <!-- フィルターバー -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-        <span style="font-size:10px;font-weight:700;color:var(--td);flex-shrink:0">コース</span>
-        <button onclick="window._onboFilterCourse='';renderOnboardingAll()"
-          style="padding:3px 10px;font-size:10px;border-radius:5px;font-weight:700;
-            border:1px solid ${!filterCourse?'var(--accent)':'var(--border)'};
-            background:${!filterCourse?'var(--accent)':'var(--surface2)'};
-            color:${!filterCourse?'#fff':'var(--td)'};cursor:pointer">全コース</button>
-        ${courses.map(co=>`<button onclick="window._onboFilterCourse='${esc(co)}';renderOnboardingAll()"
-          style="padding:3px 10px;font-size:10px;border-radius:5px;font-weight:700;
-            border:1px solid ${filterCourse===co?'var(--accent)':'var(--border)'};
-            background:${filterCourse===co?'var(--accent)':'var(--surface2)'};
-            color:${filterCourse===co?'#fff':'var(--td)'};cursor:pointer">${esc(co)}</button>`).join('')}
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span style="font-size:10px;font-weight:700;color:var(--td);flex-shrink:0">進捗</span>
-        ${[
-          {id:'all',label:'すべて',color:'#64748b'},
-          {id:'done',label:'✅ 完了',color:'var(--ok)'},
-          {id:'progress',label:'🔄 進行中',color:'#1a56db'},
-          {id:'none',label:'⬜ 未着手',color:'var(--td)'},
-        ].map(f=>`<button onclick="window._onboFilterStatus='${f.id}';renderOnboardingAll()"
-          style="padding:3px 8px;font-size:10px;border-radius:5px;
-            border:1px solid ${filterStatus===f.id?f.color:'var(--border)'};
-            background:${filterStatus===f.id?f.color+'22':'var(--surface2)'};
-            color:${filterStatus===f.id?f.color:'var(--td)'};cursor:pointer">${f.label}</button>`).join('')}
-        <input type="text" value="${esc(filterCo)}" placeholder="🔍 企業名で絞込..."
+      <!-- フィルター（右端） -->
+      <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-left:auto">
+        <select onchange="window._onboFilterCourse=this.value;renderOnboardingAll()"
+          style="padding:3px 6px;font-size:10px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--t1);outline:none;cursor:pointer">
+          <option value="">全コース</option>
+          ${courses.map(co=>'<option value="'+esc(co)+'" '+(filterCourse===co?'selected':'')+'>'+esc(co)+'</option>').join('')}
+        </select>
+        <select onchange="window._onboFilterStatus=this.value;renderOnboardingAll()"
+          style="padding:3px 6px;font-size:10px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--t1);outline:none;cursor:pointer">
+          <option value="all" ${filterStatus==='all'?'selected':''}>進捗:すべて</option>
+          <option value="done" ${filterStatus==='done'?'selected':''}>✅完了</option>
+          <option value="progress" ${filterStatus==='progress'?'selected':''}>🔄進行中</option>
+          <option value="none" ${filterStatus==='none'?'selected':''}>⬜未着手</option>
+        </select>
+        <input type="text" value="${esc(filterCo)}" placeholder="🔍 企業名..."
           oninput="window._onboFilterCo=this.value;renderOnboardingAll()"
-          style="margin-left:auto;width:160px;padding:4px 10px;
-            border:1px solid var(--border);border-radius:6px;
-            font-size:11px;background:var(--surface2);color:var(--t1);outline:none"
+          style="width:120px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
+            font-size:10px;background:var(--surface2);color:var(--t1);outline:none"
           onfocus="this.style.borderColor='var(--accent)'"
           onblur="this.style.borderColor='var(--border)'">
       </div>
     </div>
 
-    <!-- フェーズタブ -->
-    <div style="display:flex;gap:4px;overflow-x:auto;padding-top:8px;
-      border-bottom:1px solid var(--border);margin-bottom:8px">
+    ${kpiCardsHtml}
+
+    <!-- フェーズタブ（コンパクト） -->
+    <div style="display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--border);margin-bottom:6px">
       ${phaseTabs}
     </div>
 
     ${taskMgmtHtml}
 
     <!-- テーブル -->
-    <div id="onbo-table-wrap" style="overflow:auto;border:1px solid var(--border);border-radius:10px;max-height:calc(100vh - ${window._onboHideHeader?'200':'340'}px)">
+    <div id="onbo-table-wrap" style="overflow:auto;border:1px solid var(--border);border-radius:10px;max-height:calc(100vh - ${window._onboHideHeader?'150':'280'}px)">
       <table style="width:max-content;min-width:100%;border-collapse:collapse">
         <thead style="position:sticky;top:0;z-index:10;background:var(--surface)">
           <tr style="border-bottom:2px solid var(--border)">
