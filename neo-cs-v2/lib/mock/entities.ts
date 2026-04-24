@@ -1,6 +1,7 @@
 // 企業・担当者・契約・参加者・セッション・面談ログ・オンボ・パイプラインの詳細ダミーデータ
 
 import { ProductCode } from "./data";
+import { extraCompanies } from "./bulk-data";
 
 export type Company = {
   id: string;
@@ -17,7 +18,7 @@ export type Company = {
   memo?: string;
 };
 
-export const companies: Company[] = [
+const baseCompanies: Company[] = [
   {
     id: "c-aeon",
     name: "イオン九州株式会社",
@@ -169,6 +170,8 @@ export const companies: Company[] = [
     lastTouchDays: 2
   }
 ];
+
+export const companies: Company[] = [...baseCompanies, ...extraCompanies];
 
 // 企業担当者（企業側の担当）
 export type Contact = {
@@ -338,10 +341,12 @@ export const onboardingTasks: OnboardingTask[] = [
 ];
 
 // パイプライン（内諾前）
+// コース表示に対応
 export type Deal = {
   id: string;
   companyName: string;
   product: ProductCode;
+  courseKey: string;
   stage: "lead" | "qualified" | "proposal" | "nego" | "verbal";
   expectedMrr: number;
   expectedStart: string;
@@ -351,15 +356,15 @@ export type Deal = {
 };
 
 export const deals: Deal[] = [
-  { id: "d1", companyName: "株式会社ホライズン", product: "academia", stage: "lead", expectedMrr: 300_000, expectedStart: "2026-09-01", ownerName: "古野", nextAction: "初回ヒアリング設定", updatedDays: 2 },
-  { id: "d2", companyName: "九州電力株式会社", product: "hyogikai", stage: "lead", expectedMrr: 150_000, expectedStart: "2027-04-01", ownerName: "三木", nextAction: "窓口紹介依頼", updatedDays: 5 },
-  { id: "d3", companyName: "株式会社ふくや", product: "aiken", stage: "qualified", expectedMrr: 0, expectedStart: "2026-06-01", ownerName: "松田", nextAction: "派遣人数の確認", updatedDays: 3 },
-  { id: "d4", companyName: "博多大丸", product: "commu", stage: "qualified", expectedMrr: 120_000, expectedStart: "2026-07-01", ownerName: "古野", nextAction: "カリキュラム説明MTG", updatedDays: 7 },
-  { id: "d5", companyName: "株式会社ピエトロ", product: "academia", stage: "proposal", expectedMrr: 300_000, expectedStart: "2026-07-01", ownerName: "古野", nextAction: "提案書提出", updatedDays: 1 },
-  { id: "d6", companyName: "九州商船", product: "hyogikai", stage: "proposal", expectedMrr: 150_000, expectedStart: "2026-10-01", ownerName: "三木", nextAction: "役員会向け資料準備", updatedDays: 4 },
-  { id: "d7", companyName: "株式会社アステム", product: "commu", stage: "nego", expectedMrr: 120_000, expectedStart: "2026-06-15", ownerName: "松田", nextAction: "契約条件の最終調整", updatedDays: 2 },
-  { id: "d8", companyName: "サニックス", product: "academia", stage: "nego", expectedMrr: 300_000, expectedStart: "2026-06-01", ownerName: "古野", nextAction: "価格交渉最終回", updatedDays: 1 },
-  { id: "d9", companyName: "MrMax", product: "aiken", stage: "verbal", expectedMrr: 0, expectedStart: "2026-05-20", ownerName: "松田", nextAction: "契約書送付", updatedDays: 0 }
+  { id: "d1", companyName: "株式会社ホライズン", product: "academia", courseKey: "pjt", stage: "lead", expectedMrr: 300_000, expectedStart: "2026-09-01", ownerName: "古野", nextAction: "初回ヒアリング設定", updatedDays: 2 },
+  { id: "d2", companyName: "九州電力株式会社", product: "hyogikai", courseKey: "standard", stage: "lead", expectedMrr: 150_000, expectedStart: "2027-04-01", ownerName: "三木", nextAction: "窓口紹介依頼", updatedDays: 5 },
+  { id: "d3", companyName: "株式会社ふくや", product: "aiken", courseKey: "basic", stage: "qualified", expectedMrr: 0, expectedStart: "2026-06-01", ownerName: "松田", nextAction: "派遣人数の確認", updatedDays: 3 },
+  { id: "d4", companyName: "博多大丸", product: "commu", courseKey: "standard", stage: "qualified", expectedMrr: 120_000, expectedStart: "2026-07-01", ownerName: "古野", nextAction: "カリキュラム説明MTG", updatedDays: 7 },
+  { id: "d5", companyName: "株式会社ピエトロ", product: "academia", courseKey: "leader", stage: "proposal", expectedMrr: 300_000, expectedStart: "2026-07-01", ownerName: "古野", nextAction: "提案書提出", updatedDays: 1 },
+  { id: "d6", companyName: "九州商船", product: "hyogikai", courseKey: "standard", stage: "proposal", expectedMrr: 150_000, expectedStart: "2026-10-01", ownerName: "三木", nextAction: "役員会向け資料準備", updatedDays: 4 },
+  { id: "d7", companyName: "株式会社アステム", product: "commu", courseKey: "standard", stage: "nego", expectedMrr: 120_000, expectedStart: "2026-06-15", ownerName: "松田", nextAction: "契約条件の最終調整", updatedDays: 2 },
+  { id: "d8", companyName: "サニックス", product: "academia", courseKey: "pjt", stage: "nego", expectedMrr: 300_000, expectedStart: "2026-06-01", ownerName: "古野", nextAction: "価格交渉最終回", updatedDays: 1 },
+  { id: "d9", companyName: "MrMax", product: "aiken", courseKey: "advance", stage: "verbal", expectedMrr: 0, expectedStart: "2026-05-20", ownerName: "松田", nextAction: "契約書送付", updatedDays: 0 }
 ];
 
 export const stageOrder = ["lead", "qualified", "proposal", "nego", "verbal"] as const;

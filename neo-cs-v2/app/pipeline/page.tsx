@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { TopNav } from "@/components/TopNav";
 import { KpiCard } from "@/components/KpiCard";
 import { ProductBadge } from "@/components/ProductBadge";
-import { products, ProductCode, yen } from "@/lib/mock/data";
+// コース表示に対応
+import { products, ProductCode, yen, hasMultipleCourses, courseShortName } from "@/lib/mock/data";
 import { deals, stageOrder, stageLabels } from "@/lib/mock/entities";
 
 // 今月/来月判定（固定: 今日=2026-04-24）
@@ -165,6 +166,11 @@ export default function PipelinePage() {
                             </span>
                             <ProductBadge code={d.product} size="sm" />
                           </div>
+                          {hasMultipleCourses(d.product) && (
+                            <div className="mt-0.5 text-[11px] text-ink-500">
+                              {courseShortName(d.product, d.courseKey)}
+                            </div>
+                          )}
                           <div className="mt-2 flex items-baseline gap-2">
                             <span className="text-base font-bold text-ink-900">
                               {d.expectedMrr > 0 ? yen(d.expectedMrr) : "—"}

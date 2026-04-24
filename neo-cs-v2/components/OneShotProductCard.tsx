@@ -1,8 +1,23 @@
-import { oneShotSummary, productByCode, yen, pct } from "@/lib/mock/data";
+// コース表示に対応
+import {
+  oneShotSummary,
+  productByCode,
+  yen,
+  pct,
+  hasMultipleCourses,
+  productCourses,
+  courseShortName
+} from "@/lib/mock/data";
+import { activeContracts } from "@/lib/mock/onboarding";
 
 export function OneShotProductCard({ code }: { code: "aiken" }) {
   const p = productByCode[code];
   const s = oneShotSummary[code];
+
+  // activeContractsベースで契約数・参加者を集計
+  const productContracts = activeContracts.filter((c) => c.product === code);
+  const contractCount = productContracts.length;
+  const participantSum = productContracts.reduce((acc, c) => acc + c.participants, 0);
 
   return (
     <button className="liquid-surface p-5 text-left relative overflow-hidden hover:shadow-liquid-lg transition group">
@@ -18,12 +33,12 @@ export function OneShotProductCard({ code }: { code: "aiken" }) {
 
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
         <div>
-          <div className="text-[10px] text-ink-500">開講中コース</div>
-          <div className="text-lg font-bold">{s.activeCourses} <span className="text-xs font-normal text-ink-500">コース</span></div>
+          <div className="text-[10px] text-ink-500">アクティブ契約</div>
+          <div className="text-lg font-bold">{contractCount} <span className="text-xs font-normal text-ink-500">件</span></div>
         </div>
         <div>
           <div className="text-[10px] text-ink-500">現在受講中</div>
-          <div className="text-lg font-bold">{s.currentParticipants} <span className="text-xs font-normal text-ink-500">名</span></div>
+          <div className="text-lg font-bold">{participantSum} <span className="text-xs font-normal text-ink-500">名</span></div>
         </div>
         <div>
           <div className="text-[10px] text-ink-500">今年度GMV</div>
@@ -34,6 +49,25 @@ export function OneShotProductCard({ code }: { code: "aiken" }) {
           <div className="text-lg font-bold">{s.fyGraduates} <span className="text-xs font-normal text-ink-500">名</span></div>
         </div>
       </div>
+
+      {/* コース構成（複数コース研修のみ） */}
+      {hasMultipleCourses(code) && (
+        <div className="mt-3 pt-3 border-t border-ink-100">
+          <div className="text-[10px] text-ink-500 mb-1">コース構成</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+            {productCourses[code].map((course) => {
+              const n = productContracts.filter((c) => c.courseKey === course.key).length;
+              return (
+                <span key={course.key} className="text-ink-700">
+                  <span className="font-medium">{courseShortName(code, course.key)}</span>
+                  <span className="ml-1 text-ink-900 font-semibold">{n}</span>
+                  <span className="text-ink-500">社</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 pt-4 border-t border-ink-100">
         <div className="grid grid-cols-3 gap-2 text-[11px]">

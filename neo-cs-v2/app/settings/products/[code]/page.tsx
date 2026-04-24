@@ -4,7 +4,7 @@ import Link from "next/link";
 import { use, useState } from "react";
 import { notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
-import { products, productByCode, ProductCode } from "@/lib/mock/data";
+import { products, productByCode, ProductCode, productCourses, Course } from "@/lib/mock/data";
 import {
   productOnboardingTemplates,
   OnboardingCategory,
@@ -13,10 +13,11 @@ import {
 
 type Product = (typeof products)[number];
 
-type TabKey = "basic" | "contract" | "participants" | "schedule" | "onboarding";
+type TabKey = "basic" | "courses" | "contract" | "participants" | "schedule" | "onboarding";
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: "basic", label: "基本情報" },
+  { key: "courses", label: "コース" },
   { key: "contract", label: "契約設定" },
   { key: "participants", label: "参加者" },
   { key: "schedule", label: "面談スケジュール" },
@@ -105,7 +106,8 @@ export default function ProductEditPage({
 
         {/* タブコンテンツ */}
         <section>
-          {tab === "basic" && <BasicTab product={p} />}
+          {tab === "basic" && <BasicTab product={p} code={code as ProductCode} />}
+          {tab === "courses" && <CoursesTab accent={p.accent} code={code as ProductCode} />}
           {tab === "contract" && <ContractTab product={p} />}
           {tab === "participants" && <ParticipantsTab product={p} />}
           {tab === "schedule" && <ScheduleTab accent={p.accent} code={code as ProductCode} />}
@@ -141,7 +143,8 @@ function Field({
 const inputCls =
   "w-full px-3 py-2 rounded-xl bg-white border border-ink-100 text-sm text-ink-900 focus:outline-none focus:border-ink-300";
 
-function BasicTab({ product }: { product: Product }) {
+function BasicTab({ product, code }: { product: Product; code: ProductCode }) {
+  const courseCount = productCourses[code].length;
   return (
     <div className="liquid-surface p-6 grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl">
       <Field label="研修名（正式）">
@@ -173,12 +176,135 @@ function BasicTab({ product }: { product: Product }) {
           />
         </div>
       </Field>
-      <Field label="説明">
-        <textarea
-          className={`${inputCls} h-24 resize-none`}
-          defaultValue={`${product.name}は${product.type === "continuous" ? "12ヶ月継続型" : "単発型"}の研修プログラムです。`}
-        />
+      <Field label="コース数" hint="「コース」タブで編集できます">
+        <div
+          className="px-3 py-2 rounded-xl bg-ink-50 border border-ink-100 text-sm text-ink-700"
+        >
+          {courseCount} コース
+        </div>
       </Field>
+      <div className="md:col-span-2">
+        <Field label="説明">
+          <textarea
+            className={`${inputCls} h-24 resize-none`}
+            defaultValue={`${product.name}は${product.type === "continuous" ? "12ヶ月継続型" : "単発型"}の研修プログラムです。`}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+function CoursesTab({ accent, code }: { accent: string; code: ProductCode }) {
+  const [courses, setCourses] = useState<Course[]>(() =>
+    JSON.parse(JSON.stringify(productCourses[code]))
+  );
+
+  const updateCourse = (idx: number, patch: Partial<Course>) => {
+    setCourses((cs) => cs.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  };
+  const removeCourse = (idx: number) => {
+    setCourses((cs) => cs.filter((_, i) => i !== idx));
+  };
+  const addCourse = () => {
+    setCourses((cs) => [
+      ...cs,
+      {
+        key: `new-${Date.now()}`,
+        name: "新規コース",
+        shortName: "新規",
+        description: ""
+      }
+    ]);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="liquid-surface p-5 bg-ink-50/40">
+        <div className="text-xs text-ink-700 leading-relaxed">
+          研修内のコース区分を設定します。単発研修(AIKEN)の場合は各回のコースとして機能します。
+        </div>
+      </div>
+
+      {courses.length === 0 && (
+        <div className="liquid-surface p-5 border border-rose-200 bg-rose-50/40">
+          <div className="text-xs text-rose-600 font-medium">
+            契約にコースが紐づいていない状態になります
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {courses.map((c, idx) => (
+          <div key={idx} className="liquid-surface p-5">
+            <div className="flex items-center gap-2">
+              <span
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: `${accent}14`, color: accent }}
+              >
+                {idx + 1}
+              </span>
+              <div className="text-xs text-ink-500 font-mono">{c.key}</div>
+              <div className="ml-auto">
+                <button
+                  onClick={() => removeCourse(idx)}
+                  className="text-xs text-rose-500 hover:underline"
+                >
+                  削除
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <Field label="コース名（正式）">
+                <input
+                  className={inputCls}
+                  value={c.name}
+                  onChange={(e) => updateCourse(idx, { name: e.target.value })}
+                />
+              </Field>
+              <Field label="短縮名">
+                <input
+                  className={inputCls}
+                  value={c.shortName}
+                  onChange={(e) => updateCourse(idx, { shortName: e.target.value })}
+                />
+              </Field>
+              <div className="md:col-span-2">
+                <Field label="説明">
+                  <textarea
+                    className={`${inputCls} h-20 resize-none`}
+                    value={c.description ?? ""}
+                    onChange={(e) => updateCourse(idx, { description: e.target.value })}
+                  />
+                </Field>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <button
+          onClick={addCourse}
+          className="w-full px-4 py-3 rounded-xl text-sm text-ink-700 hover:bg-ink-50 border border-dashed border-ink-200 bg-white"
+        >
+          + コースを追加
+        </button>
+      </div>
+
+      <div className="liquid-surface p-4 flex items-center justify-end gap-2">
+        <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+          キャンセル
+        </button>
+        <button
+          className="px-4 py-2 rounded-full text-white text-sm shadow-liquid"
+          style={{ background: accent }}
+        >
+          保存
+        </button>
+        <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+          既存契約に反映
+        </button>
+      </div>
     </div>
   );
 }

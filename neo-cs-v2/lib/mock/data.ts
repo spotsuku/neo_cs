@@ -59,6 +59,50 @@ export const products: {
 export const productByCode = Object.fromEntries(products.map((p) => [p.code, p]));
 
 // ─────────────────────────────────────────────
+// コース（研修内の区分け）
+// ─────────────────────────────────────────────
+export type Course = {
+  key: string;
+  name: string;
+  shortName: string;
+  description?: string;
+};
+
+export const productCourses: Record<ProductCode, Course[]> = {
+  academia: [
+    { key: "pjt", name: "PJT共創コース", shortName: "PJT共創", description: "事業共創を通じた実践型リーダー育成" },
+    { key: "leader", name: "リーダー育成コース", shortName: "リーダー育成", description: "次世代経営幹部候補の体系的育成" }
+  ],
+  hyogikai: [
+    { key: "standard", name: "標準プログラム", shortName: "標準" }
+  ],
+  commu: [
+    { key: "standard", name: "標準コース", shortName: "標準" }
+  ],
+  aiken: [
+    { key: "basic", name: "Basic", shortName: "Basic", description: "AI基礎・業務活用の入門コース" },
+    { key: "advance", name: "Advance", shortName: "Advance", description: "実践的なAIプロダクト開発コース" }
+  ]
+};
+
+// 研修ごとに複数コースあるか
+export function hasMultipleCourses(code: ProductCode): boolean {
+  return productCourses[code].length > 1;
+}
+
+export function courseByKey(code: ProductCode, key: string): Course | undefined {
+  return productCourses[code].find((c) => c.key === key);
+}
+
+export function courseName(code: ProductCode, key: string): string {
+  return courseByKey(code, key)?.name ?? "";
+}
+
+export function courseShortName(code: ProductCode, key: string): string {
+  return courseByKey(code, key)?.shortName ?? "";
+}
+
+// ─────────────────────────────────────────────
 // ① スナップショット（今日時点）
 // ─────────────────────────────────────────────
 export const snapshot = {

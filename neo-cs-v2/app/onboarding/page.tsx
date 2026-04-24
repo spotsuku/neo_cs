@@ -5,7 +5,8 @@ import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { KpiCard } from "@/components/KpiCard";
 import { ProductBadge } from "@/components/ProductBadge";
-import { products, ProductCode, productByCode, yen } from "@/lib/mock/data";
+// コース表示に対応
+import { products, ProductCode, productByCode, yen, hasMultipleCourses, courseShortName } from "@/lib/mock/data";
 import { companies } from "@/lib/mock/entities";
 import {
   activeContracts,
@@ -84,9 +85,16 @@ function ContractCard({ contract }: { contract: ActiveContract }) {
               {companyName(contract.companyId)}
             </span>
             <ProductBadge code={contract.product} size="sm" />
-            {contract.planName && (
-              <span className="text-[11px] text-ink-500">
-                {contract.planName}
+            {hasMultipleCourses(contract.product) && (
+              <span
+                className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                style={{
+                  color: p.accent,
+                  background: `${p.accent}14`,
+                  border: `1px solid ${p.accent}33`
+                }}
+              >
+                {courseShortName(contract.product, contract.courseKey)}
               </span>
             )}
             <span

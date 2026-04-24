@@ -5,6 +5,7 @@ import { KpiCard } from "@/components/KpiCard";
 import { HealthDistribution } from "@/components/HealthDistribution";
 import { MrrSparkline } from "@/components/MrrSparkline";
 import { ProductBadge } from "@/components/ProductBadge";
+// コース表示に対応
 import {
   products,
   productByCode,
@@ -15,7 +16,9 @@ import {
   yen,
   pct,
   nrrFormat,
-  ProductCode
+  ProductCode,
+  hasMultipleCourses,
+  productCourses
 } from "@/lib/mock/data";
 import { companies } from "@/lib/mock/entities";
 import { activeContracts, productJourney } from "@/lib/mock/onboarding";
@@ -126,6 +129,9 @@ export default async function ProductDashboard({
         ) : (
           <OneShotView targetCompanies={targetCompanies} accent={p.accent} />
         )}
+
+        {/* コース別サマリー（複数コース研修のみ） */}
+        {hasMultipleCourses(code) && <CourseSummarySection code={code} accent={p.accent} />}
 
         <footer className="pt-8 pb-4 text-center text-[11px] text-ink-500">
           NEO CS v2 — 研修別ダッシュボード / ダミーデータ
@@ -371,6 +377,86 @@ function OneShotView({
         </div>
       </section>
     </>
+  );
+}
+
+// コース別サマリー（契約数・参加者・売上）
+function CourseSummarySection({ code, accent }: { code: ProductCode; accent: string }) {
+  const courses = productCourses[code];
+  const contracts = activeContracts.filter((c) => c.product === code);
+
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-sm font-semibold text-ink-700">コース別サマリー</h2>
+        <span className="text-[11px] text-ink-500">契約中の内訳</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {courses.map((course) => {
+          const courseContracts = contracts.filter((c) => c.courseKey === course.key);
+          const contractCount = courseContracts.length;
+          const participantSum = courseContracts.reduce((s, c) => s + c.participants, 0);
+          const revenueSum = courseContracts.reduce(
+            (s, c) => s + (c.mrr ?? 0) + (c.revenue ?? 0),
+            0
+          );
+          const isContinuous = courseContracts.some((c) => c.mrr !== undefined);
+          return (
+            <div
+              key={course.key}
+              className="liquid-surface p-5 relative overflow-hidden"
+            >
+              <div
+                className="absolute -top-4 -right-4 w-24 h-24 rounded-full opacity-10"
+                style={{ background: accent }}
+              />
+              <div className="flex items-center justify-between">
+                <div>
+                  <div
+                    className="text-[11px] font-semibold uppercase tracking-wider"
+                    style={{ color: accent }}
+                  >
+                    {course.shortName}
+                  </div>
+                  <div className="mt-0.5 text-base font-bold text-ink-900">
+                    {course.name}
+                  </div>
+                  {course.description && (
+                    <div className="mt-0.5 text-[11px] text-ink-500">
+                      {course.description}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <div>
+                  <div className="text-[10px] text-ink-500">契約数</div>
+                  <div className="mt-0.5 text-xl font-bold" style={{ color: accent }}>
+                    {contractCount}
+                    <span className="ml-1 text-xs text-ink-500 font-normal">社</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-ink-500">参加者</div>
+                  <div className="mt-0.5 text-xl font-bold text-ink-900">
+                    {participantSum}
+                    <span className="ml-1 text-xs text-ink-500 font-normal">名</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-ink-500">
+                    {isContinuous ? "MRR合計" : "売上合計"}
+                  </div>
+                  <div className="mt-0.5 text-xl font-bold text-ink-900">
+                    {yen(revenueSum)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

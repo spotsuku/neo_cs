@@ -8,7 +8,8 @@ import type {
   Contact,
   MeetingLog
 } from "@/lib/mock/entities";
-import { ProductCode, productByCode, yen } from "@/lib/mock/data";
+// コース表示に対応
+import { ProductCode, productByCode, yen, hasMultipleCourses, courseShortName, courseName } from "@/lib/mock/data";
 import type {
   ActiveContract,
   ContractOnboardingItem
@@ -190,7 +191,11 @@ function OverviewTab({
         <div className="text-sm font-semibold text-ink-700">契約中の研修</div>
         <div className="space-y-3">
           {company.contracts.map((code) => (
-            <ContractMiniCard key={code} code={code} />
+            <ContractMiniCard
+              key={code}
+              code={code}
+              contracts={contracts.filter((c) => c.product === code)}
+            />
           ))}
           {company.contracts.length === 0 && (
             <div className="liquid-surface p-4 text-sm text-ink-500">
@@ -300,9 +305,11 @@ function JourneyContractCard({ contract }: { contract: ActiveContract }) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <ProductBadge code={contract.product} size="sm" />
-          <span className="text-xs text-ink-700 truncate">
-            {contract.planName ?? "標準プラン"}
-          </span>
+          {hasMultipleCourses(contract.product) && (
+            <span className="text-xs text-ink-700 truncate">
+              {courseName(contract.product, contract.courseKey)}
+            </span>
+          )}
         </div>
         <span
           className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
@@ -382,17 +389,35 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ContractMiniCard({ code }: { code: ProductCode }) {
+function ContractMiniCard({ code, contracts }: { code: ProductCode; contracts: ActiveContract[] }) {
   const p = productByCode[code];
+  // 契約中コースの一覧（複数コース研修のみ表示）
+  const courseKeys = Array.from(new Set(contracts.map((c) => c.courseKey)));
   return (
     <div className="liquid-surface p-4 relative overflow-hidden">
       <div
         className="absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-10"
         style={{ background: p.accent }}
       />
-      <div className="flex items-center justify-between">
-        <ProductBadge code={code} />
-        <span className="text-[11px] text-ink-500">契約中</span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <ProductBadge code={code} />
+          {hasMultipleCourses(code) &&
+            courseKeys.map((ck) => (
+              <span
+                key={ck}
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                style={{
+                  color: p.accent,
+                  background: `${p.accent}14`,
+                  border: `1px solid ${p.accent}33`
+                }}
+              >
+                {courseShortName(code, ck)}
+              </span>
+            ))}
+        </div>
+        <span className="text-[11px] text-ink-500 shrink-0">契約中</span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div>
@@ -577,9 +602,16 @@ function OnboardingTab({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <ProductBadge code={contract.product} />
-                  {contract.planName && (
-                    <span className="text-xs text-ink-500">
-                      {contract.planName}
+                  {hasMultipleCourses(contract.product) && (
+                    <span
+                      className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                      style={{
+                        color: p.accent,
+                        background: `${p.accent}14`,
+                        border: `1px solid ${p.accent}33`
+                      }}
+                    >
+                      {courseShortName(contract.product, contract.courseKey)}
                     </span>
                   )}
                   <span

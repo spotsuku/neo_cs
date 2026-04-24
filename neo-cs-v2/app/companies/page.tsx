@@ -5,7 +5,9 @@ import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { ProductBadge } from "@/components/ProductBadge";
 import { companies } from "@/lib/mock/entities";
-import { ProductCode, products, yen } from "@/lib/mock/data";
+import { activeContracts } from "@/lib/mock/onboarding";
+// コース表示に対応
+import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/mock/data";
 
 type HealthFilter = "all" | "green" | "yellow" | "red";
 
@@ -214,10 +216,37 @@ export default function CompaniesPage() {
                   </td>
                   <td className="px-3 py-3 text-ink-700">{c.industry}</td>
                   <td className="px-3 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {c.contracts.map((p) => (
-                        <ProductBadge key={p} code={p} size="sm" />
-                      ))}
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.contracts.map((code) => {
+                        const acc = productByCode[code].accent;
+                        const courseKeys = hasMultipleCourses(code)
+                          ? Array.from(
+                              new Set(
+                                activeContracts
+                                  .filter((ac) => ac.companyId === c.id && ac.product === code)
+                                  .map((ac) => ac.courseKey)
+                              )
+                            )
+                          : [];
+                        return (
+                          <span key={code} className="inline-flex items-center gap-1">
+                            <ProductBadge code={code} size="sm" />
+                            {courseKeys.map((ck) => (
+                              <span
+                                key={ck}
+                                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                                style={{
+                                  color: acc,
+                                  background: `${acc}14`,
+                                  border: `1px solid ${acc}33`
+                                }}
+                              >
+                                {courseShortName(code, ck)}
+                              </span>
+                            ))}
+                          </span>
+                        );
+                      })}
                     </div>
                   </td>
                   <td className="px-3 py-3">

@@ -240,145 +240,37 @@ export type ActiveContract = {
   id: string;
   companyId: string;
   product: ProductCode;
-  planName?: string; // AIKEN: "基礎コース" / "応用コース"
-  startDate: string; // 契約開始日（=講座開始日の目安）
+  courseKey: string;           // 研修内のコース識別子
+  planName?: string;           // レガシー表示用（courseKeyから解決する場合は不要）
+  startDate: string;
   endDate?: string;
   mrr?: number;
-  revenue?: number; // 単発の場合の総額
+  revenue?: number;
   ownerName: string;
   participants: number;
-  // オンボ状態
   onboardingStatus: "in_progress" | "complete";
-  // ジャーニー現在地
-  currentPhase?: string; // オンボ中はnull, 開始後はphase key
+  currentPhase?: string;
   phaseEnteredAt?: string;
 };
 
-export const activeContracts: ActiveContract[] = [
-  // オンボ中（契約開始前）
-  {
-    id: "k-fukugin-commu",
-    companyId: "c-fukugin",
-    product: "commu",
-    startDate: "2026-04-28",
-    endDate: "2026-07-28",
-    mrr: 120_000,
-    ownerName: "古野",
-    participants: 8,
-    onboardingStatus: "in_progress"
-  },
-  {
-    id: "k-levias-aiken",
-    companyId: "c-levias",
-    product: "aiken",
-    planName: "基礎コース",
-    startDate: "2026-05-15",
-    revenue: 450_000,
-    ownerName: "松田",
-    participants: 12,
-    onboardingStatus: "in_progress"
-  },
-  {
-    id: "k-toto-academia",
-    companyId: "c-toto",
-    product: "academia",
-    startDate: "2026-05-20",
-    endDate: "2027-05-19",
-    mrr: 300_000,
-    ownerName: "古野",
-    participants: 3,
-    onboardingStatus: "in_progress"
-  },
-  {
-    id: "k-nccb-hyogikai",
-    companyId: "c-nccb",
-    product: "hyogikai",
-    startDate: "2026-05-10",
-    endDate: "2027-05-09",
-    mrr: 150_000,
-    ownerName: "三木",
-    participants: 3,
-    onboardingStatus: "in_progress"
-  },
-  {
-    id: "k-toto-aiken",
-    companyId: "c-toto",
-    product: "aiken",
-    planName: "応用コース",
-    startDate: "2026-06-03",
-    revenue: 450_000,
-    ownerName: "古野",
-    participants: 5,
-    onboardingStatus: "in_progress"
-  },
+import { bulkActiveContracts } from "./bulk-data";
 
-  // 運用中（オンボ完了済、ジャーニー進行中）
-  {
-    id: "k-aeon-academia",
-    companyId: "c-aeon",
-    product: "academia",
-    startDate: "2025-09-01",
-    endDate: "2026-08-31",
-    mrr: 300_000,
-    ownerName: "古野",
-    participants: 3,
-    onboardingStatus: "complete",
-    currentPhase: "q2",
-    phaseEnteredAt: "2026-02-01"
-  },
-  {
-    id: "k-aeon-hyogikai",
-    companyId: "c-aeon",
-    product: "hyogikai",
-    startDate: "2025-08-01",
-    endDate: "2026-07-31",
-    mrr: 150_000,
-    ownerName: "三木",
-    participants: 3,
-    onboardingStatus: "complete",
-    currentPhase: "running",
-    phaseEnteredAt: "2025-10-01"
-  },
-  {
-    id: "k-jrq-academia",
-    companyId: "c-jrq",
-    product: "academia",
-    startDate: "2025-08-01",
-    endDate: "2026-07-31",
-    mrr: 300_000,
-    ownerName: "三木",
-    participants: 3,
-    onboardingStatus: "complete",
-    currentPhase: "mid",
-    phaseEnteredAt: "2026-03-01"
-  },
-  {
-    id: "k-saibugas-academia",
-    companyId: "c-saibugas",
-    product: "academia",
-    startDate: "2025-10-01",
-    endDate: "2026-09-30",
-    mrr: 300_000,
-    ownerName: "松田",
-    participants: 3,
-    onboardingStatus: "complete",
-    currentPhase: "q1",
-    phaseEnteredAt: "2025-11-01"
-  },
-  {
-    id: "k-kyudenko-commu",
-    companyId: "c-kyudenko",
-    product: "commu",
-    startDate: "2026-02-15",
-    endDate: "2026-05-14",
-    mrr: 120_000,
-    ownerName: "松田",
-    participants: 6,
-    onboardingStatus: "complete",
-    currentPhase: "renewal",
-    phaseEnteredAt: "2026-04-15"
-  }
+// ハンドピックの主要契約（特定企業のデモ用に明示データを残す）
+const handPickedContracts: ActiveContract[] = [
+  { id: "k-fukugin-commu", companyId: "c-fukugin", product: "commu", courseKey: "standard", startDate: "2026-04-28", endDate: "2026-07-28", mrr: 120_000, ownerName: "古野", participants: 8, onboardingStatus: "in_progress" },
+  { id: "k-levias-aiken", companyId: "c-levias", product: "aiken", courseKey: "basic", startDate: "2026-05-15", revenue: 380_000, ownerName: "松田", participants: 12, onboardingStatus: "in_progress" },
+  { id: "k-toto-academia", companyId: "c-toto", product: "academia", courseKey: "leader", startDate: "2026-05-20", endDate: "2027-05-19", mrr: 300_000, ownerName: "古野", participants: 3, onboardingStatus: "in_progress" },
+  { id: "k-nccb-hyogikai", companyId: "c-nccb", product: "hyogikai", courseKey: "standard", startDate: "2026-05-10", endDate: "2027-05-09", mrr: 150_000, ownerName: "三木", participants: 3, onboardingStatus: "in_progress" },
+  { id: "k-toto-aiken", companyId: "c-toto", product: "aiken", courseKey: "advance", startDate: "2026-06-03", revenue: 520_000, ownerName: "古野", participants: 5, onboardingStatus: "in_progress" },
+
+  { id: "k-aeon-academia", companyId: "c-aeon", product: "academia", courseKey: "pjt", startDate: "2025-09-01", endDate: "2026-08-31", mrr: 300_000, ownerName: "古野", participants: 3, onboardingStatus: "complete", currentPhase: "q2", phaseEnteredAt: "2026-02-01" },
+  { id: "k-aeon-hyogikai", companyId: "c-aeon", product: "hyogikai", courseKey: "standard", startDate: "2025-08-01", endDate: "2026-07-31", mrr: 150_000, ownerName: "三木", participants: 3, onboardingStatus: "complete", currentPhase: "running", phaseEnteredAt: "2025-10-01" },
+  { id: "k-jrq-academia", companyId: "c-jrq", product: "academia", courseKey: "leader", startDate: "2025-08-01", endDate: "2026-07-31", mrr: 300_000, ownerName: "三木", participants: 3, onboardingStatus: "complete", currentPhase: "mid", phaseEnteredAt: "2026-03-01" },
+  { id: "k-saibugas-academia", companyId: "c-saibugas", product: "academia", courseKey: "pjt", startDate: "2025-10-01", endDate: "2026-09-30", mrr: 300_000, ownerName: "松田", participants: 3, onboardingStatus: "complete", currentPhase: "q1", phaseEnteredAt: "2025-11-01" },
+  { id: "k-kyudenko-commu", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2026-02-15", endDate: "2026-05-14", mrr: 120_000, ownerName: "松田", participants: 6, onboardingStatus: "complete", currentPhase: "renewal", phaseEnteredAt: "2026-04-15" }
 ];
+
+export const activeContracts: ActiveContract[] = [...handPickedContracts, ...bulkActiveContracts];
 
 // ─────────────────────────────────────────────
 // 契約ごとのオンボチェックリスト（テンプレから展開したインスタンス）
@@ -441,53 +333,87 @@ function generateItems(
   );
 }
 
-export const contractOnboardingItems: ContractOnboardingItem[] = [
-  // 福岡銀行 × コミュマネ（オンボ中・遅延多い）
-  ...generateItems(activeContracts[0], {
+// ハンドピック契約のオーバーライド（デモ用の具体的状態）
+const handPickedOverrides: Record<
+  string,
+  Record<string, { status: "todo" | "doing" | "done"; completedAt?: string }>
+> = {
+  "k-fukugin-commu": {
     "contract:verbal_record": { status: "done", completedAt: "2026-04-10" },
     "contract:contract_send": { status: "todo" },
     "contract:contract_return": { status: "todo" },
     "pr:lp_listing": { status: "done", completedAt: "2026-04-18" },
     "course_setup:schedule": { status: "doing" },
     "participant:participant_list": { status: "todo" }
-  }),
-  // レヴィアス × AIKEN基礎コース
-  ...generateItems(activeContracts[1], {
+  },
+  "k-levias-aiken": {
     "contract:verbal_record": { status: "done", completedAt: "2026-04-20" },
     "contract:contract_send": { status: "done", completedAt: "2026-04-22" },
     "contract:contract_return": { status: "doing" },
     "course_setup:venue": { status: "done", completedAt: "2026-04-20" },
     "participant:participant_list": { status: "doing" }
-  }),
-  // TOTO × ACADEMIA
-  ...generateItems(activeContracts[2], {
+  },
+  "k-toto-academia": {
     "contract:verbal_record": { status: "done", completedAt: "2026-04-15" },
     "contract:nda": { status: "done", completedAt: "2026-04-18" },
     "contract:contract_send": { status: "doing" },
     "course_setup:venue": { status: "done", completedAt: "2026-04-20" },
     "course_setup:lecturer": { status: "doing" },
     "participant:participant_list": { status: "doing" }
-  }),
-  // 西日本シティ銀行 × 評議会
-  ...generateItems(activeContracts[3], {
+  },
+  "k-nccb-hyogikai": {
     "contract:verbal_record": { status: "done", completedAt: "2026-04-08" },
     "contract:contract_send": { status: "done", completedAt: "2026-04-15" },
     "contract:contract_return": { status: "doing" },
     "course_setup:theme_plan": { status: "doing" },
     "participant:regular_members": { status: "done", completedAt: "2026-04-20" }
-  }),
-  // TOTO × AIKEN応用コース
-  ...generateItems(activeContracts[4], {
+  },
+  "k-toto-aiken": {
     "contract:verbal_record": { status: "done", completedAt: "2026-04-22" },
     "contract:contract_send": { status: "todo" }
-  })
-  // 運用中(complete)契約はオンボ項目すべてdoneにする
-];
+  }
+};
 
-// 運用中契約: すべてdoneで埋める
-activeContracts
-  .filter((c) => c.onboardingStatus === "complete")
-  .forEach((c) => {
+// 決定論的な擬似ランダム
+function pseudoRand(seedStr: string, n: number): number {
+  let h = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    h = (h * 31 + seedStr.charCodeAt(i)) | 0;
+  }
+  h = (h + n * 2654435761) | 0;
+  return (Math.abs(h) % 10000) / 10000;
+}
+
+// バルク契約(in_progress)のstatusを半ランダムに生成
+function bulkOverrides(contract: ActiveContract): Record<string, { status: "todo" | "doing" | "done"; completedAt?: string }> {
+  const overrides: Record<string, { status: "todo" | "doing" | "done"; completedAt?: string }> = {};
+  const template = productOnboardingTemplates[contract.product];
+  let idx = 0;
+  for (const cat of template) {
+    for (const item of cat.items) {
+      const key = `${cat.key}:${item.key}`;
+      const r = pseudoRand(contract.id, idx++);
+      // 期日オフセットがマイナス（開始前タスク）ほど進んでいる傾向
+      const timeWeight = Math.max(0, Math.min(1, (-item.dueOffsetDays + 30) / 60));
+      const p = r * 0.5 + timeWeight * 0.5;
+      if (p > 0.75) {
+        overrides[key] = { status: "done", completedAt: offsetDate(contract.startDate, item.dueOffsetDays - 2) };
+      } else if (p > 0.55) {
+        overrides[key] = { status: "doing" };
+      } else {
+        overrides[key] = { status: "todo" };
+      }
+    }
+  }
+  return overrides;
+}
+
+export const contractOnboardingItems: ContractOnboardingItem[] = [];
+
+// すべての契約に対しチェックリスト項目を展開
+activeContracts.forEach((c) => {
+  if (c.onboardingStatus === "complete") {
+    // 運用中契約: すべてdone
     const items = generateItems(c);
     items.forEach((i) => {
       contractOnboardingItems.push({
@@ -496,7 +422,13 @@ activeContracts
         completedAt: offsetDate(c.startDate, -1)
       });
     });
-  });
+  } else {
+    // オンボ中契約: ハンドピックはそのオーバーライド、バルクは擬似ランダム
+    const overrides = handPickedOverrides[c.id] ?? bulkOverrides(c);
+    const items = generateItems(c, overrides);
+    items.forEach((i) => contractOnboardingItems.push(i));
+  }
+});
 
 // ─────────────────────────────────────────────
 // ヘルパー

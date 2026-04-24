@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ProductCode, productByCode } from "@/lib/mock/data";
+// コース表示に対応
+import { ProductCode, productByCode, hasMultipleCourses, courseShortName } from "@/lib/mock/data";
 import {
   activeContracts,
   contractOnboardingItems,
@@ -73,9 +74,9 @@ export function MatrixView({
                       <div className="text-ink-900">
                         {companyName(c.companyId)}
                       </div>
-                      {c.planName && (
+                      {hasMultipleCourses(c.product) && (
                         <div className="text-[11px] text-ink-500">
-                          {c.planName}
+                          {courseShortName(c.product, c.courseKey)}
                         </div>
                       )}
                     </Link>
@@ -251,8 +252,10 @@ export function MatrixView({
                     <div className="text-ink-900 text-sm">
                       {companyName(c.companyId)}
                     </div>
-                    {c.planName && (
-                      <div className="text-[10px] text-ink-500">{c.planName}</div>
+                    {hasMultipleCourses(c.product) && (
+                      <div className="text-[10px] text-ink-500">
+                        {courseShortName(c.product, c.courseKey)}
+                      </div>
                     )}
                     <div className="text-[10px] text-ink-500">
                       開始 {c.startDate.slice(5).replace("-", "/")} · {c.ownerName}

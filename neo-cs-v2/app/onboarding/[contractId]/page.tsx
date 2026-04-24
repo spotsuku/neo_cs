@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { ProductBadge } from "@/components/ProductBadge";
-import { productByCode, yen } from "@/lib/mock/data";
+// コース表示に対応
+import { productByCode, yen, hasMultipleCourses, courseName } from "@/lib/mock/data";
 import { companies } from "@/lib/mock/entities";
 import {
   activeContracts,
@@ -62,9 +63,16 @@ export default async function ContractOnboardingPage({
                   {company?.name ?? contract.companyId}
                 </h1>
                 <ProductBadge code={contract.product} />
-                {contract.planName && (
-                  <span className="text-sm text-ink-500">
-                    {contract.planName}
+                {hasMultipleCourses(contract.product) && (
+                  <span
+                    className="text-xs font-medium px-2.5 py-1 rounded-full"
+                    style={{
+                      color: product.accent,
+                      background: `${product.accent}14`,
+                      border: `1px solid ${product.accent}33`
+                    }}
+                  >
+                    {courseName(contract.product, contract.courseKey)}
                   </span>
                 )}
               </div>
