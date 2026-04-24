@@ -3,20 +3,9 @@
 import { useMemo, useState } from "react";
 import { TopNav } from "@/components/TopNav";
 import { KpiCard } from "@/components/KpiCard";
-import { ProductBadge } from "@/components/ProductBadge";
-import { products, ProductCode } from "@/lib/mock/data";
-import { onboardingTasks, companies, OnboardingTask } from "@/lib/mock/entities";
+import { products, ProductCode, productByCode } from "@/lib/mock/data";
+import { onboardingTasks, companies, OnboardingTask, productPhases } from "@/lib/mock/entities";
 
-// フェーズ定義
-const phaseOrder = ["prep", "kickoff", "run", "close"] as const;
-const phaseLabels: Record<(typeof phaseOrder)[number], string> = {
-  prep: "準備",
-  kickoff: "Kickoff",
-  run: "運用中",
-  close: "クローズ"
-};
-
-// ステータス色ドット
 const statusMeta: Record<
   OnboardingTask["status"],
   { color: string; label: string }
@@ -27,12 +16,10 @@ const statusMeta: Record<
   overdue: { color: "#EF4444", label: "期日超過" }
 };
 
-// 企業名解決
 function companyName(id: string): string {
   return companies.find((c) => c.id === id)?.name ?? id;
 }
 
-// 週内判定（今日〜+7日）
 function isWithinThisWeek(dateStr: string): boolean {
   const today = new Date("2026-04-24");
   const target = new Date(dateStr);
@@ -41,33 +28,39 @@ function isWithinThisWeek(dateStr: string): boolean {
 }
 
 export default function OnboardingPage() {
-  const [productFilter, setProductFilter] = useState<ProductCode[]>([]);
+  const [product, setProduct] = useState<ProductCode>("academia");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const p = productByCode[product];
+  const phases = productPhases[product];
+
+  const productTasks = useMemo(
+    () => onboardingTasks.filter((t) => t.product === product),
+    [product]
+  );
+
   const assignees = useMemo(
-    () => Array.from(new Set(onboardingTasks.map((t) => t.assignee))),
-    []
+    () => Array.from(new Set(productTasks.map((t) => t.assignee))),
+    [productTasks]
   );
 
   const filtered = useMemo(() => {
-    return onboardingTasks.filter((t) => {
-      if (productFilter.length > 0 && !productFilter.includes(t.product)) return false;
+    return productTasks.filter((t) => {
       if (assigneeFilter !== "all" && t.assignee !== assigneeFilter) return false;
       if (statusFilter !== "all" && t.status !== statusFilter) return false;
       return true;
     });
-  }, [productFilter, assigneeFilter, statusFilter]);
+  }, [productTasks, assigneeFilter, statusFilter]);
 
-  // KPI
   const kpi = useMemo(() => {
-    const active = onboardingTasks.filter((t) => t.status !== "done");
-    const overdue = onboardingTasks.filter((t) => t.status === "overdue");
-    const thisWeek = onboardingTasks.filter(
+    const active = productTasks.filter((t) => t.status !== "done");
+    const overdue = productTasks.filter((t) => t.status === "overdue");
+    const thisWeek = productTasks.filter(
       (t) => t.status !== "done" && isWithinThisWeek(t.dueDate)
     );
-    const done = onboardingTasks.filter((t) => t.status === "done").length;
-    const total = onboardingTasks.length;
+    const done = productTasks.filter((t) => t.status === "done").length;
+    const total = productTasks.length;
     const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
     return {
       activeCount: active.length,
@@ -75,28 +68,57 @@ export default function OnboardingPage() {
       thisWeekCount: thisWeek.length,
       completionRate
     };
-  }, []);
-
-  const toggleProduct = (code: ProductCode) => {
-    setProductFilter((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
-    );
-  };
+  }, [productTasks]);
 
   return (
     <>
       <TopNav current="/onboarding" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
         {/* ヘッダ */}
-        <section className="flex items-end justify-between">
+        <section className="flex items-end justify-between gap-4">
           <div>
             <div className="text-xs text-ink-500 font-medium">タスク進捗管理</div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+            <h1 className="mt-1 text-3xl font-bold tracking-tight flex items-center gap-3">
               <span className="brand-text-gradient">オンボーディング</span>
+              <span
+                className="text-base font-semibold px-3 py-1 rounded-full border"
+                style={{
+                  color: p.accent,
+                  borderColor: `${p.accent}44`,
+                  background: `${p.accent}0F`
+                }}
+              >
+                {p.shortName}
+              </span>
             </h1>
             <div className="mt-1 text-sm text-ink-500">
-              研修導入から運用定着までのタスク管理
+              研修導入から運用定着までのタスク管理 / {p.name}
             </div>
+          </div>
+
+          {/* 研修切替（右上） */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100 shrink-0">
+            {products.map((x) => {
+              const active = x.code === product;
+              return (
+                <button
+                  key={x.code}
+                  onClick={() => setProduct(x.code)}
+                  className={[
+                    "px-3 py-1.5 rounded-full text-sm transition flex items-center gap-1.5",
+                    active
+                      ? "bg-white shadow-liquid font-medium text-ink-900"
+                      : "text-ink-500 hover:text-ink-700"
+                  ].join(" ")}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: x.accent }}
+                  />
+                  {x.shortName}
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -106,7 +128,7 @@ export default function OnboardingPage() {
             label="進行中タスク"
             value={`${kpi.activeCount} 件`}
             sub="未完了の総数"
-            accent="#3D9EFF"
+            accent={p.accent}
           />
           <KpiCard
             label="期日超過"
@@ -130,38 +152,6 @@ export default function OnboardingPage() {
 
         {/* フィルタ */}
         <section className="liquid-surface p-4 flex flex-wrap items-center gap-6">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-500 font-medium">研修:</span>
-            <div className="flex items-center gap-1.5">
-              {products.map((p) => {
-                const active = productFilter.includes(p.code);
-                return (
-                  <button
-                    key={p.code}
-                    onClick={() => toggleProduct(p.code)}
-                    className={[
-                      "transition rounded-full",
-                      active ? "ring-2 ring-offset-1" : "opacity-50 hover:opacity-100"
-                    ].join(" ")}
-                    style={{
-                      ["--tw-ring-color" as string]: p.accent
-                    } as React.CSSProperties}
-                  >
-                    <ProductBadge code={p.code} size="sm" />
-                  </button>
-                );
-              })}
-              {productFilter.length > 0 && (
-                <button
-                  onClick={() => setProductFilter([])}
-                  className="ml-1 text-[11px] text-ink-500 hover:text-ink-700 underline"
-                >
-                  クリア
-                </button>
-              )}
-            </div>
-          </div>
-
           <div className="flex items-center gap-2">
             <span className="text-xs text-ink-500 font-medium">担当者:</span>
             <select
@@ -193,27 +183,46 @@ export default function OnboardingPage() {
             </select>
           </div>
 
-          <div className="ml-auto text-xs text-ink-500">
-            {filtered.length} / {onboardingTasks.length} 件
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-xs text-ink-500">
+              {filtered.length} / {productTasks.length} 件
+            </span>
+            <a
+              href={`/settings/products/${product}`}
+              className="text-xs text-ink-500 hover:text-ink-700 underline"
+            >
+              フェーズ・項目を編集
+            </a>
           </div>
         </section>
 
-        {/* Kanban */}
+        {/* Kanban（研修ごとのフェーズ） */}
         <section className="overflow-x-auto -mx-6 px-6 pb-4">
           <div className="flex gap-4 min-w-max">
-            {phaseOrder.map((phase) => {
-              const tasks = filtered.filter((t) => t.phase === phase);
+            {phases.map((ph) => {
+              const tasks = filtered.filter((t) => t.phase === ph.key);
               return (
-                <div key={phase} className="w-[300px] shrink-0">
-                  <div className="flex items-baseline justify-between mb-3 px-1">
-                    <h3 className="text-sm font-semibold text-ink-700">
-                      {phaseLabels[phase]}
-                    </h3>
-                    <span className="text-xs text-ink-500">{tasks.length}</span>
+                <div key={ph.key} className="w-[280px] shrink-0">
+                  <div className="mb-3 px-1">
+                    <div className="flex items-baseline justify-between">
+                      <h3 className="text-sm font-semibold text-ink-700 flex items-center gap-2">
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: p.accent }}
+                        />
+                        {ph.label}
+                      </h3>
+                      <span className="text-xs text-ink-500">{tasks.length}</span>
+                    </div>
+                    {ph.description && (
+                      <div className="text-[11px] text-ink-500 mt-0.5 pl-3.5">
+                        {ph.description}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-3">
                     {tasks.length === 0 ? (
-                      <div className="liquid-surface p-6 text-center text-xs text-ink-500">
+                      <div className="rounded-liquid border border-dashed border-ink-100 p-6 text-center text-xs text-ink-500">
                         タスクなし
                       </div>
                     ) : (
@@ -229,13 +238,10 @@ export default function OnboardingPage() {
                               isOverdue ? "border-2 border-rose-400" : ""
                             ].join(" ")}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[11px] text-ink-500 truncate">
-                                {companyName(t.companyId)}
-                              </span>
-                              <ProductBadge code={t.product} size="sm" />
+                            <div className="text-[11px] text-ink-500 truncate">
+                              {companyName(t.companyId)}
                             </div>
-                            <div className="mt-2 text-sm font-medium text-ink-900 leading-snug">
+                            <div className="mt-1 text-sm font-medium text-ink-900 leading-snug">
                               {t.name}
                             </div>
                             <div className="mt-3 flex items-center justify-between text-[11px]">
@@ -270,7 +276,7 @@ export default function OnboardingPage() {
         </section>
 
         <footer className="pt-8 pb-4 text-center text-[11px] text-ink-500">
-          NEO CS v2 — オンボーディング管理
+          NEO CS v2 — オンボーディング管理（研修ごとにフェーズ・項目を編集可能）
         </footer>
       </main>
     </>

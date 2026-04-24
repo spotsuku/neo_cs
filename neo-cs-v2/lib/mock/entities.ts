@@ -255,31 +255,86 @@ export const meetingLogs: MeetingLog[] = [
   }
 ];
 
-// オンボタスク
+// オンボタスク（研修ごとにフェーズ構成が違う）
 export type OnboardingTask = {
   id: string;
   companyId: string;
   product: ProductCode;
-  phase: "prep" | "kickoff" | "run" | "close";
+  phase: string; // 研修ごとのphase key
   name: string;
   dueDate: string;
   status: "todo" | "doing" | "done" | "overdue";
   assignee: string;
 };
 
+// 研修ごとのフェーズ定義（設定画面で編集される想定）
+export const productPhases: Record<ProductCode, { key: string; label: string; description?: string }[]> = {
+  academia: [
+    { key: "prep", label: "準備", description: "契約締結〜派遣者確定" },
+    { key: "kickoff", label: "Kickoff", description: "開講式・初回講義" },
+    { key: "q1", label: "Q1", description: "第1〜第5回講義" },
+    { key: "mid", label: "中間評価", description: "中間発表・個別面談" },
+    { key: "q2", label: "Q2", description: "第6〜第15回講義" },
+    { key: "final", label: "最終発表", description: "最終報告会・修了式" }
+  ],
+  hyogikai: [
+    { key: "prep", label: "準備", description: "契約〜固定メンバー確定" },
+    { key: "q1", label: "Q1定例", description: "第1〜第3回" },
+    { key: "q2", label: "Q2定例", description: "第4〜第6回" },
+    { key: "q3", label: "Q3定例", description: "第7〜第9回" },
+    { key: "closing", label: "総括", description: "第10回・総括レポート" }
+  ],
+  aiken: [
+    { key: "prep", label: "事前準備", description: "派遣者選定・教材配布" },
+    { key: "day1", label: "Day 1", description: "第1講義" },
+    { key: "day2", label: "Day 2", description: "第2講義" },
+    { key: "followup", label: "フォローアップ", description: "修了後アンケート・応用コース案内" }
+  ],
+  commu: [
+    { key: "prep", label: "準備", description: "契約〜参加者確定" },
+    { key: "m1", label: "1ヶ月目", description: "初回〜第2回講義" },
+    { key: "m2", label: "2ヶ月目", description: "第3〜第4回講義" },
+    { key: "m3", label: "3ヶ月目", description: "最終回〜更新判断" }
+  ]
+};
+
 export const onboardingTasks: OnboardingTask[] = [
-  { id: "t1", companyId: "c-fukugin", product: "commu", phase: "prep", name: "Kickoff日程調整", dueDate: "2026-04-20", status: "overdue", assignee: "古野" },
-  { id: "t2", companyId: "c-fukugin", product: "commu", phase: "prep", name: "参加者リスト受領", dueDate: "2026-04-22", status: "overdue", assignee: "古野" },
-  { id: "t3", companyId: "c-fukugin", product: "commu", phase: "prep", name: "契約書送付", dueDate: "2026-04-25", status: "overdue", assignee: "古野" },
-  { id: "t4", companyId: "c-fukugin", product: "commu", phase: "kickoff", name: "Kickoff MTG実施", dueDate: "2026-04-28", status: "todo", assignee: "古野" },
-  { id: "t5", companyId: "c-fukugin", product: "commu", phase: "kickoff", name: "初回アンケート配布", dueDate: "2026-05-02", status: "todo", assignee: "古野" },
-  { id: "t6", companyId: "c-levias", product: "aiken", phase: "prep", name: "参加者アカウント発行", dueDate: "2026-05-10", status: "todo", assignee: "松田" },
-  { id: "t7", companyId: "c-levias", product: "aiken", phase: "kickoff", name: "教材配布", dueDate: "2026-05-13", status: "todo", assignee: "松田" },
-  { id: "t8", companyId: "c-toto", product: "aiken", phase: "prep", name: "派遣者選定", dueDate: "2026-05-01", status: "doing", assignee: "古野" },
-  { id: "t9", companyId: "c-toto", product: "academia", phase: "run", name: "中間レビュー準備", dueDate: "2026-06-15", status: "todo", assignee: "古野" },
-  { id: "t10", companyId: "c-saibugas", product: "academia", phase: "run", name: "講義資料の事前送付", dueDate: "2026-04-26", status: "done", assignee: "松田" },
-  { id: "t11", companyId: "c-kyudenko", product: "commu", phase: "close", name: "契約更新意向確認", dueDate: "2026-05-15", status: "todo", assignee: "松田" },
-  { id: "t12", companyId: "c-jrq", product: "academia", phase: "run", name: "中間評価会アジェンダ作成", dueDate: "2026-04-28", status: "doing", assignee: "三木" }
+  // ACADEMIA
+  { id: "t-a1", companyId: "c-toto", product: "academia", phase: "prep", name: "派遣者3名の確定", dueDate: "2026-05-01", status: "doing", assignee: "古野" },
+  { id: "t-a2", companyId: "c-toto", product: "academia", phase: "prep", name: "開講式招待状の送付", dueDate: "2026-05-08", status: "todo", assignee: "古野" },
+  { id: "t-a3", companyId: "c-saibugas", product: "academia", phase: "kickoff", name: "開講式の準備", dueDate: "2026-04-26", status: "done", assignee: "松田" },
+  { id: "t-a4", companyId: "c-aeon", product: "academia", phase: "q1", name: "第5回講義の資料配布", dueDate: "2026-04-22", status: "done", assignee: "古野" },
+  { id: "t-a5", companyId: "c-jrq", product: "academia", phase: "mid", name: "中間評価会アジェンダ作成", dueDate: "2026-04-28", status: "doing", assignee: "三木" },
+  { id: "t-a6", companyId: "c-jrq", product: "academia", phase: "mid", name: "個別面談の日程調整", dueDate: "2026-05-10", status: "todo", assignee: "三木" },
+  { id: "t-a7", companyId: "c-fukugin", product: "academia", phase: "q2", name: "第10回講義のゲスト調整", dueDate: "2026-05-15", status: "todo", assignee: "古野" },
+  { id: "t-a8", companyId: "c-yamae", product: "academia", phase: "final", name: "最終発表会の会場手配", dueDate: "2026-04-30", status: "overdue", assignee: "松田" },
+
+  // 評議会
+  { id: "t-h1", companyId: "c-nccb", product: "hyogikai", phase: "prep", name: "固定メンバー3名の確定", dueDate: "2026-05-05", status: "doing", assignee: "三木" },
+  { id: "t-h2", companyId: "c-fukuokashi", product: "hyogikai", phase: "q1", name: "第2回テーマ決定", dueDate: "2026-04-28", status: "doing", assignee: "三木" },
+  { id: "t-h3", companyId: "c-aeon", product: "hyogikai", phase: "q2", name: "第6回ゲスト招聘", dueDate: "2026-05-10", status: "todo", assignee: "古野" },
+  { id: "t-h4", companyId: "c-nishitetsu", product: "hyogikai", phase: "q2", name: "欠席フォローアップMTG", dueDate: "2026-04-22", status: "overdue", assignee: "三木" },
+  { id: "t-h5", companyId: "c-jrq", product: "hyogikai", phase: "q3", name: "第7回アジェンダ共有", dueDate: "2026-05-20", status: "todo", assignee: "三木" },
+  { id: "t-h6", companyId: "c-fukuokashi", product: "hyogikai", phase: "closing", name: "総括レポート作成", dueDate: "2026-06-25", status: "todo", assignee: "三木" },
+
+  // AIKEN
+  { id: "t-k1", companyId: "c-levias", product: "aiken", phase: "prep", name: "参加者アカウント発行", dueDate: "2026-05-10", status: "todo", assignee: "松田" },
+  { id: "t-k2", companyId: "c-levias", product: "aiken", phase: "prep", name: "教材配布", dueDate: "2026-05-13", status: "todo", assignee: "松田" },
+  { id: "t-k3", companyId: "c-toto", product: "aiken", phase: "prep", name: "派遣者選定", dueDate: "2026-05-01", status: "doing", assignee: "古野" },
+  { id: "t-k4", companyId: "c-kyudenko", product: "aiken", phase: "day1", name: "Day1 会場準備", dueDate: "2026-05-02", status: "todo", assignee: "松田" },
+  { id: "t-k5", companyId: "c-kyudenko", product: "aiken", phase: "day2", name: "Day2 課題提出確認", dueDate: "2026-05-09", status: "todo", assignee: "松田" },
+  { id: "t-k6", companyId: "c-aeon", product: "aiken", phase: "followup", name: "修了後アンケート送付", dueDate: "2026-04-28", status: "doing", assignee: "古野" },
+  { id: "t-k7", companyId: "c-aeon", product: "aiken", phase: "followup", name: "応用コース案内", dueDate: "2026-05-05", status: "todo", assignee: "古野" },
+
+  // コミュマネ
+  { id: "t-c1", companyId: "c-fukugin", product: "commu", phase: "prep", name: "Kickoff日程調整", dueDate: "2026-04-20", status: "overdue", assignee: "古野" },
+  { id: "t-c2", companyId: "c-fukugin", product: "commu", phase: "prep", name: "参加者リスト受領", dueDate: "2026-04-22", status: "overdue", assignee: "古野" },
+  { id: "t-c3", companyId: "c-fukugin", product: "commu", phase: "prep", name: "契約書送付", dueDate: "2026-04-25", status: "overdue", assignee: "古野" },
+  { id: "t-c4", companyId: "c-fukugin", product: "commu", phase: "m1", name: "Kickoff MTG実施", dueDate: "2026-04-28", status: "todo", assignee: "古野" },
+  { id: "t-c5", companyId: "c-fukugin", product: "commu", phase: "m1", name: "初回アンケート配布", dueDate: "2026-05-02", status: "todo", assignee: "古野" },
+  { id: "t-c6", companyId: "c-levias", product: "commu", phase: "m2", name: "第3回講義の予習課題送付", dueDate: "2026-05-20", status: "todo", assignee: "松田" },
+  { id: "t-c7", companyId: "c-kyudenko", product: "commu", phase: "m3", name: "契約更新意向確認", dueDate: "2026-05-15", status: "todo", assignee: "松田" },
+  { id: "t-c8", companyId: "c-nccb", product: "commu", phase: "m3", name: "3ヶ月目サマリー作成", dueDate: "2026-06-10", status: "todo", assignee: "三木" }
 ];
 
 // パイプライン（内諾前）
