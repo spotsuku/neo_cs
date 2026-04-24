@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ProductBadge } from "@/components/ProductBadge";
+import { WeeklyReviewPanel } from "./WeeklyReviewPanel";
 import type {
   Company,
   Contact,
@@ -21,10 +22,11 @@ import {
   contractProgress
 } from "@/lib/mock/onboarding";
 
-type Tab = "overview" | "contracts" | "logs" | "onboarding" | "mail";
+type Tab = "overview" | "weekly" | "contracts" | "logs" | "onboarding" | "mail";
 
 const tabs: { key: Tab; label: string }[] = [
   { key: "overview", label: "概要" },
+  { key: "weekly", label: "週次レビュー" },
   { key: "contracts", label: "契約・参加者" },
   { key: "logs", label: "面談ログ" },
   { key: "onboarding", label: "オンボ" },
@@ -142,6 +144,7 @@ export function CompanyDetail({
       {tab === "overview" && (
         <OverviewTab company={company} contacts={contacts} contracts={contracts} />
       )}
+      {tab === "weekly" && <WeeklyReviewPanel companyId={company.id} />}
       {tab === "contracts" && <ContractsPlaceholder />}
       {tab === "logs" && <LogsTab logs={logs} />}
       {tab === "onboarding" && (

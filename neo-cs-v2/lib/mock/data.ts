@@ -4,6 +4,10 @@
 export type ProductCode = "academia" | "hyogikai" | "aiken" | "commu";
 export type ProductType = "continuous" | "one_shot";
 
+// 期=全社で同期（アカデミア/評議会）、回=顧客ごとに独立（AIKEN/コミュマネ）
+export type CycleUnit = "期" | "回";
+export type CycleSyncMode = "global" | "per_account";
+
 export const products: {
   code: ProductCode;
   name: string;
@@ -13,6 +17,9 @@ export const products: {
   sessionCount: number | null;
   participantCap: number | null;
   accent: string;
+  cycleUnit: CycleUnit;
+  cycleLabelFormat: string; // {n} を連番で置換
+  cycleSyncMode: CycleSyncMode;
 }[] = [
   {
     code: "academia",
@@ -22,7 +29,10 @@ export const products: {
     billingMonths: 12,
     sessionCount: 21,
     participantCap: 3,
-    accent: "#3D9EFF"
+    accent: "#3D9EFF",
+    cycleUnit: "期",
+    cycleLabelFormat: "第{n}期",
+    cycleSyncMode: "global"
   },
   {
     code: "hyogikai",
@@ -32,7 +42,10 @@ export const products: {
     billingMonths: 12,
     sessionCount: 10,
     participantCap: null,
-    accent: "#8B5CF6"
+    accent: "#8B5CF6",
+    cycleUnit: "期",
+    cycleLabelFormat: "第{n}期",
+    cycleSyncMode: "global"
   },
   {
     code: "aiken",
@@ -42,7 +55,10 @@ export const products: {
     billingMonths: null,
     sessionCount: 2,
     participantCap: null,
-    accent: "#4CD97B"
+    accent: "#4CD97B",
+    cycleUnit: "回",
+    cycleLabelFormat: "{n}回目",
+    cycleSyncMode: "per_account"
   },
   {
     code: "commu",
@@ -52,9 +68,18 @@ export const products: {
     billingMonths: 3,
     sessionCount: 5,
     participantCap: null,
-    accent: "#FF9838"
+    accent: "#FF9838",
+    cycleUnit: "回",
+    cycleLabelFormat: "{n}回目",
+    cycleSyncMode: "per_account"
   }
 ];
+
+export function cycleLabel(code: ProductCode, n: number): string {
+  const p = products.find((pp) => pp.code === code);
+  if (!p) return `${n}`;
+  return p.cycleLabelFormat.replace("{n}", String(n));
+}
 
 export const productByCode = Object.fromEntries(products.map((p) => [p.code, p]));
 

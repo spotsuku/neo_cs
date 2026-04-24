@@ -251,6 +251,11 @@ export type ActiveContract = {
   onboardingStatus: "in_progress" | "complete";
   currentPhase?: string;
   phaseEnteredAt?: string;
+  // サイクル（契約=1サイクル）
+  cycleNumber: number;              // 1始まり
+  previousContractId?: string;      // 旧サイクルへの連鎖
+  cycleStatus?: "active" | "renewed" | "churned"; // 旧サイクル用
+  renewalStatus?: "green" | "yellow" | "red";     // 更新判定（active時のみ）
 };
 
 import { bulkActiveContracts } from "./bulk-data";
