@@ -2,14 +2,13 @@ import { TopNav } from "@/components/TopNav";
 import { KpiCard } from "@/components/KpiCard";
 import { ProductBadge } from "@/components/ProductBadge";
 import { MrrSparkline } from "@/components/MrrSparkline";
-import { HealthDistribution } from "@/components/HealthDistribution";
+import { HealthSection } from "@/components/HealthSection";
 import { RenewalFunnel } from "@/components/RenewalFunnel";
 import { ContinuousProductCard } from "@/components/ContinuousProductCard";
 import { OneShotProductCard } from "@/components/OneShotProductCard";
 import { PeriodSwitcher } from "@/components/PeriodSwitcher";
 import {
   snapshot,
-  health,
   alerts,
   upcoming,
   mrrTrend,
@@ -73,47 +72,7 @@ export default function Page() {
 
         {/* ── ② Customer Health + ③ 更新ファネル ────────────────── */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Health */}
-          <div className="liquid-surface p-6">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <div className="text-xs text-ink-500 font-medium">Customer Health</div>
-                <div className="mt-1 flex items-baseline gap-3">
-                  <span className="text-2xl font-bold">{health.green + health.yellow + health.red}</span>
-                  <span className="text-sm text-ink-500">社（継続型）</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <HealthDistribution green={health.green} yellow={health.yellow} red={health.red} />
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-                <div className="text-[10px] font-semibold text-emerald-700">🟢 Green</div>
-                <div className="mt-1 text-xl font-bold text-emerald-700">{health.green}</div>
-                <div className="text-[10px] text-emerald-700/70">順調</div>
-              </div>
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
-                <div className="text-[10px] font-semibold text-amber-700">🟡 Yellow</div>
-                <div className="mt-1 text-xl font-bold text-amber-700">{health.yellow}</div>
-                <div className="text-[10px] text-amber-700/70">注意</div>
-              </div>
-              <div className="rounded-2xl border border-rose-100 bg-rose-50 p-3">
-                <div className="text-[10px] font-semibold text-rose-700">🔴 Red</div>
-                <div className="mt-1 text-xl font-bold text-rose-700">{health.red}</div>
-                <div className="text-[10px] text-rose-700/70">要対応</div>
-              </div>
-            </div>
-
-            <div className="mt-4 text-[11px] text-ink-500 leading-relaxed">
-              Health Score = 出席率 + NPS + 最終接点日数 + 期日超過タスク + メール感情 から合成。
-              単発型(AIKEN)は対象外（別指標で管理）。
-            </div>
-          </div>
-
-          {/* 更新ファネル */}
+          <HealthSection />
           <RenewalFunnel />
         </section>
 
