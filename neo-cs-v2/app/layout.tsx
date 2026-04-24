@@ -1,0 +1,21 @@
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "NEO CS 統合ダッシュボード",
+  description: "NEO福岡CS 4研修横断管理アプリ"
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ja">
+      <body className="min-h-screen bg-white text-ink-900 font-sans relative">
+        {/* 背景のliquid blob（抑えめ） */}
+        <div className="liquid-blob bg-brand-green top-[-120px] left-[-60px] w-[360px] h-[360px]" />
+        <div className="liquid-blob bg-brand-blue top-[80px] right-[-100px] w-[420px] h-[420px]" />
+        <div className="liquid-blob bg-brand-pink bottom-[-160px] left-[30%] w-[420px] h-[420px]" />
+        <div className="relative">{children}</div>
+      </body>
+    </html>
+  );
+}

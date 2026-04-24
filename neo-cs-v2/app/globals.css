@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --ink: #0e0f12;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Liquid Design: すりガラス＆柔らかな層 */
+@layer components {
+  .liquid-card {
+    @apply relative rounded-liquid bg-white/70 backdrop-blur-xl border border-white shadow-liquid;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
+  }
+
+  .liquid-surface {
+    @apply rounded-liquid bg-white border border-ink-100 shadow-liquid;
+  }
+
+  .liquid-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-ink-50 text-ink-700 border border-ink-100;
+  }
+
+  .brand-text-gradient {
+    background: linear-gradient(135deg, #4cd97b 0%, #3d9eff 25%, #8b5cf6 50%, #ff3d8a 75%, #ff9838 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .liquid-blob {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(64px);
+    opacity: 0.35;
+    pointer-events: none;
+  }
+}
