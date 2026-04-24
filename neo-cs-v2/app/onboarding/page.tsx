@@ -16,6 +16,7 @@ import {
   daysUntilStart,
   ActiveContract
 } from "@/lib/mock/onboarding";
+import { MatrixView } from "./MatrixView";
 
 function companyName(id: string): string {
   return companies.find((c) => c.id === id)?.name ?? id;
@@ -203,6 +204,7 @@ export default function OnboardingPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"card" | "category" | "item">("card");
 
   const p = productByCode[product];
 
@@ -369,6 +371,28 @@ export default function OnboardingPage() {
             </select>
           </div>
 
+          {/* 表示切替 */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100">
+            {[
+              { key: "card" as const, label: "カード" },
+              { key: "category" as const, label: "一覧(カテゴリ)" },
+              { key: "item" as const, label: "一覧(項目)" }
+            ].map((v) => (
+              <button
+                key={v.key}
+                onClick={() => setViewMode(v.key)}
+                className={[
+                  "px-3 py-1 rounded-full text-xs transition",
+                  viewMode === v.key
+                    ? "bg-white shadow-liquid font-medium text-ink-900"
+                    : "text-ink-500 hover:text-ink-700"
+                ].join(" ")}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
           <div className="ml-auto flex items-center gap-3">
             <span className="text-xs text-ink-500">
               {filteredInProgress.length} / {inProgress.length} 件
@@ -382,16 +406,22 @@ export default function OnboardingPage() {
           </div>
         </section>
 
-        {/* 契約カードリスト */}
-        <section className="space-y-3">
+        {/* 契約リスト(カード or 一覧表) */}
+        <section className={viewMode === "card" ? "space-y-3" : ""}>
           {filteredInProgress.length === 0 ? (
             <div className="liquid-surface p-10 text-center text-sm text-ink-500">
               該当する契約はありません
             </div>
-          ) : (
+          ) : viewMode === "card" ? (
             filteredInProgress.map((c) => (
               <ContractCard key={c.id} contract={c} />
             ))
+          ) : (
+            <MatrixView
+              product={product}
+              contracts={filteredInProgress}
+              mode={viewMode === "item" ? "item" : "category"}
+            />
           )}
         </section>
 
@@ -415,15 +445,23 @@ export default function OnboardingPage() {
             </span>
           </button>
           {completeOpen && (
-            <div className="mt-3 space-y-3">
+            <div className="mt-3">
               {completed.length === 0 ? (
                 <div className="liquid-surface p-8 text-center text-sm text-ink-500">
                   完了済の契約はありません
                 </div>
+              ) : viewMode === "card" ? (
+                <div className="space-y-3">
+                  {completed.map((c) => (
+                    <ContractCard key={c.id} contract={c} />
+                  ))}
+                </div>
               ) : (
-                completed.map((c) => (
-                  <ContractCard key={c.id} contract={c} />
-                ))
+                <MatrixView
+                  product={product}
+                  contracts={completed}
+                  mode={viewMode === "item" ? "item" : "category"}
+                />
               )}
             </div>
           )}
