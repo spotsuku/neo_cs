@@ -189,7 +189,10 @@ function makeContract(
     participants,
     onboardingStatus: status,
     currentPhase: status === "complete" ? pickPhase(seed + 100, product) : undefined,
-    phaseEnteredAt: status === "complete" ? addMonths(startDate, 1) : undefined
+    phaseEnteredAt: status === "complete" ? addMonths(startDate, 1) : undefined,
+    cycleNumber: 1,
+    cycleStatus: "active",
+    renewalStatus: status === "complete" ? "green" : undefined
   };
 }
 
