@@ -4,9 +4,12 @@ import { CompanyDetail } from "./CompanyDetail";
 import {
   companies,
   contacts,
-  meetingLogs,
-  onboardingTasks
+  meetingLogs
 } from "@/lib/mock/entities";
+import {
+  activeContracts,
+  contractOnboardingItems
+} from "@/lib/mock/onboarding";
 
 export default async function CompanyDetailPage({
   params
@@ -21,7 +24,10 @@ export default async function CompanyDetailPage({
   const logs = meetingLogs
     .filter((m) => m.companyId === id)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
-  const tasks = onboardingTasks.filter((t) => t.companyId === id);
+  const companyContracts = activeContracts.filter((c) => c.companyId === id);
+  const companyItems = contractOnboardingItems.filter((i) =>
+    companyContracts.some((c) => c.id === i.contractId)
+  );
 
   return (
     <>
@@ -30,7 +36,8 @@ export default async function CompanyDetailPage({
         company={company}
         contacts={companyContacts}
         logs={logs}
-        tasks={tasks}
+        contracts={companyContracts}
+        items={companyItems}
       />
     </>
   );

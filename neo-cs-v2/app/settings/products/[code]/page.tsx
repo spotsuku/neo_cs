@@ -5,6 +5,11 @@ import { use, useState } from "react";
 import { notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { products, productByCode, ProductCode } from "@/lib/mock/data";
+import {
+  productOnboardingTemplates,
+  OnboardingCategory,
+  OnboardingTemplateItem
+} from "@/lib/mock/onboarding";
 
 type Product = (typeof products)[number];
 
@@ -103,8 +108,8 @@ export default function ProductEditPage({
           {tab === "basic" && <BasicTab product={p} />}
           {tab === "contract" && <ContractTab product={p} />}
           {tab === "participants" && <ParticipantsTab product={p} />}
-          {tab === "schedule" && <ScheduleTab accent={p.accent} />}
-          {tab === "onboarding" && <OnboardingTab accent={p.accent} />}
+          {tab === "schedule" && <ScheduleTab accent={p.accent} code={code as ProductCode} />}
+          {tab === "onboarding" && <OnboardingTab accent={p.accent} code={code as ProductCode} />}
         </section>
 
         <footer className="pt-8 pb-4 text-center text-[11px] text-ink-500">
@@ -255,14 +260,54 @@ function ParticipantsTab({ product }: { product: Product }) {
   );
 }
 
-function ScheduleTab({ accent }: { accent: string }) {
-  const [rows, setRows] = useState([
-    { no: 1, name: "Kickoff MTG", offset: 7, required: true },
-    { no: 2, name: "1ヶ月目レビュー", offset: 30, required: true },
-    { no: 3, name: "中間評価会", offset: 180, required: true },
-    { no: 4, name: "四半期振り返り", offset: 270, required: false },
-    { no: 5, name: "更新MTG", offset: 330, required: true }
-  ]);
+type MilestoneRow = { no: number; name: string; offset: number; required: boolean };
+
+const scheduleTemplatesByCode: Record<ProductCode, MilestoneRow[]> = {
+  academia: [
+    { no: 1, name: "Kickoff", offset: 0, required: true },
+    { no: 2, name: "Q1レビュー", offset: 90, required: true },
+    { no: 3, name: "中間評価", offset: 180, required: true },
+    { no: 4, name: "Q2レビュー", offset: 270, required: true },
+    { no: 5, name: "最終発表", offset: 360, required: true }
+  ],
+  hyogikai: [
+    { no: 1, name: "第1回定例", offset: 0, required: true },
+    { no: 2, name: "第2回定例", offset: 30, required: true },
+    { no: 3, name: "第3回定例", offset: 60, required: true },
+    { no: 4, name: "第4回定例", offset: 90, required: true },
+    { no: 5, name: "第5回定例", offset: 120, required: true },
+    { no: 6, name: "第6回定例", offset: 150, required: true },
+    { no: 7, name: "第7回定例", offset: 180, required: true },
+    { no: 8, name: "第8回定例", offset: 210, required: true },
+    { no: 9, name: "第9回定例", offset: 240, required: true },
+    { no: 10, name: "第10回定例", offset: 300, required: true }
+  ],
+  aiken: [
+    { no: 1, name: "Kickoff", offset: 0, required: true },
+    { no: 2, name: "Day1", offset: 7, required: true },
+    { no: 3, name: "Day2", offset: 14, required: true },
+    { no: 4, name: "最終振返", offset: 30, required: true }
+  ],
+  commu: [
+    { no: 1, name: "Kickoff", offset: 0, required: true },
+    { no: 2, name: "月次定例1", offset: 30, required: true },
+    { no: 3, name: "月次定例2", offset: 60, required: true },
+    { no: 4, name: "更新MTG", offset: 90, required: true }
+  ]
+};
+
+function ScheduleTab({ accent, code }: { accent: string; code: ProductCode }) {
+  const [rows, setRows] = useState<MilestoneRow[]>(scheduleTemplatesByCode[code]);
+
+  const updateRow = (idx: number, patch: Partial<MilestoneRow>) => {
+    setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+  const addRow = () => {
+    setRows((rs) => [
+      ...rs,
+      { no: rs.length + 1, name: "新規マイルストーン", offset: 0, required: false }
+    ]);
+  };
 
   return (
     <div className="space-y-4">
@@ -275,6 +320,7 @@ function ScheduleTab({ accent }: { accent: string }) {
             </div>
           </div>
           <button
+            onClick={addRow}
             className="px-3 py-1.5 rounded-full text-xs text-white shadow-liquid"
             style={{ background: accent }}
           >
@@ -295,16 +341,30 @@ function ScheduleTab({ accent }: { accent: string }) {
             </thead>
             <tbody>
               {rows.map((r, idx) => (
-                <tr key={r.no} className="border-b border-ink-50 last:border-0">
-                  <td className="px-4 py-2.5 font-medium">{r.no}</td>
+                <tr key={idx} className="border-b border-ink-50 last:border-0">
+                  <td className="px-4 py-2.5 font-medium">{idx + 1}</td>
                   <td className="px-3 py-2.5">
-                    <input className={inputCls} defaultValue={r.name} />
+                    <input
+                      className={inputCls}
+                      value={r.name}
+                      onChange={(e) => updateRow(idx, { name: e.target.value })}
+                    />
                   </td>
                   <td className="px-3 py-2.5">
-                    <input className={inputCls} defaultValue={String(r.offset)} />
+                    <input
+                      className={inputCls}
+                      type="number"
+                      value={r.offset}
+                      onChange={(e) => updateRow(idx, { offset: Number(e.target.value) })}
+                    />
                   </td>
                   <td className="px-3 py-2.5">
-                    <input type="checkbox" defaultChecked={r.required} className="w-4 h-4" />
+                    <input
+                      type="checkbox"
+                      checked={r.required}
+                      onChange={(e) => updateRow(idx, { required: e.target.checked })}
+                      className="w-4 h-4"
+                    />
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     <button
@@ -318,6 +378,18 @@ function ScheduleTab({ accent }: { accent: string }) {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+            キャンセル
+          </button>
+          <button
+            className="px-4 py-2 rounded-full text-white text-sm shadow-liquid"
+            style={{ background: accent }}
+          >
+            保存
+          </button>
         </div>
       </div>
 
@@ -336,73 +408,254 @@ function ScheduleTab({ accent }: { accent: string }) {
   );
 }
 
-function OnboardingTab({ accent }: { accent: string }) {
-  const phases = [
-    { key: "prep", label: "Prep（事前準備）" },
-    { key: "kickoff", label: "Kickoff" },
-    { key: "run", label: "Run（実施中）" },
-    { key: "close", label: "Close（終了/更新）" }
-  ];
-  const tasksByPhase: Record<string, string[]> = {
-    prep: ["参加者リスト受領", "契約書送付", "アカウント発行"],
-    kickoff: ["Kickoff MTG実施", "初回アンケート配布"],
-    run: ["中間レビュー準備", "講義資料の事前送付"],
-    close: ["契約更新意向確認", "修了レポート作成"]
+const assigneeRoleOptions: { value: NonNullable<OnboardingTemplateItem["defaultAssigneeRole"]>; label: string }[] = [
+  { value: "cs", label: "CS" },
+  { value: "pr", label: "広報" },
+  { value: "ops", label: "運営" },
+  { value: "finance", label: "経理" }
+];
+
+function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) {
+  const [categories, setCategories] = useState<OnboardingCategory[]>(() =>
+    // deep copy so initial mock isn't mutated
+    JSON.parse(JSON.stringify(productOnboardingTemplates[code]))
+  );
+
+  const updateCategory = (catIdx: number, patch: Partial<OnboardingCategory>) => {
+    setCategories((cs) => cs.map((c, i) => (i === catIdx ? { ...c, ...patch } : c)));
+  };
+
+  const moveCategory = (catIdx: number, dir: -1 | 1) => {
+    setCategories((cs) => {
+      const next = [...cs];
+      const target = catIdx + dir;
+      if (target < 0 || target >= next.length) return cs;
+      [next[catIdx], next[target]] = [next[target], next[catIdx]];
+      return next.map((c, i) => ({ ...c, order: i + 1 }));
+    });
+  };
+
+  const removeCategory = (catIdx: number) => {
+    setCategories((cs) => cs.filter((_, i) => i !== catIdx));
+  };
+
+  const addCategory = () => {
+    setCategories((cs) => [
+      ...cs,
+      {
+        key: `new-${Date.now()}`,
+        label: "新規カテゴリ",
+        order: cs.length + 1,
+        items: []
+      }
+    ]);
+  };
+
+  const updateItem = (catIdx: number, itemIdx: number, patch: Partial<OnboardingTemplateItem>) => {
+    setCategories((cs) =>
+      cs.map((c, i) =>
+        i === catIdx
+          ? {
+              ...c,
+              items: c.items.map((it, j) => (j === itemIdx ? { ...it, ...patch } : it))
+            }
+          : c
+      )
+    );
+  };
+
+  const removeItem = (catIdx: number, itemIdx: number) => {
+    setCategories((cs) =>
+      cs.map((c, i) =>
+        i === catIdx ? { ...c, items: c.items.filter((_, j) => j !== itemIdx) } : c
+      )
+    );
+  };
+
+  const addItem = (catIdx: number) => {
+    setCategories((cs) =>
+      cs.map((c, i) =>
+        i === catIdx
+          ? {
+              ...c,
+              items: [
+                ...c.items,
+                {
+                  key: `new-${Date.now()}`,
+                  name: "新規項目",
+                  dueOffsetDays: 0,
+                  required: false,
+                  defaultAssigneeRole: "cs"
+                }
+              ]
+            }
+          : c
+      )
+    );
   };
 
   return (
     <div className="space-y-4">
-      <div className="liquid-surface p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-base font-semibold">オンボーディング項目テンプレート</div>
-            <div className="mt-1 text-xs text-ink-500">
-              フェーズごとのタスクを定義。新規契約時に自動生成されます
-            </div>
-          </div>
-          <button
-            className="px-3 py-1.5 rounded-full text-xs text-white shadow-liquid"
-            style={{ background: accent }}
-          >
-            + 追加
-          </button>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {phases.map((ph) => (
-            <div key={ph.key} className="rounded-xl border border-ink-100 bg-ink-50/40 p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold text-ink-700">{ph.label}</div>
-                <span className="text-[10px] text-ink-500">{tasksByPhase[ph.key].length}件</span>
-              </div>
-              <ul className="mt-3 space-y-2">
-                {tasksByPhase[ph.key].map((t, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-white border border-ink-100 text-xs"
-                  >
-                    <span className="text-ink-700">{t}</span>
-                    <button className="text-rose-500 text-[10px] hover:underline">削除</button>
-                  </li>
-                ))}
-                <li>
-                  <button className="w-full px-3 py-2 rounded-lg text-xs text-ink-500 hover:bg-white border border-dashed border-ink-100">
-                    + タスク追加
-                  </button>
-                </li>
-              </ul>
-            </div>
-          ))}
+      <div className="liquid-surface p-5 bg-ink-50/40">
+        <div className="text-xs text-ink-700 leading-relaxed">
+          「内諾から契約開始までに完了すべきチェックリスト」のテンプレート。契約発生時にこのテンプレから自動展開されます
         </div>
       </div>
 
-      <div className="liquid-surface p-5 flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold">既存契約への反映</div>
-          <div className="mt-0.5 text-xs text-ink-500">
-            この変更を現在進行中のすべての契約に反映します（既存タスクの差分のみ追加）
+      <div className="space-y-4">
+        {categories.map((cat, catIdx) => (
+          <div key={cat.key} className="liquid-surface p-5">
+            {/* カテゴリヘッダ */}
+            <div className="flex items-center gap-2">
+              <span
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: `${accent}14`, color: accent }}
+              >
+                {catIdx + 1}
+              </span>
+              <input
+                className={`${inputCls} !py-1.5 max-w-xs font-semibold`}
+                value={cat.label}
+                onChange={(e) => updateCategory(catIdx, { label: e.target.value })}
+              />
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  onClick={() => moveCategory(catIdx, -1)}
+                  className="w-7 h-7 rounded-full border border-ink-100 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-30"
+                  disabled={catIdx === 0}
+                  aria-label="上へ"
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => moveCategory(catIdx, 1)}
+                  className="w-7 h-7 rounded-full border border-ink-100 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-30"
+                  disabled={catIdx === categories.length - 1}
+                  aria-label="下へ"
+                >
+                  ▼
+                </button>
+                <button
+                  onClick={() => removeCategory(catIdx)}
+                  className="w-7 h-7 rounded-full border border-ink-100 text-xs text-rose-500 hover:bg-rose-50"
+                  aria-label="カテゴリ削除"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* 項目テーブル */}
+            <div className="mt-4 overflow-hidden rounded-xl border border-ink-100">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] text-ink-500 bg-ink-50 border-b border-ink-100">
+                    <th className="px-3 py-2.5 font-medium">項目名</th>
+                    <th className="px-3 py-2.5 font-medium w-32">期日オフセット(日)</th>
+                    <th className="px-3 py-2.5 font-medium w-20">必須</th>
+                    <th className="px-3 py-2.5 font-medium w-32">デフォルト担当</th>
+                    <th className="px-3 py-2.5 font-medium w-14"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cat.items.map((it, itemIdx) => (
+                    <tr key={itemIdx} className="border-b border-ink-50 last:border-0">
+                      <td className="px-3 py-2">
+                        <textarea
+                          className={`${inputCls} !py-1.5 h-9 resize-none`}
+                          value={it.name}
+                          onChange={(e) => updateItem(catIdx, itemIdx, { name: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          className={`${inputCls} !py-1.5`}
+                          value={it.dueOffsetDays}
+                          onChange={(e) =>
+                            updateItem(catIdx, itemIdx, { dueOffsetDays: Number(e.target.value) })
+                          }
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={it.required}
+                          onChange={(e) =>
+                            updateItem(catIdx, itemIdx, { required: e.target.checked })
+                          }
+                          className="w-4 h-4"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          className={`${inputCls} !py-1.5`}
+                          value={it.defaultAssigneeRole ?? "cs"}
+                          onChange={(e) =>
+                            updateItem(catIdx, itemIdx, {
+                              defaultAssigneeRole: e.target.value as OnboardingTemplateItem["defaultAssigneeRole"]
+                            })
+                          }
+                        >
+                          {assigneeRoleOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => removeItem(catIdx, itemIdx)}
+                          className="text-rose-500 text-sm hover:underline"
+                          aria-label="削除"
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {cat.items.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-4 text-center text-xs text-ink-500">
+                        項目がありません
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3">
+              <button
+                onClick={() => addItem(catIdx)}
+                className="w-full px-3 py-2 rounded-lg text-xs text-ink-500 hover:bg-ink-50 border border-dashed border-ink-100"
+              >
+                + 項目を追加
+              </button>
+            </div>
           </div>
-        </div>
+        ))}
+
+        <button
+          onClick={addCategory}
+          className="w-full px-4 py-3 rounded-xl text-sm text-ink-700 hover:bg-ink-50 border border-dashed border-ink-200 bg-white"
+        >
+          + カテゴリを追加
+        </button>
+      </div>
+
+      {/* フッタ */}
+      <div className="liquid-surface p-4 flex items-center justify-end gap-2">
+        <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+          キャンセル
+        </button>
+        <button
+          className="px-4 py-2 rounded-full text-white text-sm shadow-liquid"
+          style={{ background: accent }}
+        >
+          保存
+        </button>
         <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
           既存契約に反映
         </button>

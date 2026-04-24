@@ -6,10 +6,19 @@ import { ProductBadge } from "@/components/ProductBadge";
 import type {
   Company,
   Contact,
-  MeetingLog,
-  OnboardingTask
+  MeetingLog
 } from "@/lib/mock/entities";
 import { ProductCode, productByCode, yen } from "@/lib/mock/data";
+import type {
+  ActiveContract,
+  ContractOnboardingItem
+} from "@/lib/mock/onboarding";
+import {
+  productOnboardingTemplates,
+  productJourney,
+  categoryProgress,
+  contractProgress
+} from "@/lib/mock/onboarding";
 
 type Tab = "overview" | "contracts" | "logs" | "onboarding" | "mail";
 
@@ -33,12 +42,14 @@ export function CompanyDetail({
   company,
   contacts,
   logs,
-  tasks
+  contracts,
+  items
 }: {
   company: Company;
   contacts: Contact[];
   logs: MeetingLog[];
-  tasks: OnboardingTask[];
+  contracts: ActiveContract[];
+  items: ContractOnboardingItem[];
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -128,11 +139,13 @@ export function CompanyDetail({
 
       {/* タブコンテンツ */}
       {tab === "overview" && (
-        <OverviewTab company={company} contacts={contacts} />
+        <OverviewTab company={company} contacts={contacts} contracts={contracts} />
       )}
       {tab === "contracts" && <ContractsPlaceholder />}
       {tab === "logs" && <LogsTab logs={logs} />}
-      {tab === "onboarding" && <OnboardingTab tasks={tasks} />}
+      {tab === "onboarding" && (
+        <OnboardingTab contracts={contracts} items={items} />
+      )}
       {tab === "mail" && <MailPlaceholder />}
     </main>
   );
@@ -141,13 +154,17 @@ export function CompanyDetail({
 /* ──────────────── 概要タブ ──────────────── */
 function OverviewTab({
   company,
-  contacts
+  contacts,
+  contracts
 }: {
   company: Company;
   contacts: Contact[];
+  contracts: ActiveContract[];
 }) {
   return (
-    <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <section className="space-y-4">
+      <CustomerJourneySection contracts={contracts} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 左: 企業情報 */}
       <div className="liquid-surface p-5 space-y-4">
         <div className="text-sm font-semibold text-ink-700">企業情報</div>
@@ -216,7 +233,143 @@ function OverviewTab({
           ))}
         </div>
       </div>
+      </div>
     </section>
+  );
+}
+
+function CustomerJourneySection({ contracts }: { contracts: ActiveContract[] }) {
+  const inProgress = contracts.filter((c) => c.onboardingStatus === "in_progress").length;
+  const running = contracts.filter((c) => c.onboardingStatus === "complete").length;
+
+  if (contracts.length === 0) return null;
+
+  return (
+    <div className="liquid-surface p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-sm font-semibold text-ink-700">カスタマージャーニー</div>
+          <div className="mt-0.5 text-[11px] text-ink-500">
+            契約ごとの運用フェーズ進捗
+          </div>
+        </div>
+        <div className="text-xs text-ink-500">
+          進行中契約 <span className="text-ink-900 font-semibold">{running}</span> 件 / オンボ中{" "}
+          <span className="text-ink-900 font-semibold">{inProgress}</span> 件
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {contracts.map((contract) => (
+          <JourneyContractCard key={contract.id} contract={contract} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function JourneyContractCard({ contract }: { contract: ActiveContract }) {
+  const p = productByCode[contract.product];
+  const phases = productJourney[contract.product];
+  const isOnboarding = contract.onboardingStatus === "in_progress";
+  const currentIdx = isOnboarding
+    ? -1 // オンボ中は phases の前段
+    : phases.findIndex((ph) => ph.key === contract.currentPhase);
+
+  // 表示ステップ: オンボ中の場合は先頭に「オンボ」ステップを付ける
+  const steps: { key: string; label: string; state: "done" | "current" | "todo" }[] = [];
+  if (isOnboarding) {
+    steps.push({ key: "onboarding", label: "オンボ中", state: "current" });
+    phases.forEach((ph) => steps.push({ key: ph.key, label: ph.label, state: "todo" }));
+  } else {
+    phases.forEach((ph, i) => {
+      steps.push({
+        key: ph.key,
+        label: ph.label,
+        state: i < currentIdx ? "done" : i === currentIdx ? "current" : "todo"
+      });
+    });
+  }
+
+  const currentLabel = isOnboarding
+    ? "オンボ中"
+    : phases.find((ph) => ph.key === contract.currentPhase)?.label ?? "—";
+
+  return (
+    <div className="rounded-xl border border-ink-100 p-4 bg-white">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <ProductBadge code={contract.product} size="sm" />
+          <span className="text-xs text-ink-700 truncate">
+            {contract.planName ?? "標準プラン"}
+          </span>
+        </div>
+        <span
+          className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
+          style={{ background: `${p.accent}14`, color: p.accent }}
+        >
+          {currentLabel}
+        </span>
+      </div>
+
+      {/* ステップUI */}
+      <div className="mt-4 flex items-center">
+        {steps.map((step, i) => (
+          <div key={step.key} className="flex-1 flex items-center last:flex-none">
+            <div className="flex flex-col items-center gap-1">
+              {step.state === "done" && (
+                <span
+                  className="w-3 h-3 rounded-full"
+                  style={{ background: p.accent }}
+                />
+              )}
+              {step.state === "current" && (
+                <span
+                  className="w-4 h-4 rounded-full ring-4 ring-offset-0"
+                  style={{
+                    background: p.accent,
+                    boxShadow: `0 0 0 4px ${p.accent}22`
+                  }}
+                />
+              )}
+              {step.state === "todo" && (
+                <span className="w-3 h-3 rounded-full bg-white border border-ink-200" />
+              )}
+              <span
+                className={[
+                  "text-[10px] whitespace-nowrap",
+                  step.state === "current"
+                    ? "font-semibold text-ink-900"
+                    : step.state === "done"
+                    ? "text-ink-700"
+                    : "text-ink-500"
+                ].join(" ")}
+              >
+                {step.label}
+              </span>
+            </div>
+            {i < steps.length - 1 && (
+              <div
+                className="h-px flex-1 mx-1 mb-4"
+                style={{
+                  background:
+                    step.state === "done" ? p.accent : "#E5E7EB"
+                }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {isOnboarding && (
+        <Link
+          href={`/onboarding/${contract.id}`}
+          className="mt-3 inline-block text-[11px] text-ink-700 hover:underline"
+        >
+          → オンボチェックリストを見る
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -394,75 +547,146 @@ function LogSection({
 }
 
 /* ──────────────── オンボタブ ──────────────── */
-function OnboardingTab({ tasks }: { tasks: OnboardingTask[] }) {
-  const phases: {
-    key: OnboardingTask["phase"];
-    label: string;
-  }[] = [
-    { key: "prep", label: "準備 (Prep)" },
-    { key: "kickoff", label: "キックオフ (Kickoff)" },
-    { key: "run", label: "実施 (Run)" },
-    { key: "close", label: "クロージング (Close)" }
-  ];
-
-  const statusStyle: Record<
-    OnboardingTask["status"],
-    { label: string; bg: string; color: string }
-  > = {
-    todo: { label: "未着手", bg: "#EEF0F3", color: "#6B7079" },
-    doing: { label: "進行中", bg: "#DBEAFE", color: "#1D4ED8" },
-    done: { label: "完了", bg: "#D1FAE5", color: "#047857" },
-    overdue: { label: "期日超過", bg: "#FEE2E2", color: "#B91C1C" }
-  };
+function OnboardingTab({
+  contracts,
+  items
+}: {
+  contracts: ActiveContract[];
+  items: ContractOnboardingItem[];
+}) {
+  if (contracts.length === 0) {
+    return (
+      <section className="liquid-surface p-10 text-center text-sm text-ink-500">
+        対象の契約がありません
+      </section>
+    );
+  }
 
   return (
-    <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-      {phases.map((ph) => {
-        const list = tasks.filter((t) => t.phase === ph.key);
+    <section className="space-y-4">
+      {contracts.map((contract) => {
+        const p = productByCode[contract.product];
+        const prog = contractProgress(contract.id);
+        const cats = productOnboardingTemplates[contract.product]
+          .slice()
+          .sort((a, b) => a.order - b.order);
+        const contractItems = items.filter((i) => i.contractId === contract.id);
         return (
-          <div key={ph.key} className="liquid-surface p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-ink-700">
-                {ph.label}
-              </div>
-              <span className="text-[11px] text-ink-500">{list.length} 件</span>
-            </div>
-            <div className="space-y-2">
-              {list.map((t) => {
-                const s = statusStyle[t.status];
-                return (
-                  <div
-                    key={t.id}
-                    className="rounded-xl border border-ink-100 p-3 bg-white"
+          <div key={contract.id} className="liquid-surface p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ProductBadge code={contract.product} />
+                  {contract.planName && (
+                    <span className="text-xs text-ink-500">
+                      {contract.planName}
+                    </span>
+                  )}
+                  <span
+                    className={[
+                      "text-[11px] px-2 py-0.5 rounded-full border",
+                      contract.onboardingStatus === "complete"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                        : "bg-amber-50 text-amber-700 border-amber-100"
+                    ].join(" ")}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm text-ink-900 font-medium">
-                        {t.name}
+                    {contract.onboardingStatus === "complete"
+                      ? "オンボ完了"
+                      : "オンボ進行中"}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-500">
+                  <span>
+                    開始日{" "}
+                    <span className="text-ink-700 font-medium">
+                      {contract.startDate.replace(/-/g, "/")}
+                    </span>
+                  </span>
+                  <span>
+                    担当{" "}
+                    <span className="text-ink-700 font-medium">
+                      {contract.ownerName}
+                    </span>
+                  </span>
+                  <span>
+                    参加者{" "}
+                    <span className="text-ink-700 font-medium">
+                      {contract.participants}名
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[11px] text-ink-500">全体</div>
+                <div className="text-base font-bold text-ink-900">
+                  {prog.done}/{prog.total}
+                </div>
+                {prog.overdue > 0 && (
+                  <div className="text-[11px] text-rose-500">
+                    期日超過 {prog.overdue}件
+                  </div>
+                )}
+                <Link
+                  href={`/onboarding/${contract.id}`}
+                  className="mt-2 inline-block text-xs text-ink-500 hover:text-ink-700 underline"
+                >
+                  詳細 →
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {cats.map((cat) => {
+                const cp = categoryProgress(contract.id, cat.key);
+                const od = contractItems.filter(
+                  (i) =>
+                    i.categoryKey === cat.key && i.status === "overdue"
+                ).length;
+                return (
+                  <div key={cat.key}>
+                    <div className="flex items-baseline justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-ink-700 font-medium">
+                          {cat.label}
+                        </span>
+                        {od > 0 && (
+                          <span className="text-[10px] text-rose-500">
+                            🔴{od}
+                          </span>
+                        )}
                       </div>
-                      <ProductBadge code={t.product} size="sm" />
-                    </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                        style={{ background: s.bg, color: s.color }}
-                      >
-                        {s.label}
-                      </span>
                       <span className="text-[11px] text-ink-500">
-                        {t.dueDate}
+                        {cp.done}/{cp.total}
                       </span>
                     </div>
-                    <div className="mt-1 text-[11px] text-ink-500">
-                      担当: {t.assignee}
+                    <div className="mt-1 h-1 rounded-full bg-ink-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${
+                            cp.total > 0 ? (cp.done / cp.total) * 100 : 0
+                          }%`,
+                          background: p.accent
+                        }}
+                      />
                     </div>
                   </div>
                 );
               })}
-              {list.length === 0 && (
-                <div className="text-xs text-ink-500 py-4 text-center">
-                  タスクなし
-                </div>
-              )}
+            </div>
+
+            <div className="mt-4">
+              <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${
+                      prog.total > 0 ? (prog.done / prog.total) * 100 : 0
+                    }%`,
+                    background: p.accent
+                  }}
+                />
+              </div>
             </div>
           </div>
         );

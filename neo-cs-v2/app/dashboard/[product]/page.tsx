@@ -18,6 +18,7 @@ import {
   ProductCode
 } from "@/lib/mock/data";
 import { companies } from "@/lib/mock/entities";
+import { activeContracts, productJourney } from "@/lib/mock/onboarding";
 
 const VALID_CODES: ProductCode[] = ["academia", "hyogikai", "aiken", "commu"];
 
@@ -193,6 +194,9 @@ function ContinuousView({
         </div>
       </section>
 
+      {/* フェーズ別企業数 */}
+      <JourneyPhaseSection code={code} accent={accent} />
+
       {/* 契約中企業 */}
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -325,6 +329,9 @@ function OneShotView({
         </div>
       </section>
 
+      {/* フェーズ別企業数 */}
+      <JourneyPhaseSection code="aiken" accent={accent} />
+
       {/* 受講企業 */}
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -364,5 +371,64 @@ function OneShotView({
         </div>
       </section>
     </>
+  );
+}
+
+function JourneyPhaseSection({ code, accent }: { code: ProductCode; accent: string }) {
+  const phases = productJourney[code];
+  const contractsForProduct = activeContracts.filter((c) => c.product === code);
+
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-sm font-semibold text-ink-700">フェーズ別企業数</h2>
+        <span className="text-[11px] text-ink-500">
+          運用中契約のカスタマージャーニー分布
+        </span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        {phases.map((ph) => {
+          const inPhase = contractsForProduct.filter(
+            (c) => c.onboardingStatus === "complete" && c.currentPhase === ph.key
+          );
+          const sampleNames = inPhase
+            .slice(0, 3)
+            .map((c) => companies.find((co) => co.id === c.companyId)?.name ?? "")
+            .filter(Boolean);
+          return (
+            <div
+              key={ph.key}
+              className="liquid-surface p-4 relative overflow-hidden"
+            >
+              <div
+                className="absolute -top-4 -right-4 w-16 h-16 rounded-full opacity-10"
+                style={{ background: accent }}
+              />
+              <div className="text-[11px] font-medium text-ink-500">{ph.label}</div>
+              <div
+                className="mt-1 text-3xl font-bold"
+                style={{ color: accent }}
+              >
+                {inPhase.length}
+                <span className="ml-1 text-xs text-ink-500 font-normal">社</span>
+              </div>
+              <div className="mt-3 space-y-1 min-h-[3.5rem]">
+                {sampleNames.length === 0 && (
+                  <div className="text-[11px] text-ink-500">—</div>
+                )}
+                {sampleNames.map((name, i) => (
+                  <div key={i} className="text-[11px] text-ink-700 truncate">
+                    {name}
+                  </div>
+                ))}
+                {inPhase.length > 3 && (
+                  <div className="text-[10px] text-ink-500">他 {inPhase.length - 3} 社</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
