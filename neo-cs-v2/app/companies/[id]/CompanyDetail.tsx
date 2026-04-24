@@ -10,7 +10,7 @@ import type {
   MeetingLog
 } from "@/lib/mock/entities";
 // コース表示に対応
-import { ProductCode, productByCode, yen, hasMultipleCourses, courseShortName, courseName } from "@/lib/mock/data";
+import { ProductCode, productByCode, yen, hasMultipleCourses, courseShortName, courseName, cycleLabel } from "@/lib/mock/data";
 import type {
   ActiveContract,
   ContractOnboardingItem
@@ -21,13 +21,25 @@ import {
   categoryProgress,
   contractProgress
 } from "@/lib/mock/onboarding";
+import type {
+  Stakeholder,
+  SuccessPlan,
+  AccountJourney
+} from "@/lib/mock/cycles";
+import {
+  stakeholderTypeLabel,
+  journeyStageLabel,
+  journeyStageOrder,
+  generateRenewalMilestones,
+  renewalMilestoneSpec
+} from "@/lib/mock/cycles";
 
 type Tab = "overview" | "weekly" | "contracts" | "logs" | "onboarding" | "mail";
 
 const tabs: { key: Tab; label: string }[] = [
   { key: "overview", label: "概要" },
   { key: "weekly", label: "週次レビュー" },
-  { key: "contracts", label: "契約・参加者" },
+  { key: "contracts", label: "契約・更新" },
   { key: "logs", label: "面談ログ" },
   { key: "onboarding", label: "オンボ" },
   { key: "mail", label: "メール" }
@@ -46,13 +58,21 @@ export function CompanyDetail({
   contacts,
   logs,
   contracts,
-  items
+  allCycles,
+  items,
+  stakeholders,
+  successPlans,
+  journeys
 }: {
   company: Company;
   contacts: Contact[];
   logs: MeetingLog[];
   contracts: ActiveContract[];
+  allCycles: ActiveContract[];
   items: ContractOnboardingItem[];
+  stakeholders: Stakeholder[];
+  successPlans: SuccessPlan[];
+  journeys: AccountJourney[];
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -142,10 +162,10 @@ export function CompanyDetail({
 
       {/* タブコンテンツ */}
       {tab === "overview" && (
-        <OverviewTab company={company} contacts={contacts} contracts={contracts} />
+        <OverviewTab company={company} contacts={contacts} contracts={contracts} journeys={journeys} stakeholders={stakeholders} />
       )}
       {tab === "weekly" && <WeeklyReviewPanel companyId={company.id} />}
-      {tab === "contracts" && <ContractsPlaceholder />}
+      {tab === "contracts" && <ContractsTab allCycles={allCycles} successPlans={successPlans} />}
       {tab === "logs" && <LogsTab logs={logs} />}
       {tab === "onboarding" && (
         <OnboardingTab contracts={contracts} items={items} />
@@ -159,14 +179,20 @@ export function CompanyDetail({
 function OverviewTab({
   company,
   contacts,
-  contracts
+  contracts,
+  journeys,
+  stakeholders
 }: {
   company: Company;
   contacts: Contact[];
   contracts: ActiveContract[];
+  journeys: AccountJourney[];
+  stakeholders: Stakeholder[];
 }) {
   return (
     <section className="space-y-4">
+      <AccountJourneySection journeys={journeys} />
+      <StakeholderSection stakeholders={stakeholders} />
       <CustomerJourneySection contracts={contracts} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 左: 企業情報 */}
@@ -313,6 +339,9 @@ function JourneyContractCard({ contract }: { contract: ActiveContract }) {
               {courseName(contract.product, contract.courseKey)}
             </span>
           )}
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-50 text-ink-600 border border-ink-100">
+            {cycleLabel(contract.product, contract.cycleNumber)}
+          </span>
         </div>
         <span
           className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
@@ -730,17 +759,320 @@ function OnboardingTab({
   );
 }
 
-/* ──────────────── プレースホルダ ──────────────── */
-function ContractsPlaceholder() {
+/* ──────────────── アカウントジャーニー（サイクル非依存） ──────────────── */
+function AccountJourneySection({ journeys }: { journeys: AccountJourney[] }) {
+  if (journeys.length === 0) return null;
   return (
-    <section className="liquid-surface p-12 text-center">
-      <div className="text-sm text-ink-500">
-        契約・参加者タブは準備中です
+    <div className="liquid-surface p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-sm font-semibold text-ink-700">アカウントジャーニー</div>
+          <div className="mt-0.5 text-[11px] text-ink-500">
+            サイクルを跨いだ成熟度（研修ごと）
+          </div>
+        </div>
       </div>
-      <div className="text-xs text-ink-500 mt-2">
-        契約詳細、参加者一覧、出席・進捗などを表示予定
+      <div className="space-y-3">
+        {journeys.map((j) => {
+          const p = productByCode[j.product];
+          return (
+            <div key={`${j.companyId}-${j.product}`} className="rounded-xl border border-ink-100 p-4 bg-white">
+              <div className="flex items-center gap-2 mb-3">
+                <ProductBadge code={j.product} size="sm" />
+                <span className="text-[11px] text-ink-500">
+                  {journeyStageLabel[j.currentStage]}に{" "}
+                  {Math.max(0, Math.round((new Date("2026-04-24").getTime() - new Date(j.stageEnteredAt).getTime()) / (1000 * 60 * 60 * 24 * 30)))}ヶ月
+                </span>
+              </div>
+              <div className="flex items-center">
+                {journeyStageOrder.map((stage, i) => {
+                  const currentIdx = journeyStageOrder.indexOf(j.currentStage);
+                  const state = i < currentIdx ? "done" : i === currentIdx ? "current" : "todo";
+                  return (
+                    <div key={stage} className="flex-1 flex items-center last:flex-none">
+                      <div className="flex flex-col items-center gap-1">
+                        {state === "done" && <span className="w-3 h-3 rounded-full" style={{ background: p.accent }} />}
+                        {state === "current" && (
+                          <span className="w-4 h-4 rounded-full" style={{ background: p.accent, boxShadow: `0 0 0 4px ${p.accent}22` }} />
+                        )}
+                        {state === "todo" && <span className="w-3 h-3 rounded-full bg-white border border-ink-200" />}
+                        <span className={["text-[10px] whitespace-nowrap", state === "current" ? "font-semibold text-ink-900" : state === "done" ? "text-ink-700" : "text-ink-500"].join(" ")}>
+                          {journeyStageLabel[stage]}
+                        </span>
+                      </div>
+                      {i < journeyStageOrder.length - 1 && (
+                        <div className="h-px flex-1 mx-1 mb-4" style={{ background: state === "done" ? p.accent : "#E5E7EB" }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
+    </div>
+  );
+}
+
+/* ──────────────── ステークホルダー ──────────────── */
+function StakeholderSection({ stakeholders }: { stakeholders: Stakeholder[] }) {
+  if (stakeholders.length === 0) return null;
+  const typeColor: Record<Stakeholder["type"], string> = {
+    decision_maker: "#8B5CF6",
+    champion: "#10B981",
+    user: "#3D9EFF",
+    at_risk: "#EF4444"
+  };
+  return (
+    <div className="liquid-surface p-5">
+      <div className="text-sm font-semibold text-ink-700 mb-3">関係者マップ</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {stakeholders.map((s) => (
+          <div key={s.id} className="rounded-xl border border-ink-100 p-3 bg-white">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-ink-900 truncate">{s.name}</div>
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                style={{ background: `${typeColor[s.type]}14`, color: typeColor[s.type], border: `1px solid ${typeColor[s.type]}33` }}
+              >
+                {stakeholderTypeLabel[s.type]}
+              </span>
+            </div>
+            <div className="text-[11px] text-ink-500 mt-0.5">{s.role}</div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {s.products.map((p) => <ProductBadge key={p} code={p} size="sm" />)}
+            </div>
+            {s.note && (
+              <div className="mt-2 text-[11px] text-ink-600 leading-relaxed">{s.note}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────── 契約・更新タブ ──────────────── */
+function ContractsTab({
+  allCycles,
+  successPlans
+}: {
+  allCycles: ActiveContract[];
+  successPlans: SuccessPlan[];
+}) {
+  // 研修ごとにグルーピング
+  const byProduct = new Map<ProductCode, ActiveContract[]>();
+  allCycles.forEach((c) => {
+    const arr = byProduct.get(c.product) ?? [];
+    arr.push(c);
+    byProduct.set(c.product, arr);
+  });
+
+  if (allCycles.length === 0) {
+    return (
+      <section className="liquid-surface p-10 text-center text-sm text-ink-500">
+        契約がありません
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-4">
+      {Array.from(byProduct.entries()).map(([code, cycles]) => {
+        const sorted = cycles.slice().sort((a, b) => a.cycleNumber - b.cycleNumber);
+        const current = sorted.find((c) => c.cycleStatus === "active") ?? sorted[sorted.length - 1];
+        const currentPlan = successPlans.find((sp) => sp.contractId === current.id);
+        return (
+          <ProductCyclesBlock key={code} code={code} cycles={sorted} current={current} plan={currentPlan} />
+        );
+      })}
     </section>
+  );
+}
+
+function ProductCyclesBlock({
+  code,
+  cycles,
+  current,
+  plan
+}: {
+  code: ProductCode;
+  cycles: ActiveContract[];
+  current: ActiveContract;
+  plan?: SuccessPlan;
+}) {
+  const p = productByCode[code];
+  return (
+    <div className="liquid-surface p-5 space-y-5">
+      {/* ヘッダ：研修名 + サイクルタイムライン */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ProductBadge code={code} />
+          <span className="text-xs text-ink-500">
+            サイクル単位：<span className="text-ink-700">{p.cycleUnit}</span>
+          </span>
+        </div>
+        <div className="text-[11px] text-ink-500">
+          {cycles.length} サイクル目
+        </div>
+      </div>
+
+      {/* サイクルタイムライン */}
+      <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
+        {cycles.map((c) => {
+          const isCurrent = c.id === current.id;
+          return (
+            <div
+              key={c.id}
+              className={[
+                "flex-1 min-w-[140px] rounded-xl border p-3",
+                isCurrent ? "bg-white border-2" : "bg-ink-50 border-ink-100 opacity-80"
+              ].join(" ")}
+              style={isCurrent ? { borderColor: p.accent } : undefined}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-ink-900">
+                  {cycleLabel(code, c.cycleNumber)}
+                </span>
+                {isCurrent ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: `${p.accent}14`, color: p.accent }}>
+                    現行
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-600">
+                    {c.cycleStatus === "renewed" ? "更新済" : c.cycleStatus === "churned" ? "解約" : "完了"}
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 text-[11px] text-ink-500">
+                {c.startDate.replace(/-/g, "/")} 〜 {c.endDate?.replace(/-/g, "/") ?? "—"}
+              </div>
+              {c.mrr && (
+                <div className="mt-1 text-[11px] text-ink-700">{yen(c.mrr)}/月</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 現行サイクル詳細 */}
+      <CurrentCyclePanel contract={current} plan={plan} />
+    </div>
+  );
+}
+
+function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?: SuccessPlan }) {
+  const p = productByCode[contract.product];
+  const endDate = contract.endDate;
+  const daysToEnd = endDate
+    ? Math.ceil((new Date(endDate).getTime() - new Date("2026-04-24").getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const milestones = endDate ? generateRenewalMilestones(contract.id, endDate) : [];
+  const renewalColor: Record<NonNullable<ActiveContract["renewalStatus"]>, string> = {
+    green: "#10B981",
+    yellow: "#F59E0B",
+    red: "#EF4444"
+  };
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-4 border-t border-ink-100">
+      {/* 左: 現行サマリー */}
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-ink-700">現行サイクル</div>
+        <div className="rounded-xl bg-ink-50 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-ink-500">更新判定</span>
+            {contract.renewalStatus ? (
+              <span
+                className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                style={{
+                  background: `${renewalColor[contract.renewalStatus]}14`,
+                  color: renewalColor[contract.renewalStatus],
+                  border: `1px solid ${renewalColor[contract.renewalStatus]}33`
+                }}
+              >
+                {contract.renewalStatus.toUpperCase()}
+              </span>
+            ) : (
+              <span className="text-[11px] text-ink-400">—</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-ink-500">期末まで</span>
+            <span className="text-sm font-semibold text-ink-900">
+              {daysToEnd !== null ? (daysToEnd >= 0 ? `${daysToEnd}日` : `${-daysToEnd}日超過`) : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-ink-500">担当</span>
+            <span className="text-xs text-ink-700">{contract.ownerName}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-ink-500">参加者</span>
+            <span className="text-xs text-ink-700">{contract.participants}名</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 中央: 更新マイルストーン */}
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-ink-700">更新マイルストーン</div>
+        {milestones.length === 0 ? (
+          <div className="text-[11px] text-ink-500">期末日なし（単発）</div>
+        ) : (
+          <div className="space-y-1.5">
+            {milestones.map((m) => {
+              const spec = renewalMilestoneSpec.find((s) => s.type === m.type)!;
+              return (
+                <div key={m.id} className="flex items-center gap-2 text-xs">
+                  <span
+                    className={[
+                      "w-2 h-2 rounded-full shrink-0",
+                      m.status === "done" ? "" : "ring-1 ring-ink-300"
+                    ].join(" ")}
+                    style={{ background: m.status === "done" ? p.accent : "white" }}
+                  />
+                  <span className="text-[11px] text-ink-500 w-10 shrink-0">{m.type}</span>
+                  <span className={m.status === "done" ? "text-ink-400 line-through" : "text-ink-900"}>
+                    {spec.label}
+                  </span>
+                  <span className="ml-auto text-[11px] text-ink-500">{m.dueDate.slice(5).replace("-", "/")}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 右: Success Plan */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold text-ink-700">Success Plan</div>
+          {plan && (
+            <span className="text-[11px] text-ink-500">
+              達成 <span className="text-ink-900 font-semibold">{Math.round(plan.overallAchievement * 100)}%</span>
+            </span>
+          )}
+        </div>
+        {!plan ? (
+          <div className="text-[11px] text-ink-500">Success Plan未設定</div>
+        ) : (
+          <div className="space-y-2.5">
+            {plan.goals.map((g) => (
+              <div key={g.key}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] text-ink-700 truncate">{g.title}</span>
+                  <span className="text-[11px] text-ink-500 shrink-0">{Math.round(g.achievement * 100)}%</span>
+                </div>
+                <div className="mt-1 h-1 rounded-full bg-ink-100 overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${g.achievement * 100}%`, background: p.accent }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

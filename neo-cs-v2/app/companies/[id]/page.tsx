@@ -8,8 +8,10 @@ import {
 } from "@/lib/mock/entities";
 import {
   activeContracts,
+  allContracts,
   contractOnboardingItems
 } from "@/lib/mock/onboarding";
+import { stakeholders, successPlans, accountJourneys } from "@/lib/mock/cycles";
 
 export default async function CompanyDetailPage({
   params
@@ -25,9 +27,15 @@ export default async function CompanyDetailPage({
     .filter((m) => m.companyId === id)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
   const companyContracts = activeContracts.filter((c) => c.companyId === id);
+  const companyAllCycles = allContracts.filter((c) => c.companyId === id);
   const companyItems = contractOnboardingItems.filter((i) =>
     companyContracts.some((c) => c.id === i.contractId)
   );
+  const companyStakeholders = stakeholders.filter((s) => s.companyId === id);
+  const companySuccessPlans = successPlans.filter((sp) =>
+    companyAllCycles.some((c) => c.id === sp.contractId)
+  );
+  const companyJourneys = accountJourneys.filter((j) => j.companyId === id);
 
   return (
     <>
@@ -37,7 +45,11 @@ export default async function CompanyDetailPage({
         contacts={companyContacts}
         logs={logs}
         contracts={companyContracts}
+        allCycles={companyAllCycles}
         items={companyItems}
+        stakeholders={companyStakeholders}
+        successPlans={companySuccessPlans}
+        journeys={companyJourneys}
       />
     </>
   );

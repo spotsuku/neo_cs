@@ -7,6 +7,7 @@ const nav = [
   { href: "/", label: "ダッシュボード" },
   { href: "/companies", label: "企業" },
   { href: "/onboarding", label: "オンボ" },
+  { href: "/weekly", label: "週次" },
   { href: "/pipeline", label: "パイプライン" },
   { href: "/settings", label: "設定" }
 ];

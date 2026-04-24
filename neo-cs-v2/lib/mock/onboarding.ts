@@ -260,22 +260,50 @@ export type ActiveContract = {
 
 import { bulkActiveContracts } from "./bulk-data";
 
-// ハンドピックの主要契約（特定企業のデモ用に明示データを残す）
-const handPickedContracts: ActiveContract[] = [
-  { id: "k-fukugin-commu", companyId: "c-fukugin", product: "commu", courseKey: "standard", startDate: "2026-04-28", endDate: "2026-07-28", mrr: 120_000, ownerName: "古野", participants: 8, cycleNumber: 1, onboardingStatus: "in_progress" },
-  { id: "k-levias-aiken", companyId: "c-levias", product: "aiken", courseKey: "basic", startDate: "2026-05-15", revenue: 380_000, ownerName: "松田", participants: 12, cycleNumber: 1, onboardingStatus: "in_progress" },
-  { id: "k-toto-academia", companyId: "c-toto", product: "academia", courseKey: "leader", startDate: "2026-05-20", endDate: "2027-05-19", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 1, onboardingStatus: "in_progress" },
-  { id: "k-nccb-hyogikai", companyId: "c-nccb", product: "hyogikai", courseKey: "standard", startDate: "2026-05-10", endDate: "2027-05-09", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 1, onboardingStatus: "in_progress" },
-  { id: "k-toto-aiken", companyId: "c-toto", product: "aiken", courseKey: "advance", startDate: "2026-06-03", revenue: 520_000, ownerName: "古野", participants: 5, cycleNumber: 1, onboardingStatus: "in_progress" },
-
-  { id: "k-aeon-academia", companyId: "c-aeon", product: "academia", courseKey: "pjt", startDate: "2025-09-01", endDate: "2026-08-31", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 1, onboardingStatus: "complete", currentPhase: "q2", phaseEnteredAt: "2026-02-01" },
-  { id: "k-aeon-hyogikai", companyId: "c-aeon", product: "hyogikai", courseKey: "standard", startDate: "2025-08-01", endDate: "2026-07-31", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 1, onboardingStatus: "complete", currentPhase: "running", phaseEnteredAt: "2025-10-01" },
-  { id: "k-jrq-academia", companyId: "c-jrq", product: "academia", courseKey: "leader", startDate: "2025-08-01", endDate: "2026-07-31", mrr: 300_000, ownerName: "三木", participants: 3, cycleNumber: 1, onboardingStatus: "complete", currentPhase: "mid", phaseEnteredAt: "2026-03-01" },
-  { id: "k-saibugas-academia", companyId: "c-saibugas", product: "academia", courseKey: "pjt", startDate: "2025-10-01", endDate: "2026-09-30", mrr: 300_000, ownerName: "松田", participants: 3, cycleNumber: 1, onboardingStatus: "complete", currentPhase: "q1", phaseEnteredAt: "2025-11-01" },
-  { id: "k-kyudenko-commu", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2026-02-15", endDate: "2026-05-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 1, onboardingStatus: "complete", currentPhase: "renewal", phaseEnteredAt: "2026-04-15" }
+// 過去サイクル（凍結・更新済み）
+const pastCycles: ActiveContract[] = [
+  { id: "k-aeon-academia-1", companyId: "c-aeon", product: "academia", courseKey: "pjt", startDate: "2024-09-01", endDate: "2025-08-31", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
+  { id: "k-aeon-hyogikai-1", companyId: "c-aeon", product: "hyogikai", courseKey: "standard", startDate: "2024-08-01", endDate: "2025-07-31", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
+  { id: "k-jrq-academia-1", companyId: "c-jrq", product: "academia", courseKey: "leader", startDate: "2024-08-01", endDate: "2025-07-31", mrr: 300_000, ownerName: "三木", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
+  { id: "k-kyudenko-commu-1", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2025-08-15", endDate: "2025-11-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
+  { id: "k-kyudenko-commu-2", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2025-11-15", endDate: "2026-02-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 2, cycleStatus: "renewed", previousContractId: "k-kyudenko-commu-1", onboardingStatus: "complete" }
 ];
 
-export const activeContracts: ActiveContract[] = [...handPickedContracts, ...bulkActiveContracts];
+// ハンドピックの主要契約（特定企業のデモ用に明示データを残す）
+const handPickedContracts: ActiveContract[] = [
+  ...pastCycles,
+  { id: "k-fukugin-commu", companyId: "c-fukugin", product: "commu", courseKey: "standard", startDate: "2026-04-28", endDate: "2026-07-28", mrr: 120_000, ownerName: "古野", participants: 8, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
+  { id: "k-levias-aiken", companyId: "c-levias", product: "aiken", courseKey: "basic", startDate: "2026-05-15", revenue: 380_000, ownerName: "松田", participants: 12, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
+  { id: "k-toto-academia", companyId: "c-toto", product: "academia", courseKey: "leader", startDate: "2026-05-20", endDate: "2027-05-19", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
+  { id: "k-nccb-hyogikai", companyId: "c-nccb", product: "hyogikai", courseKey: "standard", startDate: "2026-05-10", endDate: "2027-05-09", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
+  { id: "k-toto-aiken", companyId: "c-toto", product: "aiken", courseKey: "advance", startDate: "2026-06-03", revenue: 520_000, ownerName: "古野", participants: 5, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
+
+  { id: "k-aeon-academia", companyId: "c-aeon", product: "academia", courseKey: "pjt", startDate: "2025-09-01", endDate: "2026-08-31", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 2, previousContractId: "k-aeon-academia-1", cycleStatus: "active", renewalStatus: "red", onboardingStatus: "complete", currentPhase: "q2", phaseEnteredAt: "2026-02-01" },
+  { id: "k-aeon-hyogikai", companyId: "c-aeon", product: "hyogikai", courseKey: "standard", startDate: "2025-08-01", endDate: "2026-07-31", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 2, previousContractId: "k-aeon-hyogikai-1", cycleStatus: "active", renewalStatus: "yellow", onboardingStatus: "complete", currentPhase: "running", phaseEnteredAt: "2025-10-01" },
+  { id: "k-jrq-academia", companyId: "c-jrq", product: "academia", courseKey: "leader", startDate: "2025-08-01", endDate: "2026-07-31", mrr: 300_000, ownerName: "三木", participants: 3, cycleNumber: 2, previousContractId: "k-jrq-academia-1", cycleStatus: "active", renewalStatus: "yellow", onboardingStatus: "complete", currentPhase: "mid", phaseEnteredAt: "2026-03-01" },
+  { id: "k-saibugas-academia", companyId: "c-saibugas", product: "academia", courseKey: "pjt", startDate: "2025-10-01", endDate: "2026-09-30", mrr: 300_000, ownerName: "松田", participants: 3, cycleNumber: 1, cycleStatus: "active", renewalStatus: "green", onboardingStatus: "complete", currentPhase: "q1", phaseEnteredAt: "2025-11-01" },
+  { id: "k-kyudenko-commu", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2026-02-15", endDate: "2026-05-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 3, previousContractId: "k-kyudenko-commu-2", cycleStatus: "active", renewalStatus: "yellow", onboardingStatus: "complete", currentPhase: "renewal", phaseEnteredAt: "2026-04-15" }
+];
+
+// 全契約（過去サイクル含む）
+export const allContracts: ActiveContract[] = [...handPickedContracts, ...bulkActiveContracts];
+
+// 現行サイクルのみ（UI デフォルトで使う）
+export const activeContracts: ActiveContract[] = allContracts.filter(
+  (c) => c.cycleStatus !== "renewed" && c.cycleStatus !== "churned"
+);
+
+// ヘルパー: アカウント×プロダクトの現行契約
+export function currentContractOf(companyId: string, product: ProductCode): ActiveContract | undefined {
+  return activeContracts.find((c) => c.companyId === companyId && c.product === product);
+}
+
+// ヘルパー: アカウント×プロダクトの全サイクル履歴（古い順）
+export function cycleHistoryOf(companyId: string, product: ProductCode): ActiveContract[] {
+  return allContracts
+    .filter((c) => c.companyId === companyId && c.product === product)
+    .sort((a, b) => a.cycleNumber - b.cycleNumber);
+}
 
 // ─────────────────────────────────────────────
 // 契約ごとのオンボチェックリスト（テンプレから展開したインスタンス）
@@ -292,6 +320,7 @@ export type ContractOnboardingItem = {
   required: boolean;
   completedAt?: string;
   note?: string;
+  carriedOverFrom?: string;  // 前サイクルから引き継がれた場合、旧契約ID
 };
 
 // 日付算術
