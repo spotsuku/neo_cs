@@ -23,9 +23,11 @@ import {
   WeeklyReview
 } from "@/lib/mock/weekly";
 import { CompanyWeeklyEditor, WeeklyDraft } from "./CompanyWeeklyEditor";
+import { WeeklyTable } from "./WeeklyTable";
 
 type StatusFilter = "all" | "filled" | "empty" | "stuck";
 type SortMode = "default" | "empty_first" | "name";
+type ViewMode = "table" | "card";
 
 // 直近5週の月曜一覧（古い→新しい、最後が今週）
 function last5Weeks(): string[] {
@@ -62,6 +64,7 @@ export default function WeeklyPage() {
   );
   const [drafts, setDrafts] = useState<Map<string, WeeklyDraft>>(new Map());
   const [bulkMode, setBulkMode] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
 
   const weekSlots = useMemo(() => last5Weeks(), []);
   const selectedRange = getWeekRange(selectedWeekStart);
@@ -434,6 +437,31 @@ export default function WeeklyPage() {
             <span className="text-xs text-ink-500">
               {filteredRows.length} / {rows.length} 社
             </span>
+            {/* 表示モード切替 */}
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-ink-50 border border-ink-100">
+              <button
+                onClick={() => setViewMode("table")}
+                className={[
+                  "px-2.5 py-1 rounded-full text-[11px] transition",
+                  viewMode === "table"
+                    ? "bg-white shadow-liquid font-medium text-ink-900"
+                    : "text-ink-500 hover:text-ink-700"
+                ].join(" ")}
+              >
+                テーブル
+              </button>
+              <button
+                onClick={() => setViewMode("card")}
+                className={[
+                  "px-2.5 py-1 rounded-full text-[11px] transition",
+                  viewMode === "card"
+                    ? "bg-white shadow-liquid font-medium text-ink-900"
+                    : "text-ink-500 hover:text-ink-700"
+                ].join(" ")}
+              >
+                カード
+              </button>
+            </div>
             <button
               onClick={expandAll}
               className="text-xs px-3 py-1.5 rounded-full border border-ink-100 text-ink-700 hover:bg-ink-50"
@@ -466,6 +494,26 @@ export default function WeeklyPage() {
         </section>
 
         {/* 企業リスト */}
+        {viewMode === "table" ? (
+          <section>
+            <WeeklyTable
+              rows={filteredRows.map((r) => ({
+                companyId: r.companyId,
+                companyName: r.companyName,
+                courseKeys: r.courseKeys,
+                review: r.review,
+                prevReview: r.prevReview,
+                stuckCount: r.stuckCount
+              }))}
+              product={selectedProduct}
+              weekStart={selectedWeekStart}
+              getDraft={getDraft}
+              setDraftFor={setDraftFor}
+              expandedCompanyIds={expandedCompanyIds}
+              toggleExpand={toggleExpand}
+            />
+          </section>
+        ) : (
         <section className="liquid-surface overflow-hidden">
           {filteredRows.length === 0 ? (
             <div className="p-10 text-center text-sm text-ink-500">
@@ -588,6 +636,7 @@ export default function WeeklyPage() {
             </ul>
           )}
         </section>
+        )}
 
         <div className="text-center text-[11px] text-ink-400 pb-4">
           {isCurrentWeek
