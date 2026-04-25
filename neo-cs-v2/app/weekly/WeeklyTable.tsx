@@ -95,13 +95,13 @@ export function WeeklyTable({
     isCurrentWeek && !row.review?.locked;
 
   return (
-    <div className="liquid-surface overflow-hidden">
-      <div className="overflow-x-auto overflow-y-visible">
+    <div className="liquid-surface">
+      <div className="overflow-auto rounded-liquid max-h-[calc(100vh-220px)]">
         <table className="w-full min-w-[1500px] border-collapse">
-          <thead className="sticky top-0 z-20 bg-white border-b border-ink-100">
+          <thead className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-ink-100 shadow-[0_2px_8px_rgba(14,15,18,0.04)]">
             <tr className="text-[11px] text-ink-500 font-medium uppercase tracking-wider">
               <th
-                className="sticky left-0 z-30 bg-white text-left p-3 min-w-[240px] w-[240px] border-r border-ink-100"
+                className="sticky left-0 z-30 bg-white/95 backdrop-blur text-left p-3 min-w-[240px] w-[240px] border-r border-ink-100"
               >
                 企業
               </th>

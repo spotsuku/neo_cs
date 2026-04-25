@@ -212,7 +212,7 @@ export default function OnboardingPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [completeOpen, setCompleteOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"card" | "category" | "item">("card");
+  const [viewMode, setViewMode] = useState<"card" | "category" | "item">("item");
 
   const p = productByCode[product];
 
