@@ -222,11 +222,11 @@ export default function OnboardingPage() {
   );
 
   const inProgress = useMemo(
-    () => productContracts.filter((c) => c.onboardingStatus === "in_progress"),
+    () => productContracts.filter((c) => c.status === "onboarding"),
     [productContracts]
   );
   const completed = useMemo(
-    () => productContracts.filter((c) => c.onboardingStatus === "complete"),
+    () => productContracts.filter((c) => c.status !== "onboarding" && c.status !== "handoff"),
     [productContracts]
   );
 

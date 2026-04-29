@@ -20,22 +20,22 @@ export function KpiCard({
   const arrow =
     trend?.direction === "up" ? "↑" : trend?.direction === "down" ? "↓" : "→";
   return (
-    <div className="liquid-surface p-5 relative overflow-hidden">
+    <div className="liquid-surface px-4 py-3 relative overflow-hidden">
       {accent && (
         <div
-          className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-10"
+          className="absolute -top-6 -right-6 w-16 h-16 rounded-full opacity-10"
           style={{ background: accent }}
         />
       )}
       <div className="text-xs text-ink-500 font-medium">{label}</div>
-      <div className="mt-2 text-2xl font-bold tracking-tight text-ink-900">{value}</div>
-      <div className="mt-1 flex items-center gap-2 text-xs">
+      <div className="mt-0.5 flex items-baseline gap-2 flex-wrap">
+        <span className="text-xl font-bold tracking-tight text-ink-900 leading-tight">{value}</span>
         {trend && (
-          <span className={`${trendColor} font-medium`}>
+          <span className={`${trendColor} text-xs font-medium`}>
             {arrow} {trend.value}
           </span>
         )}
-        {sub && <span className="text-ink-500">{sub}</span>}
+        {sub && <span className="text-[11px] text-ink-500">{sub}</span>}
       </div>
     </div>
   );

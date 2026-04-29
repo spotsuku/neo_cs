@@ -21,7 +21,15 @@ import {
   productCourses
 } from "@/lib/mock/data";
 import { companies } from "@/lib/mock/entities";
-import { activeContracts, productJourney } from "@/lib/mock/onboarding";
+import { activeContracts, allContracts, productJourney } from "@/lib/mock/onboarding";
+import { companyHealthColor } from "@/lib/mock/health";
+import {
+  surveys as allSurveys,
+  aggregateSurvey,
+  surveySchedules,
+  scheduleById
+} from "@/lib/mock/surveys";
+import { productAttendanceByAttribute } from "@/lib/mock/participants";
 
 const VALID_CODES: ProductCode[] = ["academia", "hyogikai", "aiken", "commu"];
 
@@ -130,6 +138,9 @@ export default async function ProductDashboard({
           <OneShotView targetCompanies={targetCompanies} accent={p.accent} />
         )}
 
+        {/* 属性別エンゲージメント */}
+        <AttributeEngagementSection code={code} accent={p.accent} />
+
         {/* コース別サマリー（複数コース研修のみ） */}
         {hasMultipleCourses(code) && <CourseSummarySection code={code} accent={p.accent} />}
 
@@ -200,6 +211,9 @@ function ContinuousView({
         </div>
       </section>
 
+      {/* NPSセクション（過去90日平均と推移） */}
+      <NpsSection code={code} accent={accent} />
+
       {/* フェーズ別企業数 */}
       <JourneyPhaseSection code={code} accent={accent} />
 
@@ -222,12 +236,14 @@ function ContinuousView({
               </tr>
             </thead>
             <tbody>
-              {targetCompanies.map((c) => (
+              {targetCompanies.map((c) => {
+                const healthColor = companyHealthColor(c.id);
+                return (
                 <tr key={c.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50">
                   <td className="px-5 py-3">
                     <span
                       className="inline-block w-2 h-2 rounded-full"
-                      style={{ background: healthDotColor[c.healthColor] }}
+                      style={{ background: healthDotColor[healthColor] }}
                     />
                   </td>
                   <td className="px-3 py-3 font-medium">{c.name}</td>
@@ -236,11 +252,11 @@ function ContinuousView({
                     <span
                       className="text-[11px] font-medium px-2 py-0.5 rounded-full"
                       style={{
-                        color: healthDotColor[c.healthColor],
-                        background: `${healthDotColor[c.healthColor]}14`
+                        color: healthDotColor[healthColor],
+                        background: `${healthDotColor[healthColor]}14`
                       }}
                     >
-                      {c.healthColor.toUpperCase()}
+                      {healthColor.toUpperCase()}
                     </span>
                   </td>
                   <td className="px-3 py-3 text-ink-700">{yen(c.mrr)}</td>
@@ -253,7 +269,8 @@ function ContinuousView({
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -460,6 +477,259 @@ function CourseSummarySection({ code, accent }: { code: ProductCode; accent: str
   );
 }
 
+// NPSサマリー（過去90日平均と推移）
+function NpsSection({ code, accent }: { code: ProductCode; accent: string }) {
+  const productContractIds = new Set(
+    allContracts.filter((c) => c.product === code).map((c) => c.id)
+  );
+  // 当該プロダクトのスケジュール経由 / 旧モデルのcontract経由 どちらでも拾う
+  const productSurveys = allSurveys.filter((s) => {
+    const sch = scheduleById(s.scheduleId);
+    if (sch?.product === code) return true;
+    return s.contractId !== undefined && productContractIds.has(s.contractId);
+  });
+  const aggs = productSurveys
+    .map((s) => ({ s, agg: aggregateSurvey(s.id) }))
+    .filter((x) => x.agg.npsScore !== undefined)
+    .sort((a, b) => (a.s.openedAt < b.s.openedAt ? -1 : 1));
+
+  if (aggs.length === 0) return null;
+
+  // スケジュール別NPS推移
+  const schedulesForProduct = surveySchedules.filter((sch) => sch.product === code);
+  const bySchedule = schedulesForProduct
+    .map((sch) => {
+      const items = aggs.filter((x) => x.s.scheduleId === sch.id);
+      if (items.length === 0) return null;
+      const avg = Math.round(
+        items.reduce((sum, x) => sum + (x.agg.npsScore ?? 0), 0) / items.length
+      );
+      return { schedule: sch, count: items.length, avg };
+    })
+    .filter((x): x is { schedule: typeof schedulesForProduct[number]; count: number; avg: number } => x !== null);
+
+  // 過去90日平均
+  const cutoff = new Date("2026-04-24");
+  cutoff.setDate(cutoff.getDate() - 90);
+  const recent = aggs.filter((x) => new Date(x.s.openedAt) >= cutoff);
+  const recentAvg =
+    recent.length > 0
+      ? Math.round(
+          recent.reduce((sum, x) => sum + (x.agg.npsScore ?? 0), 0) / recent.length
+        )
+      : null;
+
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-sm font-semibold text-ink-700">NPS（アンケート由来）</h2>
+        <Link href="/surveys" className="text-[11px] text-ink-500 hover:text-ink-700">
+          アンケート詳細 →
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="liquid-surface p-5">
+          <div className="text-xs text-ink-500">過去90日平均</div>
+          <div className="mt-1 text-3xl font-bold" style={{ color: accent }}>
+            {recentAvg ?? "—"}
+          </div>
+          <div className="text-[11px] text-ink-500 mt-1">
+            {recent.length}件のアンケートから算出
+          </div>
+        </div>
+        <div className="liquid-surface p-5 md:col-span-2">
+          <div className="text-xs text-ink-500 mb-3">推移</div>
+          <div className="flex items-end gap-2 h-24">
+            {aggs.slice(-12).map((x) => {
+              const v = x.agg.npsScore ?? 0;
+              const h = Math.max(8, ((v + 100) / 200) * 100);
+              return (
+                <div key={x.s.id} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="text-[9px] text-ink-700">{v}</div>
+                  <div
+                    className="w-full rounded-t-md"
+                    style={{ height: `${h}%`, background: accent }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {bySchedule.length > 0 && (
+        <div className="mt-3 liquid-surface p-5">
+          <div className="text-xs text-ink-500 mb-3">スケジュール別NPS平均</div>
+          <ul className="space-y-2">
+            {bySchedule.map((b) => (
+              <li key={b.schedule.id} className="flex items-center gap-3">
+                <span className="text-xs text-ink-700 flex-1 truncate">{b.schedule.name}</span>
+                <span className="text-[11px] text-ink-500 whitespace-nowrap">{b.count}件</span>
+                <span className="text-sm font-bold whitespace-nowrap" style={{ color: accent }}>
+                  {b.avg}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AttributeEngagementSection({
+  code,
+  accent
+}: {
+  code: ProductCode;
+  accent: string;
+}) {
+  const seniorityRows = productAttendanceByAttribute(code, "seniority");
+  const departmentRows = productAttendanceByAttribute(code, "department")
+    .slice()
+    .sort((a, b) => b.attendanceRate - a.attendanceRate)
+    .slice(0, 5);
+
+  if (seniorityRows.length === 0 && departmentRows.length === 0) return null;
+
+  const seniorityLabel: Record<string, string> = {
+    young: "若手",
+    mid: "中堅",
+    senior: "管理職",
+    exec: "役員クラス"
+  };
+
+  // 全月をまとめて X 軸にする（過去6ヶ月の推移）
+  const allMonths = Array.from(
+    new Set(seniorityRows.flatMap((r) => r.trend.map((t) => t.sessionMonth)))
+  )
+    .sort()
+    .slice(-6);
+
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-sm font-semibold text-ink-700">属性別エンゲージメント</h2>
+        <span className="text-[11px] text-ink-500">
+          役職階層・部門ごとの出席率
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* 役職階層別の出席率推移（線グラフ風） */}
+        <div className="liquid-surface p-5">
+          <div className="text-xs font-semibold text-ink-700 mb-3">
+            役職階層別 出席率推移（過去6ヶ月）
+          </div>
+          {allMonths.length === 0 ? (
+            <div className="text-[11px] text-ink-500">データがまだありません</div>
+          ) : (
+            <>
+              <div className="flex items-end gap-1 h-32 border-b border-l border-ink-100 pb-1 pl-1">
+                {allMonths.map((m) => (
+                  <div key={m} className="flex-1 flex flex-col items-stretch gap-0.5">
+                    <div className="flex-1 flex items-end gap-0.5">
+                      {seniorityRows.map((r) => {
+                        const t = r.trend.find((x) => x.sessionMonth === m);
+                        const v = t?.rate ?? 0;
+                        const h = v * 100;
+                        const color =
+                          r.axisValue === "exec"
+                            ? "#8B5CF6"
+                            : r.axisValue === "senior"
+                            ? accent
+                            : r.axisValue === "mid"
+                            ? "#10B981"
+                            : "#F59E0B";
+                        return (
+                          <div
+                            key={r.axisValue}
+                            className="flex-1 rounded-t"
+                            style={{
+                              height: `${h}%`,
+                              background: color,
+                              opacity: t ? 0.85 : 0.2
+                            }}
+                            title={`${seniorityLabel[r.axisValue] ?? r.axisValue} / ${m} / ${Math.round(v * 100)}%`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="text-[9px] text-ink-500 text-center">
+                      {m.slice(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3 text-[10px]">
+                {seniorityRows.map((r) => {
+                  const color =
+                    r.axisValue === "exec"
+                      ? "#8B5CF6"
+                      : r.axisValue === "senior"
+                      ? accent
+                      : r.axisValue === "mid"
+                      ? "#10B981"
+                      : "#F59E0B";
+                  return (
+                    <span key={r.axisValue} className="inline-flex items-center gap-1.5">
+                      <span
+                        className="inline-block w-2.5 h-2.5 rounded-sm"
+                        style={{ background: color }}
+                      />
+                      <span className="text-ink-700">
+                        {seniorityLabel[r.axisValue] ?? r.axisValue}
+                      </span>
+                      <span className="text-ink-500">
+                        全体 {Math.round(r.attendanceRate * 100)}%
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* 部門別の出席率（上位5） */}
+        <div className="liquid-surface p-5">
+          <div className="text-xs font-semibold text-ink-700 mb-3">
+            部門別 出席率（上位5部門）
+          </div>
+          {departmentRows.length === 0 ? (
+            <div className="text-[11px] text-ink-500">データがまだありません</div>
+          ) : (
+            <ul className="space-y-2.5">
+              {departmentRows.map((r) => (
+                <li key={r.axisValue}>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-ink-900 font-medium">{r.axisValue}</span>
+                    <span className="text-[11px] text-ink-500">
+                      {r.participantCount}名 ・ 出席率{" "}
+                      <span className="text-ink-900 font-semibold">
+                        {Math.round(r.attendanceRate * 100)}%
+                      </span>
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 rounded-full bg-ink-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${r.attendanceRate * 100}%`,
+                        background: accent
+                      }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function JourneyPhaseSection({ code, accent }: { code: ProductCode; accent: string }) {
   const phases = productJourney[code];
   const contractsForProduct = activeContracts.filter((c) => c.product === code);
@@ -475,7 +745,7 @@ function JourneyPhaseSection({ code, accent }: { code: ProductCode; accent: stri
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         {phases.map((ph) => {
           const inPhase = contractsForProduct.filter(
-            (c) => c.onboardingStatus === "complete" && c.currentPhase === ph.key
+            (c) => c.status !== "onboarding" && c.status !== "handoff" && c.currentPhase === ph.key
           );
           const sampleNames = inPhase
             .slice(0, 3)

@@ -20,9 +20,12 @@ export default function ProductsSettingsPage() {
                 4研修の基本情報・契約設定・スケジュールを管理
               </div>
             </div>
-            <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid">
+            <Link
+              href="/settings/products/new"
+              className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid"
+            >
               + 新規研修を追加
-            </button>
+            </Link>
           </div>
         </section>
 

@@ -11,7 +11,6 @@ export type Company = {
   address: string;
   group?: string;
   ownerName: string;
-  healthColor: "green" | "yellow" | "red";
   contracts: ProductCode[];
   mrr: number;
   lastTouchDays: number;
@@ -27,7 +26,6 @@ const baseCompanies: Company[] = [
     address: "福岡市博多区",
     group: "イオンFG",
     ownerName: "古野",
-    healthColor: "red",
     contracts: ["academia", "aiken", "hyogikai"],
     mrr: 450_000,
     lastTouchDays: 18,
@@ -40,7 +38,6 @@ const baseCompanies: Company[] = [
     industry: "鉄道",
     address: "福岡市博多区",
     ownerName: "三木",
-    healthColor: "red",
     contracts: ["hyogikai", "academia"],
     mrr: 450_000,
     lastTouchDays: 35,
@@ -53,7 +50,6 @@ const baseCompanies: Company[] = [
     industry: "金融",
     address: "福岡市中央区",
     ownerName: "古野",
-    healthColor: "red",
     contracts: ["commu", "academia"],
     mrr: 420_000,
     lastTouchDays: 5,
@@ -66,7 +62,6 @@ const baseCompanies: Company[] = [
     industry: "建設・電気",
     address: "福岡市南区",
     ownerName: "松田",
-    healthColor: "yellow",
     contracts: ["commu", "aiken"],
     mrr: 120_000,
     lastTouchDays: 12,
@@ -79,7 +74,6 @@ const baseCompanies: Company[] = [
     industry: "鉄道",
     address: "福岡市博多区",
     ownerName: "三木",
-    healthColor: "yellow",
     contracts: ["academia", "hyogikai"],
     mrr: 450_000,
     lastTouchDays: 21
@@ -92,7 +86,6 @@ const baseCompanies: Company[] = [
     address: "福岡市中央区",
     group: "ふくおかFG",
     ownerName: "古野",
-    healthColor: "yellow",
     contracts: ["commu", "academia"],
     mrr: 420_000,
     lastTouchDays: 8
@@ -104,7 +97,6 @@ const baseCompanies: Company[] = [
     industry: "卸売",
     address: "福岡市博多区",
     ownerName: "松田",
-    healthColor: "yellow",
     contracts: ["academia"],
     mrr: 300_000,
     lastTouchDays: 14
@@ -116,7 +108,6 @@ const baseCompanies: Company[] = [
     industry: "住宅設備",
     address: "北九州市小倉北区",
     ownerName: "古野",
-    healthColor: "green",
     contracts: ["academia", "aiken"],
     mrr: 300_000,
     lastTouchDays: 3
@@ -128,7 +119,6 @@ const baseCompanies: Company[] = [
     industry: "金融",
     address: "福岡市博多区",
     ownerName: "三木",
-    healthColor: "green",
     contracts: ["hyogikai", "commu"],
     mrr: 270_000,
     lastTouchDays: 6
@@ -140,7 +130,6 @@ const baseCompanies: Company[] = [
     industry: "エネルギー",
     address: "福岡市博多区",
     ownerName: "松田",
-    healthColor: "green",
     contracts: ["academia"],
     mrr: 300_000,
     lastTouchDays: 9
@@ -152,7 +141,6 @@ const baseCompanies: Company[] = [
     industry: "自治体",
     address: "福岡市中央区",
     ownerName: "古野",
-    healthColor: "green",
     contracts: ["hyogikai"],
     mrr: 150_000,
     lastTouchDays: 11
@@ -164,7 +152,6 @@ const baseCompanies: Company[] = [
     industry: "IT",
     address: "福岡市中央区",
     ownerName: "古野",
-    healthColor: "green",
     contracts: ["aiken", "commu"],
     mrr: 120_000,
     lastTouchDays: 2
@@ -340,38 +327,3 @@ export const onboardingTasks: OnboardingTask[] = [
   { id: "t-c8", companyId: "c-nccb", product: "commu", phase: "m3", name: "3ヶ月目サマリー作成", dueDate: "2026-06-10", status: "todo", assignee: "三木" }
 ];
 
-// パイプライン（内諾前）
-// コース表示に対応
-export type Deal = {
-  id: string;
-  companyName: string;
-  product: ProductCode;
-  courseKey: string;
-  stage: "lead" | "qualified" | "proposal" | "nego" | "verbal";
-  expectedMrr: number;
-  expectedStart: string;
-  ownerName: string;
-  nextAction: string;
-  updatedDays: number;
-};
-
-export const deals: Deal[] = [
-  { id: "d1", companyName: "株式会社ホライズン", product: "academia", courseKey: "pjt", stage: "lead", expectedMrr: 300_000, expectedStart: "2026-09-01", ownerName: "古野", nextAction: "初回ヒアリング設定", updatedDays: 2 },
-  { id: "d2", companyName: "九州電力株式会社", product: "hyogikai", courseKey: "standard", stage: "lead", expectedMrr: 150_000, expectedStart: "2027-04-01", ownerName: "三木", nextAction: "窓口紹介依頼", updatedDays: 5 },
-  { id: "d3", companyName: "株式会社ふくや", product: "aiken", courseKey: "basic", stage: "qualified", expectedMrr: 0, expectedStart: "2026-06-01", ownerName: "松田", nextAction: "派遣人数の確認", updatedDays: 3 },
-  { id: "d4", companyName: "博多大丸", product: "commu", courseKey: "standard", stage: "qualified", expectedMrr: 120_000, expectedStart: "2026-07-01", ownerName: "古野", nextAction: "カリキュラム説明MTG", updatedDays: 7 },
-  { id: "d5", companyName: "株式会社ピエトロ", product: "academia", courseKey: "leader", stage: "proposal", expectedMrr: 300_000, expectedStart: "2026-07-01", ownerName: "古野", nextAction: "提案書提出", updatedDays: 1 },
-  { id: "d6", companyName: "九州商船", product: "hyogikai", courseKey: "standard", stage: "proposal", expectedMrr: 150_000, expectedStart: "2026-10-01", ownerName: "三木", nextAction: "役員会向け資料準備", updatedDays: 4 },
-  { id: "d7", companyName: "株式会社アステム", product: "commu", courseKey: "standard", stage: "nego", expectedMrr: 120_000, expectedStart: "2026-06-15", ownerName: "松田", nextAction: "契約条件の最終調整", updatedDays: 2 },
-  { id: "d8", companyName: "サニックス", product: "academia", courseKey: "pjt", stage: "nego", expectedMrr: 300_000, expectedStart: "2026-06-01", ownerName: "古野", nextAction: "価格交渉最終回", updatedDays: 1 },
-  { id: "d9", companyName: "MrMax", product: "aiken", courseKey: "advance", stage: "verbal", expectedMrr: 0, expectedStart: "2026-05-20", ownerName: "松田", nextAction: "契約書送付", updatedDays: 0 }
-];
-
-export const stageOrder = ["lead", "qualified", "proposal", "nego", "verbal"] as const;
-export const stageLabels: Record<(typeof stageOrder)[number], string> = {
-  lead: "リード",
-  qualified: "ヒアリング済",
-  proposal: "提案中",
-  nego: "交渉中",
-  verbal: "内諾"
-};

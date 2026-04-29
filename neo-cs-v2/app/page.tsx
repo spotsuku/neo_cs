@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
+import { companies } from "@/lib/mock/entities";
 import { KpiCard } from "@/components/KpiCard";
 import { ProductBadge } from "@/components/ProductBadge";
 import { MrrSparkline } from "@/components/MrrSparkline";
@@ -30,9 +32,12 @@ export default function Page() {
             <div className="mt-1 text-sm text-ink-500">2026年4月24日 金曜日 更新</div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 shadow-liquid hover:bg-ink-50">
+            <Link
+              href="/reports"
+              className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 shadow-liquid hover:bg-ink-50"
+            >
               レポート出力
-            </button>
+            </Link>
           </div>
         </section>
 
@@ -143,7 +148,7 @@ export default function Page() {
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-ink-700">🚨 要対応企業（Health: Red + Yellow）</h2>
-            <button className="text-xs text-ink-500 hover:text-ink-700">すべて見る</button>
+            <Link href="/companies" className="text-xs text-ink-500 hover:text-ink-700">すべて見る</Link>
           </div>
           <div className="liquid-surface overflow-hidden">
             <table className="w-full text-sm">
@@ -180,9 +185,12 @@ export default function Page() {
                     <td className="px-3 py-3 text-ink-700 whitespace-nowrap">{a.owner}</td>
                     <td className="px-3 py-3 text-ink-700 text-xs">{a.suggestedAction}</td>
                     <td className="px-5 py-3 text-right">
-                      <button className="text-xs text-ink-700 hover:underline whitespace-nowrap">
+                      <Link
+                        href={(companies.find((c) => c.name === a.companyName)?.id ? `/companies/${companies.find((c) => c.name === a.companyName)!.id}` : "/companies")}
+                        className="text-xs text-ink-700 hover:underline whitespace-nowrap"
+                      >
                         対応する →
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 ))}

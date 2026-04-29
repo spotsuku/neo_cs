@@ -3,6 +3,7 @@
 // ジャーニー = 契約開始後の運用フェーズの現在地
 
 import { ProductCode } from "./data";
+import { Contract, deriveStatus, deriveHealthScore } from "./contracts";
 
 // ─────────────────────────────────────────────
 // オンボテンプレ（研修マスタで編集 / カテゴリは追加・編集・削除可）
@@ -236,32 +237,29 @@ export const productJourney: Record<ProductCode, JourneyPhase[]> = {
 // ─────────────────────────────────────────────
 // 契約インスタンス（企業×研修×プランの開講単位）
 // ─────────────────────────────────────────────
-export type ActiveContract = {
-  id: string;
-  companyId: string;
-  product: ProductCode;
-  courseKey: string;           // 研修内のコース識別子
-  planName?: string;           // レガシー表示用（courseKeyから解決する場合は不要）
-  startDate: string;
-  endDate?: string;
-  mrr?: number;
-  revenue?: number;
-  ownerName: string;
-  participants: number;
-  onboardingStatus: "in_progress" | "complete";
-  currentPhase?: string;
-  phaseEnteredAt?: string;
-  // サイクル（契約=1サイクル）
-  cycleNumber: number;              // 1始まり
-  previousContractId?: string;      // 旧サイクルへの連鎖
-  cycleStatus?: "active" | "renewed" | "churned"; // 旧サイクル用
-  renewalStatus?: "green" | "yellow" | "red";     // 更新判定（active時のみ）
-};
+// Contract への移行期間中の後方互換エイリアス
+export type ActiveContract = Contract;
 
 import { bulkActiveContracts } from "./bulk-data";
 
+// 今日の基準日
+const TODAY = "2026-04-24";
+
+// レガシーシード形式（mockデータの可読性のため status を派生するための入力）
+type ContractSeed = Omit<Contract, "status" | "healthScore"> & {
+  onboardingStatus?: "in_progress" | "complete";
+  cycleStatus?: "active" | "renewed" | "churned";
+  renewalStatus?: "green" | "yellow" | "red";
+};
+function withStatus(c: ContractSeed): Contract {
+  const { onboardingStatus, cycleStatus, renewalStatus, ...rest } = c;
+  const status = deriveStatus({ onboardingStatus, cycleStatus, endDate: c.endDate });
+  const healthScore = deriveHealthScore(renewalStatus, TODAY);
+  return { ...rest, status, healthScore };
+}
+
 // 過去サイクル（凍結・更新済み）
-const pastCycles: ActiveContract[] = [
+const pastCyclesRaw: ContractSeed[] = [
   { id: "k-aeon-academia-1", companyId: "c-aeon", product: "academia", courseKey: "pjt", startDate: "2024-09-01", endDate: "2025-08-31", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
   { id: "k-aeon-hyogikai-1", companyId: "c-aeon", product: "hyogikai", courseKey: "standard", startDate: "2024-08-01", endDate: "2025-07-31", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
   { id: "k-jrq-academia-1", companyId: "c-jrq", product: "academia", courseKey: "leader", startDate: "2024-08-01", endDate: "2025-07-31", mrr: 300_000, ownerName: "三木", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
@@ -269,9 +267,10 @@ const pastCycles: ActiveContract[] = [
   { id: "k-kyudenko-commu-2", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2025-11-15", endDate: "2026-02-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 2, cycleStatus: "renewed", previousContractId: "k-kyudenko-commu-1", onboardingStatus: "complete" }
 ];
 
+const pastCycles: ActiveContract[] = pastCyclesRaw.map(withStatus);
+
 // ハンドピックの主要契約（特定企業のデモ用に明示データを残す）
-const handPickedContracts: ActiveContract[] = [
-  ...pastCycles,
+const handPickedRaw: ContractSeed[] = [
   { id: "k-fukugin-commu", companyId: "c-fukugin", product: "commu", courseKey: "standard", startDate: "2026-04-28", endDate: "2026-07-28", mrr: 120_000, ownerName: "古野", participants: 8, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
   { id: "k-levias-aiken", companyId: "c-levias", product: "aiken", courseKey: "basic", startDate: "2026-05-15", revenue: 380_000, ownerName: "松田", participants: 12, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
   { id: "k-toto-academia", companyId: "c-toto", product: "academia", courseKey: "leader", startDate: "2026-05-20", endDate: "2027-05-19", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
@@ -285,12 +284,14 @@ const handPickedContracts: ActiveContract[] = [
   { id: "k-kyudenko-commu", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2026-02-15", endDate: "2026-05-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 3, previousContractId: "k-kyudenko-commu-2", cycleStatus: "active", renewalStatus: "yellow", onboardingStatus: "complete", currentPhase: "renewal", phaseEnteredAt: "2026-04-15" }
 ];
 
+const handPickedContracts: ActiveContract[] = [...pastCycles, ...handPickedRaw.map(withStatus)];
+
 // 全契約（過去サイクル含む）
 export const allContracts: ActiveContract[] = [...handPickedContracts, ...bulkActiveContracts];
 
 // 現行サイクルのみ（UI デフォルトで使う）
 export const activeContracts: ActiveContract[] = allContracts.filter(
-  (c) => c.cycleStatus !== "renewed" && c.cycleStatus !== "churned"
+  (c) => c.status !== "renewed" && c.status !== "churned"
 );
 
 // ヘルパー: アカウント×プロダクトの現行契約
@@ -331,9 +332,6 @@ function offsetDate(base: string, days: number): string {
 }
 
 // 契約ごとにテンプレから展開（実データはデモのため一部のみstatusバリエーション）
-// 今日は 2026-04-24 とする
-const TODAY = "2026-04-24";
-
 function isOverdue(dueDate: string, status: "todo" | "doing" | "done"): "todo" | "doing" | "done" | "overdue" {
   if (status === "done") return "done";
   return new Date(dueDate) < new Date(TODAY) ? "overdue" : status;
@@ -446,7 +444,7 @@ export const contractOnboardingItems: ContractOnboardingItem[] = [];
 
 // すべての契約に対しチェックリスト項目を展開
 activeContracts.forEach((c) => {
-  if (c.onboardingStatus === "complete") {
+  if (c.status !== "onboarding" && c.status !== "handoff") {
     // 運用中契約: すべてdone
     const items = generateItems(c);
     items.forEach((i) => {

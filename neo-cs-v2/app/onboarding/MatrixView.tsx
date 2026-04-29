@@ -35,26 +35,26 @@ export function MatrixView({
 
   if (mode === "category") {
     return (
-      <div className="liquid-surface overflow-x-auto">
+      <div className="liquid-surface overflow-auto max-h-[calc(100vh-220px)]">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="text-left text-[11px] text-ink-500 border-b border-ink-100 bg-white/60">
-              <th className="sticky left-0 bg-white/95 backdrop-blur z-10 px-4 py-3 font-medium min-w-[240px]">
+            <tr className="text-left text-[11px] text-ink-500 border-b border-ink-100">
+              <th className="sticky left-0 top-0 bg-white z-30 px-4 py-3 font-medium min-w-[240px] border-b border-ink-100">
                 企業
               </th>
-              <th className="px-3 py-3 font-medium whitespace-nowrap">残日数</th>
-              <th className="px-3 py-3 font-medium whitespace-nowrap">担当</th>
+              <th className="sticky top-0 bg-white z-20 px-3 py-3 font-medium whitespace-nowrap border-b border-ink-100">残日数</th>
+              <th className="sticky top-0 bg-white z-20 px-3 py-3 font-medium whitespace-nowrap border-b border-ink-100">担当</th>
               {template.map((cat) => (
                 <th
                   key={cat.key}
-                  className="px-3 py-3 font-medium min-w-[130px]"
+                  className="sticky top-0 bg-white z-20 px-3 py-3 font-medium min-w-[130px] border-b border-ink-100"
                 >
                   {cat.label}
                 </th>
               ))}
-              <th className="px-3 py-3 font-medium min-w-[140px]">全体</th>
-              <th className="px-3 py-3 font-medium whitespace-nowrap">期日超過</th>
-              <th className="px-4 py-3 font-medium w-8"></th>
+              <th className="sticky top-0 bg-white z-20 px-3 py-3 font-medium min-w-[140px] border-b border-ink-100">全体</th>
+              <th className="sticky top-0 bg-white z-20 px-3 py-3 font-medium whitespace-nowrap border-b border-ink-100">期日超過</th>
+              <th className="sticky top-0 bg-white z-20 px-4 py-3 font-medium w-8 border-b border-ink-100"></th>
             </tr>
           </thead>
           <tbody>
@@ -187,13 +187,13 @@ export function MatrixView({
   );
 
   return (
-    <div className="liquid-surface overflow-x-auto">
+    <div className="liquid-surface overflow-auto max-h-[calc(100vh-220px)]">
       <table className="w-full text-xs border-collapse">
         <thead>
-          <tr className="text-left text-[10px] text-ink-500 border-b border-ink-100 bg-white/60">
+          <tr className="text-left text-[10px] text-ink-500 border-b border-ink-100">
             <th
               rowSpan={2}
-              className="sticky left-0 bg-white/95 backdrop-blur z-10 px-4 py-2 font-medium min-w-[200px] border-b border-ink-100"
+              className="sticky left-0 top-0 bg-white z-30 px-4 py-2 font-medium min-w-[200px] border-b border-ink-100"
             >
               企業
             </th>
@@ -201,29 +201,23 @@ export function MatrixView({
               <th
                 key={cat.key}
                 colSpan={cat.items.length}
-                className="px-2 py-2 font-semibold text-center border-l border-ink-100 text-ink-700"
+                className="sticky top-0 bg-white z-20 px-2 py-2 font-semibold text-center border-l border-ink-100 text-ink-700"
               >
                 {cat.label}
               </th>
             ))}
             <th
               rowSpan={2}
-              className="px-2 py-2 font-medium text-center min-w-[80px] border-l border-ink-100"
+              className="sticky top-0 bg-white z-20 px-2 py-2 font-medium text-center min-w-[80px] border-l border-ink-100 border-b"
             >
               進捗
             </th>
           </tr>
           <tr className="text-[10px] text-ink-500 border-b border-ink-100">
-            {allItems.map((it, idx) => (
+            {allItems.map((it) => (
               <th
                 key={`${it.catKey}-${it.key}`}
-                className={[
-                  "px-2 py-2 font-normal text-center min-w-[80px] border-l border-ink-100",
-                  idx === 0 ||
-                  allItems[idx - 1]?.catKey !== it.catKey
-                    ? ""
-                    : ""
-                ].join(" ")}
+                className="sticky top-[34px] bg-white z-20 px-2 py-2 font-normal text-center min-w-[80px] border-l border-ink-100 border-b"
                 title={it.name}
               >
                 <div className="line-clamp-2 leading-tight text-ink-700">

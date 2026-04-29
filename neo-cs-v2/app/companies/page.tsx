@@ -6,6 +6,7 @@ import { TopNav } from "@/components/TopNav";
 import { ProductBadge } from "@/components/ProductBadge";
 import { companies } from "@/lib/mock/entities";
 import { activeContracts } from "@/lib/mock/onboarding";
+import { companyHealthColor } from "@/lib/mock/health";
 // コース表示に対応
 import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/mock/data";
 
@@ -57,7 +58,7 @@ export default function CompaniesPage() {
           c.industry.toLowerCase().includes(lower);
         if (!hit) return false;
       }
-      if (health !== "all" && c.healthColor !== health) return false;
+      if (health !== "all" && companyHealthColor(c.id) !== health) return false;
       if (productFilter.length > 0) {
         const has = productFilter.every((p) => c.contracts.includes(p));
         if (!has) return false;
@@ -83,9 +84,12 @@ export default function CompaniesPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 shadow-liquid hover:bg-ink-50">
+            <Link
+              href="/companies/new"
+              className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 shadow-liquid hover:bg-ink-50"
+            >
               + 企業を追加
-            </button>
+            </Link>
           </div>
         </section>
 
@@ -250,7 +254,7 @@ export default function CompaniesPage() {
                     </div>
                   </td>
                   <td className="px-3 py-3">
-                    <HealthDot color={c.healthColor} />
+                    <HealthDot color={companyHealthColor(c.id)} />
                   </td>
                   <td className="px-3 py-3 text-right text-ink-900 font-medium whitespace-nowrap">
                     {yen(c.mrr)}

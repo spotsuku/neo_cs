@@ -33,8 +33,30 @@ import {
   generateRenewalMilestones,
   renewalMilestoneSpec
 } from "@/lib/mock/cycles";
+import { companyHealthColor } from "@/lib/mock/health";
+import type { ChurnRecord } from "@/lib/mock/churn";
+import { reasonCategoryLabels, reasonCategoryOrder, churnRecords as initialChurnRecords } from "@/lib/mock/churn";
+import { emailThreads, emailMessages } from "@/lib/mock/email";
+import type { EmailThreadStatus } from "@/lib/mock/email";
+import {
+  surveys as allSurveys,
+  surveyInsights as allInsights,
+  surveyResponses as allResponses,
+  aggregateSurvey,
+  targetCountForSurvey,
+  SurveyInsight
+} from "@/lib/mock/surveys";
+import {
+  participants as allParticipants,
+  sessions as allSessionsData,
+  attendanceRecords as allAttendance,
+  participantEngagement,
+  participantSurveyResponseRate
+} from "@/lib/mock/participants";
 
-type Tab = "overview" | "weekly" | "contracts" | "logs" | "onboarding" | "mail";
+type HealthColor = "green" | "yellow" | "red";
+
+type Tab = "overview" | "weekly" | "contracts" | "logs" | "onboarding" | "surveys" | "engagement" | "mail";
 
 const tabs: { key: Tab; label: string }[] = [
   { key: "overview", label: "概要" },
@@ -42,14 +64,16 @@ const tabs: { key: Tab; label: string }[] = [
   { key: "contracts", label: "契約・更新" },
   { key: "logs", label: "面談ログ" },
   { key: "onboarding", label: "オンボ" },
+  { key: "surveys", label: "アンケート" },
+  { key: "engagement", label: "エンゲージメント" },
   { key: "mail", label: "メール" }
 ];
 
-function healthBg(color: Company["healthColor"]) {
+function healthBg(color: HealthColor) {
   return color === "green" ? "#10B981" : color === "yellow" ? "#F59E0B" : "#EF4444";
 }
 
-function healthLabel(color: Company["healthColor"]) {
+function healthLabel(color: HealthColor) {
   return color === "green" ? "Green" : color === "yellow" ? "Yellow" : "Red";
 }
 
@@ -75,6 +99,7 @@ export function CompanyDetail({
   journeys: AccountJourney[];
 }) {
   const [tab, setTab] = useState<Tab>("overview");
+  const healthColor: HealthColor = companyHealthColor(company.id);
 
   return (
     <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
@@ -96,7 +121,7 @@ export function CompanyDetail({
             right: -40,
             width: 220,
             height: 220,
-            background: healthBg(company.healthColor),
+            background: healthBg(healthColor),
             opacity: 0.12
           }}
         />
@@ -118,9 +143,9 @@ export function CompanyDetail({
               <span className="inline-flex items-center gap-1.5 liquid-chip">
                 <span
                   className="w-2 h-2 rounded-full"
-                  style={{ background: healthBg(company.healthColor) }}
+                  style={{ background: healthBg(healthColor) }}
                 />
-                Health: {healthLabel(company.healthColor)}
+                Health: {healthLabel(healthColor)}
               </span>
               <span className="text-ink-500">MRR</span>
               <span className="text-ink-900 font-semibold">{yen(company.mrr)}</span>
@@ -166,11 +191,14 @@ export function CompanyDetail({
       )}
       {tab === "weekly" && <WeeklyReviewPanel companyId={company.id} />}
       {tab === "contracts" && <ContractsTab allCycles={allCycles} successPlans={successPlans} />}
+      {/* 解約モーダルの管理は ContractsTab 内で完結 */}
       {tab === "logs" && <LogsTab logs={logs} />}
       {tab === "onboarding" && (
         <OnboardingTab contracts={contracts} items={items} />
       )}
-      {tab === "mail" && <MailPlaceholder />}
+      {tab === "surveys" && <SurveysTab companyId={company.id} contracts={allCycles} />}
+      {tab === "engagement" && <EngagementTab companyId={company.id} contracts={allCycles} />}
+      {tab === "mail" && <MailTab companyId={company.id} />}
     </main>
   );
 }
@@ -273,8 +301,8 @@ function OverviewTab({
 }
 
 function CustomerJourneySection({ contracts }: { contracts: ActiveContract[] }) {
-  const inProgress = contracts.filter((c) => c.onboardingStatus === "in_progress").length;
-  const running = contracts.filter((c) => c.onboardingStatus === "complete").length;
+  const inProgress = contracts.filter((c) => c.status === "onboarding").length;
+  const running = contracts.filter((c) => c.status !== "onboarding" && c.status !== "handoff").length;
 
   if (contracts.length === 0) return null;
 
@@ -305,7 +333,7 @@ function CustomerJourneySection({ contracts }: { contracts: ActiveContract[] }) 
 function JourneyContractCard({ contract }: { contract: ActiveContract }) {
   const p = productByCode[contract.product];
   const phases = productJourney[contract.product];
-  const isOnboarding = contract.onboardingStatus === "in_progress";
+  const isOnboarding = contract.status === "onboarding";
   const currentIdx = isOnboarding
     ? -1 // オンボ中は phases の前段
     : phases.findIndex((ph) => ph.key === contract.currentPhase);
@@ -649,12 +677,12 @@ function OnboardingTab({
                   <span
                     className={[
                       "text-[11px] px-2 py-0.5 rounded-full border",
-                      contract.onboardingStatus === "complete"
+                      contract.status !== "onboarding" && contract.status !== "handoff"
                         ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                         : "bg-amber-50 text-amber-700 border-amber-100"
                     ].join(" ")}
                   >
-                    {contract.onboardingStatus === "complete"
+                    {contract.status !== "onboarding" && contract.status !== "handoff"
                       ? "オンボ完了"
                       : "オンボ進行中"}
                   </span>
@@ -861,6 +889,14 @@ function ContractsTab({
   allCycles: ActiveContract[];
   successPlans: SuccessPlan[];
 }) {
+  // 解約レコード（モック state）
+  // ⚠️ 実際の Contract.status 更新は別実装。ここでは ChurnRecord のみを保持
+  const cycleIds = new Set(allCycles.map((c) => c.id));
+  const [records, setRecords] = useState<ChurnRecord[]>(
+    initialChurnRecords.filter((r) => cycleIds.has(r.contractId))
+  );
+  const [churnTarget, setChurnTarget] = useState<ActiveContract | null>(null);
+
   // 研修ごとにグルーピング
   const byProduct = new Map<ProductCode, ActiveContract[]>();
   allCycles.forEach((c) => {
@@ -877,17 +913,255 @@ function ContractsTab({
     );
   }
 
+  const handleSave = (record: ChurnRecord) => {
+    setRecords((prev) => {
+      const exists = prev.some((r) => r.contractId === record.contractId);
+      return exists
+        ? prev.map((r) => (r.contractId === record.contractId ? record : r))
+        : [...prev, record];
+    });
+    setChurnTarget(null);
+  };
+
   return (
     <section className="space-y-4">
       {Array.from(byProduct.entries()).map(([code, cycles]) => {
         const sorted = cycles.slice().sort((a, b) => a.cycleNumber - b.cycleNumber);
-        const current = sorted.find((c) => c.cycleStatus === "active") ?? sorted[sorted.length - 1];
+        const current = sorted.find((c) => c.status !== "renewed" && c.status !== "churned") ?? sorted[sorted.length - 1];
         const currentPlan = successPlans.find((sp) => sp.contractId === current.id);
         return (
-          <ProductCyclesBlock key={code} code={code} cycles={sorted} current={current} plan={currentPlan} />
+          <ProductCyclesBlock
+            key={code}
+            code={code}
+            cycles={sorted}
+            current={current}
+            plan={currentPlan}
+            churnRecords={records}
+            onChurnClick={(c) => setChurnTarget(c)}
+          />
         );
       })}
+
+      {/* 解約履歴 */}
+      <ChurnHistorySection records={records} cycles={allCycles} />
+
+      {churnTarget && (
+        <ChurnModal
+          contract={churnTarget}
+          existing={records.find((r) => r.contractId === churnTarget.id)}
+          onClose={() => setChurnTarget(null)}
+          onSave={handleSave}
+        />
+      )}
     </section>
+  );
+}
+
+function ChurnHistorySection({
+  records,
+  cycles
+}: {
+  records: ChurnRecord[];
+  cycles: ActiveContract[];
+}) {
+  if (records.length === 0) return null;
+  const cycleById = new Map(cycles.map((c) => [c.id, c]));
+  return (
+    <div className="liquid-surface p-5">
+      <div className="text-sm font-semibold text-ink-700 mb-3">解約履歴</div>
+      <ul className="space-y-2">
+        {records.map((r) => {
+          const c = cycleById.get(r.contractId);
+          return (
+            <li
+              key={r.contractId}
+              className="rounded-xl border border-ink-100 p-3 bg-white"
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                {c && <ProductBadge code={c.product} size="sm" />}
+                <span className="text-[11px] text-ink-500">
+                  {cycleLabel(c?.product ?? "academia", c?.cycleNumber ?? 1)}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100">
+                  {reasonCategoryLabels[r.reasonCategory]}
+                </span>
+                <span className="text-[11px] text-ink-500 ml-auto">
+                  解約日 {r.churnedAt}
+                </span>
+              </div>
+              <div className="mt-1.5 text-xs text-ink-700 leading-relaxed">{r.reasonNote}</div>
+              {r.nextActionDate && (
+                <div className="mt-2 rounded-lg bg-ink-50 p-2.5 text-[11px] text-ink-700">
+                  <span className="text-ink-500 mr-1.5">次回予定:</span>
+                  {r.nextActionDate}
+                  {r.nextActionNote && ` ・ ${r.nextActionNote}`}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ChurnModal({
+  contract,
+  existing,
+  onClose,
+  onSave
+}: {
+  contract: ActiveContract;
+  existing?: ChurnRecord;
+  onClose: () => void;
+  onSave: (r: ChurnRecord) => void;
+}) {
+  const [churnedAt, setChurnedAt] = useState<string>(existing?.churnedAt ?? "2026-04-24");
+  const [reasonCategory, setReasonCategory] = useState<ChurnRecord["reasonCategory"]>(
+    existing?.reasonCategory ?? "budget"
+  );
+  const [reasonNote, setReasonNote] = useState<string>(existing?.reasonNote ?? "");
+  const [nextActionDate, setNextActionDate] = useState<string>(existing?.nextActionDate ?? "");
+  const [nextActionNote, setNextActionNote] = useState<string>(existing?.nextActionNote ?? "");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // ⚠️ 実際の Contract.status 更新は別実装。ここでは ChurnRecord のみを保持
+    onSave({
+      contractId: contract.id,
+      churnedAt,
+      reasonCategory,
+      reasonNote,
+      nextActionDate: nextActionDate || undefined,
+      nextActionNote: nextActionNote || undefined,
+      notified: existing?.notified ?? false
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-liquid-lg w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <form onSubmit={handleSubmit}>
+          <div className="px-6 py-5 border-b border-ink-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-ink-900">解約として記録</h3>
+              <p className="text-[11px] text-ink-500 mt-0.5">
+                {courseShortName(contract.product, contract.courseKey)} ・ {cycleLabel(contract.product, contract.cycleNumber)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-ink-400 hover:text-ink-700 text-xl"
+              aria-label="閉じる"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="px-6 py-5 space-y-4">
+            <Field label="解約日" required>
+              <input
+                type="date"
+                required
+                value={churnedAt}
+                onChange={(e) => setChurnedAt(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white"
+              />
+            </Field>
+
+            <Field label="理由カテゴリ" required>
+              <select
+                value={reasonCategory}
+                onChange={(e) => setReasonCategory(e.target.value as ChurnRecord["reasonCategory"])}
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white"
+              >
+                {reasonCategoryOrder.map((k) => (
+                  <option key={k} value={k}>
+                    {reasonCategoryLabels[k]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="詳細メモ" required>
+              <textarea
+                required
+                rows={3}
+                value={reasonNote}
+                onChange={(e) => setReasonNote(e.target.value)}
+                placeholder="経緯・背景を記載"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white resize-y"
+              />
+            </Field>
+
+            <div className="pt-3 border-t border-ink-100">
+              <div className="text-xs font-semibold text-ink-700 mb-3">次回接触（任意）</div>
+              <Field label="次回接触予定日">
+                <input
+                  type="date"
+                  value={nextActionDate}
+                  onChange={(e) => setNextActionDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white"
+                />
+              </Field>
+              <div className="mt-3" />
+              <Field label="何を話すか">
+                <textarea
+                  rows={3}
+                  value={nextActionNote}
+                  onChange={(e) => setNextActionNote(e.target.value)}
+                  placeholder="再アプローチ時の論点"
+                  className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white resize-y"
+                />
+              </Field>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-ink-100 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:opacity-90"
+            >
+              保存
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required,
+  children
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] font-medium text-ink-700 mb-1">
+        {label}
+        {required && <span className="text-rose-500 ml-1">*</span>}
+      </span>
+      {children}
+    </label>
   );
 }
 
@@ -895,13 +1169,18 @@ function ProductCyclesBlock({
   code,
   cycles,
   current,
-  plan
+  plan,
+  churnRecords,
+  onChurnClick
 }: {
   code: ProductCode;
   cycles: ActiveContract[];
   current: ActiveContract;
   plan?: SuccessPlan;
+  churnRecords: ChurnRecord[];
+  onChurnClick: (c: ActiveContract) => void;
 }) {
+  const isCurrentChurned = churnRecords.some((r) => r.contractId === current.id);
   const p = productByCode[code];
   return (
     <div className="liquid-surface p-5 space-y-5">
@@ -913,8 +1192,17 @@ function ProductCyclesBlock({
             サイクル単位：<span className="text-ink-700">{p.cycleUnit}</span>
           </span>
         </div>
-        <div className="text-[11px] text-ink-500">
-          {cycles.length} サイクル目
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-ink-500">{cycles.length} サイクル目</span>
+          {current.status !== "renewed" && current.status !== "churned" && (
+            <button
+              type="button"
+              onClick={() => onChurnClick(current)}
+              className="px-3 py-1 rounded-full text-[11px] border border-rose-100 bg-white text-rose-600 hover:bg-rose-50"
+            >
+              {isCurrentChurned ? "解約記録を編集" : "解約として記録"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -941,7 +1229,7 @@ function ProductCyclesBlock({
                   </span>
                 ) : (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-600">
-                    {c.cycleStatus === "renewed" ? "更新済" : c.cycleStatus === "churned" ? "解約" : "完了"}
+                    {c.status === "renewed" ? "更新済" : c.status === "churned" ? "解約" : "完了"}
                   </span>
                 )}
               </div>
@@ -969,11 +1257,12 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
     ? Math.ceil((new Date(endDate).getTime() - new Date("2026-04-24").getTime()) / (1000 * 60 * 60 * 24))
     : null;
   const milestones = endDate ? generateRenewalMilestones(contract.id, endDate) : [];
-  const renewalColor: Record<NonNullable<ActiveContract["renewalStatus"]>, string> = {
+  const renewalColor: Record<"green" | "yellow" | "red", string> = {
     green: "#10B981",
     yellow: "#F59E0B",
     red: "#EF4444"
   };
+  const healthColor = contract.healthScore?.color;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-4 border-t border-ink-100">
       {/* 左: 現行サマリー */}
@@ -982,16 +1271,16 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
         <div className="rounded-xl bg-ink-50 p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-ink-500">更新判定</span>
-            {contract.renewalStatus ? (
+            {healthColor ? (
               <span
                 className="text-[11px] px-2 py-0.5 rounded-full font-medium"
                 style={{
-                  background: `${renewalColor[contract.renewalStatus]}14`,
-                  color: renewalColor[contract.renewalStatus],
-                  border: `1px solid ${renewalColor[contract.renewalStatus]}33`
+                  background: `${renewalColor[healthColor]}14`,
+                  color: renewalColor[healthColor],
+                  border: `1px solid ${renewalColor[healthColor]}33`
                 }}
               >
-                {contract.renewalStatus.toUpperCase()}
+                {healthColor.toUpperCase()}
               </span>
             ) : (
               <span className="text-[11px] text-ink-400">—</span>
@@ -1076,13 +1365,455 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
   );
 }
 
-function MailPlaceholder() {
+/* ──────────────── アンケートタブ ──────────────── */
+function SurveysTab({
+  companyId,
+  contracts
+}: {
+  companyId: string;
+  contracts: ActiveContract[];
+}) {
+  // この企業が回答したSurvey一覧（surveyResponses.companyId経由でフィルタ）
+  const respondedSurveyIds = new Set(
+    allResponses.filter((r) => r.companyId === companyId).map((r) => r.surveyId)
+  );
+  // 旧モデル互換: 紐づく契約由来のSurveyも一覧に出す
+  const contractIds = new Set(contracts.map((c) => c.id));
+  const companySurveys = allSurveys
+    .filter(
+      (s) => respondedSurveyIds.has(s.id) || (s.contractId !== undefined && contractIds.has(s.contractId))
+    )
+    .sort((a, b) => (a.openedAt < b.openedAt ? 1 : -1));
+
+  if (companySurveys.length === 0) {
+    return (
+      <section className="liquid-surface p-10 text-center text-sm text-ink-500">
+        この企業のアンケートはまだありません
+      </section>
+    );
+  }
+
+  // NPS推移（時系列で並んだクローズ済survey）
+  const trendItems = companySurveys
+    .slice()
+    .reverse()
+    .map((s) => ({ survey: s, agg: aggregateSurvey(s.id) }))
+    .filter((t) => t.agg.npsScore !== undefined);
+
+  // 直近のインサイト3件
+  const insightSurveyIds = new Set(companySurveys.map((s) => s.id));
+  const recentInsights: SurveyInsight[] = allInsights
+    .filter((i) => insightSurveyIds.has(i.surveyId))
+    .slice(0, 3);
+
   return (
-    <section className="liquid-surface p-12 text-center">
-      <div className="text-sm text-ink-500">メールタブは準備中です</div>
-      <div className="text-xs text-ink-500 mt-2">
-        Gmail/Outlook連携によるスレッド表示を予定
+    <section className="space-y-4">
+      {/* NPS推移ミニチャート */}
+      {trendItems.length > 0 && (
+        <div className="liquid-surface p-5">
+          <div className="text-sm font-semibold text-ink-700 mb-3">NPS推移</div>
+          <div className="flex items-end gap-3 h-32">
+            {trendItems.map((t) => {
+              const v = t.agg.npsScore ?? 0;
+              const h = Math.max(8, ((v + 100) / 200) * 100);
+              return (
+                <div key={t.survey.id} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="text-[10px] text-ink-700 font-semibold">{v}</div>
+                  <div
+                    className="w-full rounded-t-md"
+                    style={{ height: `${h}%`, background: "#3D9EFF" }}
+                  />
+                  <div className="text-[10px] text-ink-500 truncate max-w-[80px]">
+                    {t.survey.openedAt.slice(5)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 直近インサイト */}
+      {recentInsights.length > 0 && (
+        <div className="liquid-surface p-5">
+          <div className="text-sm font-semibold text-ink-700 mb-3">直近のAIインサイト</div>
+          <ul className="space-y-2">
+            {recentInsights.map((i) => (
+              <li key={i.id} className="text-xs text-ink-700 rounded-lg border border-ink-100 p-2.5 bg-white">
+                <span className="text-[10px] text-ink-500 mr-2">{i.category}</span>
+                {i.summary}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Survey一覧 */}
+      <div className="liquid-surface overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[11px] text-ink-500 border-b border-ink-100">
+              <th className="px-5 py-3 font-medium">タイトル</th>
+              <th className="px-3 py-3 font-medium">期間</th>
+              <th className="px-3 py-3 font-medium">回答 / 対象</th>
+              <th className="px-3 py-3 font-medium">NPS</th>
+              <th className="px-3 py-3 font-medium">ステータス</th>
+              <th className="px-5 py-3 font-medium w-20"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {companySurveys.map((s) => {
+              const agg = aggregateSurvey(s.id);
+              const target = targetCountForSurvey(s.id);
+              const responseCount = allResponses.filter((r) => r.surveyId === s.id).length;
+              return (
+                <tr key={s.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50">
+                  <td className="px-5 py-3 font-medium">{s.title}</td>
+                  <td className="px-3 py-3 text-ink-500 text-xs whitespace-nowrap">
+                    {s.openedAt}
+                    {s.closedAt ? ` 〜 ${s.closedAt}` : " 〜"}
+                  </td>
+                  <td className="px-3 py-3 text-ink-700">{responseCount} / {target}</td>
+                  <td className="px-3 py-3 font-semibold">
+                    {agg.npsScore !== undefined ? agg.npsScore : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-ink-700 text-xs">{s.status}</td>
+                  <td className="px-5 py-3 text-right">
+                    <Link
+                      href={`/surveys/${s.id}`}
+                      className="text-xs text-ink-700 hover:underline whitespace-nowrap"
+                    >
+                      詳細 →
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
+    </section>
+  );
+}
+
+/* ──────────────── エンゲージメントタブ ──────────────── */
+function EngagementTab({
+  companyId,
+  contracts
+}: {
+  companyId: string;
+  contracts: ActiveContract[];
+}) {
+  const contractIds = new Set(contracts.map((c) => c.id));
+  const companyParticipants = allParticipants.filter(
+    (p) => p.companyId === companyId && contractIds.has(p.contractId)
+  );
+  const companySessions = allSessionsData
+    .filter((s) => contractIds.has(s.contractId))
+    .sort((a, b) => (a.scheduledAt < b.scheduledAt ? -1 : 1));
+
+  if (companyParticipants.length === 0 || companySessions.length === 0) {
+    return (
+      <section className="liquid-surface p-10 text-center text-sm text-ink-500">
+        この企業の出席データはまだありません
+      </section>
+    );
+  }
+
+  const cellColor = (status: "present" | "absent" | "late" | "not_expected") => {
+    switch (status) {
+      case "present":
+        return "#10B981";
+      case "late":
+        return "#F59E0B";
+      case "absent":
+        return "#EF4444";
+      default:
+        return "#E5E7EB";
+    }
+  };
+
+  const cellStatus = (
+    sessionId: string,
+    participantId: string
+  ): "present" | "absent" | "late" | "not_expected" => {
+    const sess = companySessions.find((s) => s.id === sessionId);
+    if (!sess) return "not_expected";
+    if (!sess.expectedParticipantIds.includes(participantId)) return "not_expected";
+    const rec = allAttendance.find(
+      (r) => r.sessionId === sessionId && r.participantId === participantId
+    );
+    return rec?.status ?? "absent";
+  };
+
+  // 個人別エンゲージメント率（出席率＋アンケート回答率）
+  const ranks = companyParticipants
+    .map((p) => {
+      const eng = participantEngagement(p.id);
+      const sr = participantSurveyResponseRate(p.id);
+      return {
+        participant: p,
+        attendanceRate: eng.attendanceRate,
+        attended: eng.attended,
+        totalSessions: eng.totalSessions,
+        surveyRate: sr.rate,
+        surveyResponded: sr.responded,
+        surveyTotal: sr.totalSurveys
+      };
+    })
+    .sort((a, b) => b.attendanceRate - a.attendanceRate);
+
+  const seniorityLabel: Record<string, string> = {
+    young: "若手",
+    mid: "中堅",
+    senior: "管理職",
+    exec: "役員"
+  };
+
+  return (
+    <section className="space-y-4">
+      {/* ヒートマップ */}
+      <div className="liquid-surface p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-sm font-semibold text-ink-700">出席ヒートマップ</div>
+            <div className="mt-0.5 text-[11px] text-ink-500">
+              参加者 × セッション（緑=出席 / 黄=遅刻 / 赤=欠席 / 灰=対象外）
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-ink-500">
+            {(["present", "late", "absent", "not_expected"] as const).map((st) => (
+              <span key={st} className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block w-3 h-3 rounded"
+                  style={{ background: cellColor(st) }}
+                />
+                {st === "present"
+                  ? "出席"
+                  : st === "late"
+                  ? "遅刻"
+                  : st === "absent"
+                  ? "欠席"
+                  : "対象外"}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-auto">
+          <table className="text-xs">
+            <thead>
+              <tr>
+                <th className="sticky left-0 bg-white z-10 px-3 py-2 text-left font-medium text-ink-500 border-b border-ink-100 min-w-[180px]">
+                  参加者
+                </th>
+                {companySessions.map((s) => (
+                  <th
+                    key={s.id}
+                    className="px-1 py-2 font-medium text-ink-500 border-b border-ink-100"
+                  >
+                    <div className="text-[10px] writing-vertical-rl whitespace-nowrap">
+                      第{s.sessionNumber}回 {s.scheduledAt.slice(5)}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {companyParticipants.map((p) => (
+                <tr key={p.id}>
+                  <td className="sticky left-0 bg-white z-10 px-3 py-1.5 border-b border-ink-50">
+                    <div className="text-ink-900 font-medium">{p.name}</div>
+                    <div className="text-[10px] text-ink-500">
+                      {p.department ?? "—"} ・ {p.seniority ? seniorityLabel[p.seniority] : "—"}
+                    </div>
+                  </td>
+                  {companySessions.map((s) => {
+                    const st = cellStatus(s.id, p.id);
+                    return (
+                      <td
+                        key={s.id}
+                        className="px-1 py-1.5 border-b border-ink-50 text-center"
+                      >
+                        <span
+                          className="inline-block w-5 h-5 rounded"
+                          style={{ background: cellColor(st) }}
+                          title={`${p.name} / ${s.title} / ${st}`}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 個人別エンゲージメント率（出席率＋アンケート回答率） */}
+      <div className="liquid-surface p-5">
+        <div className="text-sm font-semibold text-ink-700 mb-3">個人別エンゲージメント率</div>
+        <ul className="space-y-2.5">
+          {ranks.map((r) => (
+            <li key={r.participant.id}>
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="text-xs">
+                  <span className="text-ink-900 font-medium">{r.participant.name}</span>
+                  <span className="ml-2 text-ink-500">
+                    {r.participant.department ?? "—"} ・{" "}
+                    {r.participant.seniority ? seniorityLabel[r.participant.seniority] : "—"}
+                  </span>
+                </div>
+                <div className="text-[11px] text-ink-500">
+                  出席 <span className="text-ink-900 font-semibold">{Math.round(r.attendanceRate * 100)}%</span>{" "}
+                  ({r.attended}/{r.totalSessions})
+                  <span className="ml-3">
+                    回答 <span className="text-ink-900 font-semibold">{Math.round(r.surveyRate * 100)}%</span>{" "}
+                    ({r.surveyResponded}/{r.surveyTotal})
+                  </span>
+                </div>
+              </div>
+              <div className="mt-1 grid grid-cols-2 gap-1.5">
+                <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${r.attendanceRate * 100}%`,
+                      background: "#10B981"
+                    }}
+                  />
+                </div>
+                <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${r.surveyRate * 100}%`,
+                      background: "#3D9EFF"
+                    }}
+                  />
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────── メールタブ ──────────────── */
+const MAIL_STATUS_LABEL: Record<EmailThreadStatus, string> = {
+  new: "未対応",
+  in_progress: "対応中",
+  replied: "返信済",
+  waiting: "返信待ち",
+  closed: "クローズ"
+};
+const MAIL_STATUS_BG: Record<EmailThreadStatus, string> = {
+  new: "bg-rose-50 text-rose-600 border-rose-100",
+  in_progress: "bg-amber-50 text-amber-700 border-amber-100",
+  replied: "bg-sky-50 text-sky-700 border-sky-100",
+  waiting: "bg-violet-50 text-violet-700 border-violet-100",
+  closed: "bg-ink-50 text-ink-500 border-ink-100"
+};
+const MAIL_TODAY = "2026-04-24";
+
+function MailTab({ companyId }: { companyId: string }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const threads = emailThreads
+    .filter((t) => t.companyId === companyId)
+    .sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
+
+  if (threads.length === 0) {
+    return (
+      <section className="liquid-surface p-12 text-center">
+        <div className="text-sm text-ink-500">この企業のメールスレッドはありません</div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="text-xs text-ink-500">
+        全 {threads.length} スレッド ・{" "}
+        <Link href="/inbox" className="hover:text-ink-700 underline">
+          受信箱で開く →
+        </Link>
+      </div>
+      <ul className="space-y-2">
+        {threads.map((t) => {
+          const open = openId === t.id;
+          const overdue =
+            t.slaDeadline &&
+            new Date(t.slaDeadline) < new Date(MAIL_TODAY) &&
+            (t.status === "new" || t.status === "in_progress");
+          const tMsgs = emailMessages
+            .filter((m) => m.threadId === t.id)
+            .sort((a, b) => (a.sentAt < b.sentAt ? -1 : 1));
+          return (
+            <li key={t.id} className="liquid-surface overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenId(open ? null : t.id)}
+                className="w-full text-left p-4 hover:bg-ink-50 transition flex items-start gap-3"
+              >
+                <span
+                  className={[
+                    "px-2 py-0.5 rounded-full border text-[10px] mt-0.5 shrink-0",
+                    MAIL_STATUS_BG[t.status]
+                  ].join(" ")}
+                >
+                  {MAIL_STATUS_LABEL[t.status]}
+                </span>
+                {overdue && (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 text-[10px] mt-0.5 shrink-0">
+                    SLA超過
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-ink-900 truncate">
+                    {t.subject}
+                  </div>
+                  <div className="text-[11px] text-ink-500 mt-0.5">
+                    担当: {t.assignee} ・ 最終受信: {t.lastMessageAt}
+                    {t.slaDeadline && ` ・ SLA: ${t.slaDeadline}`}
+                  </div>
+                </div>
+                <Link
+                  href={`/inbox?threadId=${t.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[11px] text-ink-700 hover:underline shrink-0"
+                >
+                  受信箱で開く →
+                </Link>
+                <span className="text-ink-400 text-xs shrink-0">{open ? "▼" : "▶"}</span>
+              </button>
+              {open && (
+                <div className="border-t border-ink-100 p-4 bg-ink-50/30 space-y-2">
+                  {tMsgs.map((m) => (
+                    <div
+                      key={m.id}
+                      className={[
+                        "rounded-lg border p-3 text-xs",
+                        m.direction === "inbound"
+                          ? "bg-white border-ink-100"
+                          : "bg-sky-50 border-sky-100 ml-6"
+                      ].join(" ")}
+                    >
+                      <div className="flex items-center justify-between text-[11px] text-ink-500">
+                        <span className="font-medium text-ink-700">{m.from}</span>
+                        <span>{new Date(m.sentAt).toLocaleString("ja-JP")}</span>
+                      </div>
+                      <pre className="mt-1 text-xs text-ink-900 whitespace-pre-wrap font-sans leading-relaxed">
+                        {m.body}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

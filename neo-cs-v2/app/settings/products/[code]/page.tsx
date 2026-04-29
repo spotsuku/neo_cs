@@ -10,10 +10,33 @@ import {
   OnboardingCategory,
   OnboardingTemplateItem
 } from "@/lib/mock/onboarding";
+import {
+  surveySchedules as initialSurveySchedules,
+  surveyTemplates,
+  SurveySchedule,
+  SurveyScheduleTrigger,
+  SurveyRespondentTarget,
+  describeTrigger,
+  describeRespondentTarget
+} from "@/lib/mock/surveys";
+import { allContracts } from "@/lib/mock/onboarding";
+import { companies } from "@/lib/mock/entities";
+import {
+  sessions as allSessionsData,
+  attendanceRecords as allAttendanceData
+} from "@/lib/mock/participants";
 
 type Product = (typeof products)[number];
 
-type TabKey = "basic" | "courses" | "contract" | "participants" | "schedule" | "onboarding";
+type TabKey =
+  | "basic"
+  | "courses"
+  | "contract"
+  | "participants"
+  | "schedule"
+  | "onboarding"
+  | "surveys"
+  | "sessions";
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: "basic", label: "基本情報" },
@@ -21,7 +44,9 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "contract", label: "契約設定" },
   { key: "participants", label: "参加者" },
   { key: "schedule", label: "面談スケジュール" },
-  { key: "onboarding", label: "オンボ項目" }
+  { key: "onboarding", label: "オンボ項目" },
+  { key: "surveys", label: "アンケートスケジュール" },
+  { key: "sessions", label: "セッション一覧" }
 ];
 
 const VALID_CODES: ProductCode[] = ["academia", "hyogikai", "aiken", "commu"];
@@ -112,6 +137,8 @@ export default function ProductEditPage({
           {tab === "participants" && <ParticipantsTab product={p} />}
           {tab === "schedule" && <ScheduleTab accent={p.accent} code={code as ProductCode} />}
           {tab === "onboarding" && <OnboardingTab accent={p.accent} code={code as ProductCode} />}
+          {tab === "surveys" && <SurveysScheduleTab accent={p.accent} code={code as ProductCode} />}
+          {tab === "sessions" && <SessionsTab accent={p.accent} code={code as ProductCode} />}
         </section>
 
         <footer className="pt-8 pb-4 text-center text-[11px] text-ink-500">
@@ -785,6 +812,430 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
         <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
           既存契約に反映
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// アンケートスケジュール
+// ─────────────────────────────────────────────
+
+const respondentTargetOptions: { value: SurveyRespondentTarget; label: string }[] = [
+  { value: "all_stakeholders", label: "全担当者" },
+  { value: "primary_contact", label: "主担当のみ" },
+  { value: "all_participants", label: "全参加者" },
+  { value: "custom", label: "カスタム" }
+];
+
+type TriggerKind = "after_session" | "at_session_type" | "periodic_yearly";
+
+function emptySchedule(code: ProductCode): SurveySchedule {
+  return {
+    id: `sch-new-${Date.now()}`,
+    product: code,
+    name: "新規アンケート",
+    templateIds: [],
+    trigger: { type: "at_session_type", sessionType: "kickoff" },
+    respondentTarget: "all_participants",
+    active: true
+  };
+}
+
+function SurveysScheduleTab({ accent, code }: { accent: string; code: ProductCode }) {
+  const [rows, setRows] = useState<SurveySchedule[]>(() =>
+    initialSurveySchedules.filter((s) => s.product === code).map((s) => ({ ...s }))
+  );
+  const [editing, setEditing] = useState<SurveySchedule | null>(null);
+
+  const productTemplates = surveyTemplates.filter(
+    (t) => t.scope === "common" || t.product === code || t.scope === "session"
+  );
+
+  const openNew = () => setEditing(emptySchedule(code));
+  const openEdit = (sch: SurveySchedule) => setEditing({ ...sch });
+  const closeEdit = () => setEditing(null);
+
+  const save = (sch: SurveySchedule) => {
+    setRows((rs) => {
+      const exists = rs.some((r) => r.id === sch.id);
+      return exists ? rs.map((r) => (r.id === sch.id ? sch : r)) : [...rs, sch];
+    });
+    setEditing(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="liquid-surface p-5 bg-ink-50/40 flex items-center justify-between">
+        <div className="text-xs text-ink-700 leading-relaxed">
+          研修からアンケートを発生させるスケジュール。CSV取込やメール配信のトリガーとなります
+        </div>
+        <button
+          onClick={openNew}
+          className="px-3 py-1.5 rounded-full text-xs text-white shadow-liquid whitespace-nowrap"
+          style={{ background: accent }}
+        >
+          + 新規追加
+        </button>
+      </div>
+
+      <div className="liquid-surface overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[11px] text-ink-500 bg-ink-50 border-b border-ink-100">
+              <th className="px-4 py-2.5 font-medium">名前</th>
+              <th className="px-3 py-2.5 font-medium w-32">対象者</th>
+              <th className="px-3 py-2.5 font-medium w-40">トリガー</th>
+              <th className="px-3 py-2.5 font-medium w-24">テンプレ数</th>
+              <th className="px-3 py-2.5 font-medium w-20">active</th>
+              <th className="px-3 py-2.5 font-medium w-20"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.id}
+                onClick={() => openEdit(r)}
+                className="border-b border-ink-50 last:border-0 hover:bg-ink-50/40 cursor-pointer"
+              >
+                <td className="px-4 py-2.5 font-medium">{r.name}</td>
+                <td className="px-3 py-2.5 text-ink-700 text-xs">{describeRespondentTarget(r.respondentTarget)}</td>
+                <td className="px-3 py-2.5 text-ink-700 text-xs">{describeTrigger(r.trigger)}</td>
+                <td className="px-3 py-2.5 text-ink-700">{r.templateIds.length}</td>
+                <td className="px-3 py-2.5">
+                  <span
+                    className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                    style={{
+                      color: r.active ? "#10B981" : "#94A3B8",
+                      background: r.active ? "#10B98114" : "#94A3B814"
+                    }}
+                  >
+                    {r.active ? "有効" : "無効"}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-right text-xs text-ink-500">編集 →</td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-xs text-ink-500">
+                  この研修にはまだアンケートスケジュールがありません
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {editing && (
+        <ScheduleEditModal
+          schedule={editing}
+          accent={accent}
+          templates={productTemplates}
+          onClose={closeEdit}
+          onSave={save}
+        />
+      )}
+    </div>
+  );
+}
+
+function ScheduleEditModal({
+  schedule,
+  accent,
+  templates,
+  onClose,
+  onSave
+}: {
+  schedule: SurveySchedule;
+  accent: string;
+  templates: { id: string; name: string }[];
+  onClose: () => void;
+  onSave: (s: SurveySchedule) => void;
+}) {
+  const [draft, setDraft] = useState<SurveySchedule>(schedule);
+
+  const triggerKind: TriggerKind = draft.trigger.type;
+
+  const setTriggerKind = (k: TriggerKind) => {
+    let next: SurveyScheduleTrigger;
+    if (k === "after_session") next = { type: "after_session", sessionNumber: 1 };
+    else if (k === "at_session_type") next = { type: "at_session_type", sessionType: "kickoff" };
+    else next = { type: "periodic_yearly", atMonths: [3, 7, 11] };
+    setDraft({ ...draft, trigger: next });
+  };
+
+  const toggleTemplate = (tid: string) => {
+    setDraft((d) => ({
+      ...d,
+      templateIds: d.templateIds.includes(tid)
+        ? d.templateIds.filter((x) => x !== tid)
+        : [...d.templateIds, tid]
+    }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-auto p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between">
+          <div className="text-base font-semibold text-ink-900">アンケートスケジュール編集</div>
+          <button onClick={onClose} className="text-ink-500 hover:text-ink-700 text-sm">
+            ✕
+          </button>
+        </div>
+
+        <Field label="名前">
+          <input
+            className={inputCls}
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+        </Field>
+
+        <Field label="対象者">
+          <select
+            className={inputCls}
+            value={draft.respondentTarget}
+            onChange={(e) =>
+              setDraft({ ...draft, respondentTarget: e.target.value as SurveyRespondentTarget })
+            }
+          >
+            {respondentTargetOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="トリガー種別">
+          <select
+            className={inputCls}
+            value={triggerKind}
+            onChange={(e) => setTriggerKind(e.target.value as TriggerKind)}
+          >
+            <option value="after_session">セッション後（特定回）</option>
+            <option value="at_session_type">セッションタイプ時</option>
+            <option value="periodic_yearly">年次定期</option>
+          </select>
+        </Field>
+
+        {draft.trigger.type === "after_session" && (
+          <Field label="セッション番号">
+            <input
+              type="number"
+              className={inputCls}
+              value={draft.trigger.sessionNumber}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  trigger: { type: "after_session", sessionNumber: Number(e.target.value) }
+                })
+              }
+            />
+          </Field>
+        )}
+        {draft.trigger.type === "at_session_type" && (
+          <Field label="セッションタイプ" hint="kickoff / midterm / final / session 等">
+            <input
+              className={inputCls}
+              value={draft.trigger.sessionType}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  trigger: { type: "at_session_type", sessionType: e.target.value }
+                })
+              }
+            />
+          </Field>
+        )}
+        {draft.trigger.type === "periodic_yearly" && (
+          <Field label="実施月（カンマ区切り）" hint="例: 3,7,11">
+            <input
+              className={inputCls}
+              value={draft.trigger.atMonths.join(",")}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  trigger: {
+                    type: "periodic_yearly",
+                    atMonths: e.target.value
+                      .split(",")
+                      .map((s) => Number(s.trim()))
+                      .filter((n) => Number.isFinite(n) && n >= 1 && n <= 12)
+                  }
+                })
+              }
+            />
+          </Field>
+        )}
+
+        <Field label="紐付けるテンプレート">
+          <div className="space-y-1.5 max-h-40 overflow-auto rounded-xl border border-ink-100 p-2">
+            {templates.map((t) => (
+              <label key={t.id} className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={draft.templateIds.includes(t.id)}
+                  onChange={() => toggleTemplate(t.id)}
+                />
+                <span className="text-ink-700">{t.name}</span>
+                <span className="text-[10px] text-ink-500">({t.id})</span>
+              </label>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="active">
+          <label className="flex items-center gap-2 text-xs text-ink-700">
+            <input
+              type="checkbox"
+              checked={draft.active}
+              onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
+            />
+            有効化（active=true）
+          </label>
+        </Field>
+
+        <div className="pt-2 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={() => onSave(draft)}
+            className="px-4 py-2 rounded-full text-white text-sm shadow-liquid"
+            style={{ background: accent }}
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// セッション一覧
+// ─────────────────────────────────────────────
+
+function SessionsTab({ accent, code }: { accent: string; code: ProductCode }) {
+  const productContracts = allContracts.filter((c) => c.product === code);
+  const productContractIds = new Set(productContracts.map((c) => c.id));
+  const productSessions = allSessionsData
+    .filter((s) => productContractIds.has(s.contractId))
+    .sort((a, b) => (a.scheduledAt < b.scheduledAt ? -1 : 1));
+
+  if (productSessions.length === 0) {
+    return (
+      <div className="liquid-surface p-10 text-center text-sm text-ink-500">
+        この研修にはまだセッションが登録されていません
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="liquid-surface p-5 bg-ink-50/40 text-xs text-ink-700">
+        この研修の全契約に紐づくセッションの一覧です。クリックで /attendance に遷移します
+      </div>
+
+      <div className="liquid-surface overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[11px] text-ink-500 bg-ink-50 border-b border-ink-100">
+              <th className="px-4 py-2.5 font-medium">日付</th>
+              <th className="px-3 py-2.5 font-medium">企業 / セッション</th>
+              <th className="px-3 py-2.5 font-medium w-24">対象者</th>
+              <th className="px-3 py-2.5 font-medium w-28">記録状況</th>
+              <th className="px-3 py-2.5 font-medium w-24">出席率</th>
+              <th className="px-3 py-2.5 font-medium w-20"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {productSessions.map((s) => {
+              const contract = productContracts.find((c) => c.id === s.contractId);
+              const co = contract
+                ? companies.find((x) => x.id === contract.companyId)
+                : undefined;
+              const expected = s.expectedParticipantIds.length;
+              const recsForSession = allAttendanceData.filter(
+                (r) => r.sessionId === s.id
+              );
+              const recorded = recsForSession.length;
+              const attendedCount = recsForSession.filter(
+                (r) => r.status === "present" || r.status === "late"
+              ).length;
+              const rate =
+                expected === 0
+                  ? 0
+                  : attendedCount /
+                    Math.max(expected, recorded > 0 ? recorded : expected);
+              return (
+                <tr
+                  key={s.id}
+                  className="border-b border-ink-50 last:border-0 hover:bg-ink-50/40"
+                >
+                  <td className="px-4 py-2.5 text-ink-700 whitespace-nowrap">
+                    {s.scheduledAt}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="text-ink-900 font-medium">
+                      {co?.name ?? contract?.companyId ?? "—"}
+                    </div>
+                    <div className="text-[11px] text-ink-500">
+                      第{s.sessionNumber}回 ・ {s.title}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 text-ink-700">{expected} 名</td>
+                  <td className="px-3 py-2.5">
+                    {s.completedAt ? (
+                      recorded > 0 ? (
+                        <span
+                          className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                          style={{ background: "#10B98114", color: "#10B981" }}
+                        >
+                          記録済
+                        </span>
+                      ) : (
+                        <span
+                          className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                          style={{ background: "#EF444414", color: "#EF4444" }}
+                        >
+                          未記録
+                        </span>
+                      )
+                    ) : (
+                      <span
+                        className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                        style={{ background: "#94A3B814", color: "#64748B" }}
+                      >
+                        予定
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-ink-700">
+                    {recorded > 0 ? `${Math.round(rate * 100)}%` : "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <Link
+                      href={`/attendance?sessionId=${s.id}`}
+                      className="text-xs hover:underline whitespace-nowrap"
+                      style={{ color: accent }}
+                    >
+                      入力 →
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
