@@ -16,6 +16,7 @@
 // (Next.js 16 は middleware の nodejs runtime をサポート)
 
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
 import {
   SESSION_IDLE_MAX_MS,
@@ -165,7 +166,19 @@ export async function middleware(req: NextRequest) {
   writeSessionMeta(res, meta);
 
   // 5. app_users から role / organization_id / is_active を取得
-  const { data: row } = await supabase
+  //    RLS は service_role でバイパス。理由: middleware はユーザー存在判定のみで
+  //    機微情報は返さない。anon-key + RLS だと auth.uid() の解決タイミング次第で
+  //    自分のレコードが見えないケースがあり、user_disabled の誤判定が発生するため。
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return signOutAndRedirect(req, "user_disabled");
+  }
+  const sbAdmin = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const { data: row } = await sbAdmin
     .from("app_users")
     .select("id, role, organization_id, is_active")
     .eq("auth_user_id", user.id)
