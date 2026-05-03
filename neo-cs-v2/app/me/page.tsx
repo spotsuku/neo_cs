@@ -11,10 +11,10 @@ import { activeContracts, contractOnboardingItems } from "@/lib/mock/onboarding"
 import { weeklyReviews, CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 import { churnRecords, reasonCategoryLabels } from "@/lib/mock/churn";
 import { allContracts } from "@/lib/mock/onboarding";
+import { userRepo } from "@/lib/repository";
 
-// 古野ユーザのマイページ（運用者向け実行画面）
-const CURRENT_USER = "古野";
 const TODAY = "2026-04-24";
+const FALLBACK_USER = "古野";
 
 const TYPE_LABEL: Record<AiExtractionType, string> = {
   onboarding_task_done: "オンボ完了",
@@ -41,7 +41,9 @@ function daysBetween(a: string, b: string) {
   );
 }
 
-export default function MyPage() {
+export default async function MyPage() {
+  const me = await userRepo.getCurrent();
+  const CURRENT_USER = me?.name ?? FALLBACK_USER;
   // 1. 自分宛て未対応メール
   const myThreads = emailThreads.filter((t) => t.assignee === CURRENT_USER);
   const myOpenThreads = myThreads

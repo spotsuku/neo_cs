@@ -3,13 +3,16 @@ export function KpiCard({
   value,
   sub,
   trend,
-  accent
+  accent,
+  explain
 }: {
   label: string;
   value: string;
   sub?: string;
   trend?: { value: string; direction: "up" | "down" | "flat" };
   accent?: string;
+  /** 「ⓘ 根拠」ボタンを表示するノード (KpiExplainButton 等) */
+  explain?: React.ReactNode;
 }) {
   const trendColor =
     trend?.direction === "up"
@@ -27,7 +30,10 @@ export function KpiCard({
           style={{ background: accent }}
         />
       )}
-      <div className="text-xs text-ink-500 font-medium">{label}</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-xs text-ink-500 font-medium">{label}</div>
+        {explain}
+      </div>
       <div className="mt-0.5 flex items-baseline gap-2 flex-wrap">
         <span className="text-xl font-bold tracking-tight text-ink-900 leading-tight">{value}</span>
         {trend && (
@@ -35,7 +41,7 @@ export function KpiCard({
             {arrow} {trend.value}
           </span>
         )}
-        {sub && <span className="text-[11px] text-ink-500">{sub}</span>}
+        {sub && <span className="text-caption text-ink-500">{sub}</span>}
       </div>
     </div>
   );

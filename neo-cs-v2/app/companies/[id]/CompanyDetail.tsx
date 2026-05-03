@@ -34,6 +34,14 @@ import {
   renewalMilestoneSpec
 } from "@/lib/mock/cycles";
 import { companyHealthColor } from "@/lib/mock/health";
+import { computeFromContract } from "@/lib/domain/health";
+import { HealthExplain } from "@/components/HealthExplain";
+import { HealthSparkline } from "@/components/HealthSparkline";
+import { ContractChurnSignals } from "@/components/ContractChurnSignals";
+import { ContractExpansionOpportunities } from "@/components/ContractExpansionOpportunities";
+import { RenewalMilestoneList } from "@/components/RenewalMilestoneList";
+import { CompanyVocList } from "@/components/CompanyVocList";
+import { useHealthSnapshots } from "@/lib/hooks/useHealthSnapshots";
 import type { ChurnRecord } from "@/lib/mock/churn";
 import { reasonCategoryLabels, reasonCategoryOrder, churnRecords as initialChurnRecords } from "@/lib/mock/churn";
 import { emailThreads, emailMessages } from "@/lib/mock/email";
@@ -846,11 +854,22 @@ function AccountJourneySection({ journeys }: { journeys: AccountJourney[] }) {
 /* ──────────────── ステークホルダー ──────────────── */
 function StakeholderSection({ stakeholders }: { stakeholders: Stakeholder[] }) {
   if (stakeholders.length === 0) return null;
+  // 個人へのリスクラベル (at_risk) は撤廃。type は役割のみ表現する
   const typeColor: Record<Stakeholder["type"], string> = {
     decision_maker: "#8B5CF6",
     champion: "#10B981",
-    user: "#3D9EFF",
-    at_risk: "#EF4444"
+    user: "#3D9EFF"
+  };
+  // 個人の関与度低下は事実として表示するが「リスク扱い」のラベルにはしない
+  const engagementCls: Record<NonNullable<Stakeholder["engagement"]>, string> = {
+    active: "bg-success-50 text-success-700 border-success-100",
+    low: "bg-warning-50 text-warning-700 border-warning-100",
+    disengaged: "bg-neutral-100 text-neutral-700 border-neutral-300"
+  };
+  const engagementLabel: Record<NonNullable<Stakeholder["engagement"]>, string> = {
+    active: "活発",
+    low: "頻度低下",
+    disengaged: "ほぼ不参加"
   };
   return (
     <div className="liquid-surface p-5">
@@ -868,8 +887,15 @@ function StakeholderSection({ stakeholders }: { stakeholders: Stakeholder[] }) {
               </span>
             </div>
             <div className="text-[11px] text-ink-500 mt-0.5">{s.role}</div>
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="mt-2 flex flex-wrap gap-1 items-center">
               {s.products.map((p) => <ProductBadge key={p} code={p} size="sm" />)}
+              {s.engagement && s.engagement !== "active" && (
+                <span
+                  className={`inline-flex px-1.5 py-0.5 rounded-pill border text-caption ${engagementCls[s.engagement]}`}
+                >
+                  関与: {engagementLabel[s.engagement]}
+                </span>
+              )}
             </div>
             {s.note && (
               <div className="mt-2 text-[11px] text-ink-600 leading-relaxed">{s.note}</div>
@@ -1023,6 +1049,9 @@ function ChurnModal({
   const [reasonNote, setReasonNote] = useState<string>(existing?.reasonNote ?? "");
   const [nextActionDate, setNextActionDate] = useState<string>(existing?.nextActionDate ?? "");
   const [nextActionNote, setNextActionNote] = useState<string>(existing?.nextActionNote ?? "");
+  const [verifiedByCustomer, setVerifiedByCustomer] = useState<boolean>(
+    existing?.verifiedByCustomer ?? false
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1032,6 +1061,11 @@ function ChurnModal({
       churnedAt,
       reasonCategory,
       reasonNote,
+      verifiedByCustomer,
+      verifiedAt: verifiedByCustomer
+        ? existing?.verifiedAt ?? new Date().toISOString().slice(0, 10)
+        : undefined,
+      verificationNote: existing?.verificationNote,
       nextActionDate: nextActionDate || undefined,
       nextActionNote: nextActionNote || undefined,
       notified: existing?.notified ?? false
@@ -1100,6 +1134,21 @@ function ChurnModal({
                 className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white resize-y"
               />
             </Field>
+
+            <label className="mt-3 inline-flex items-start gap-2 text-body text-ink-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={verifiedByCustomer}
+                onChange={(e) => setVerifiedByCustomer(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded accent-ink-900"
+              />
+              <span>
+                <span className="font-medium">顧客本人に確認済</span>
+                <span className="text-caption text-ink-500 block">
+                  チェックなしの場合は CS 側の推測値として記録されます (reviews/10_顧客.md 対応)
+                </span>
+              </span>
+            </label>
 
             <div className="pt-3 border-t border-ink-100">
               <div className="text-xs font-semibold text-ink-700 mb-3">次回接触（任意）</div>
@@ -1262,9 +1311,60 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
     yellow: "#F59E0B",
     red: "#EF4444"
   };
-  const healthColor = contract.healthScore?.color;
+  const breakdown = computeFromContract(contract);
+  const healthColor = breakdown.color;
+  const { snapshots } = useHealthSnapshots(contract.id);
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-4 border-t border-ink-100">
+    <div className="space-y-4 pt-4 border-t border-ink-100">
+      {/* Health 説明セクション */}
+      <div className="surface p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-caption text-neutral-500 font-medium">
+            Health Score (12週推移)
+          </div>
+          <HealthSparkline snapshots={snapshots} />
+        </div>
+        <HealthExplain breakdown={breakdown} />
+      </div>
+
+      {/* 解約予兆シグナル (D項) */}
+      <div className="surface p-4 space-y-2">
+        <div className="text-caption text-neutral-500 font-medium">
+          解約予兆シグナル
+        </div>
+        <ContractChurnSignals contractId={contract.id} />
+      </div>
+
+      {/* エクスパンション機会 + 営業引き継ぎ (F項) */}
+      <div className="surface p-4 space-y-2">
+        <div className="flex items-baseline justify-between">
+          <div className="text-caption text-neutral-500 font-medium">
+            エクスパンション機会 / 営業引き継ぎ
+          </div>
+          <span className="text-caption text-neutral-400">
+            score≥80 は Slack 通知対象 (週次)
+          </span>
+        </div>
+        <ContractExpansionOpportunities contractId={contract.id} />
+      </div>
+
+      {/* VOC (顧客の声) — 未処理のみ (H項) */}
+      <div className="surface p-4 space-y-2">
+        <div className="flex items-baseline justify-between">
+          <div className="text-caption text-neutral-500 font-medium">
+            VOC (顧客の声) — 未処理
+          </div>
+          <a
+            href={`/voc?companyId=${contract.companyId}`}
+            className="text-caption text-info-700 hover:underline focus-ring rounded-sm"
+          >
+            すべて見る →
+          </a>
+        </div>
+        <CompanyVocList companyId={contract.companyId} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 左: 現行サマリー */}
       <div className="space-y-3">
         <div className="text-xs font-semibold text-ink-700">現行サイクル</div>
@@ -1303,33 +1403,13 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
         </div>
       </div>
 
-      {/* 中央: 更新マイルストーン */}
-      <div className="space-y-3">
-        <div className="text-xs font-semibold text-ink-700">更新マイルストーン</div>
+      {/* 中央: 更新マイルストーン (G項: 自動done廃止 + 証跡入力UI) */}
+      <div className="space-y-3 lg:col-span-2">
+        <div className="text-caption font-semibold text-neutral-700">更新マイルストーン</div>
         {milestones.length === 0 ? (
-          <div className="text-[11px] text-ink-500">期末日なし（単発）</div>
+          <div className="text-caption text-neutral-500">期末日なし（単発）</div>
         ) : (
-          <div className="space-y-1.5">
-            {milestones.map((m) => {
-              const spec = renewalMilestoneSpec.find((s) => s.type === m.type)!;
-              return (
-                <div key={m.id} className="flex items-center gap-2 text-xs">
-                  <span
-                    className={[
-                      "w-2 h-2 rounded-full shrink-0",
-                      m.status === "done" ? "" : "ring-1 ring-ink-300"
-                    ].join(" ")}
-                    style={{ background: m.status === "done" ? p.accent : "white" }}
-                  />
-                  <span className="text-[11px] text-ink-500 w-10 shrink-0">{m.type}</span>
-                  <span className={m.status === "done" ? "text-ink-400 line-through" : "text-ink-900"}>
-                    {spec.label}
-                  </span>
-                  <span className="ml-auto text-[11px] text-ink-500">{m.dueDate.slice(5).replace("-", "/")}</span>
-                </div>
-              );
-            })}
-          </div>
+          <RenewalMilestoneList contractId={contract.id} />
         )}
       </div>
 
@@ -1360,6 +1440,7 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

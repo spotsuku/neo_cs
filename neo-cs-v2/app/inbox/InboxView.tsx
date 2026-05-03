@@ -13,11 +13,11 @@ import {
 } from "@/lib/mock/email";
 import type { Company } from "@/lib/mock/entities";
 import type { Contract } from "@/lib/mock/contracts";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
 
-// 現在ユーザは古野でハードコード
-const CURRENT_USER = "古野";
 const TODAY = "2026-04-24";
-const ASSIGNEES = ["古野", "三木", "松田"];
+const FALLBACK_USER = "古野";
 const STATUS_LABEL: Record<EmailThreadStatus, string> = {
   new: "未対応",
   in_progress: "対応中",
@@ -69,6 +69,9 @@ export function InboxView({
 }) {
   const params = useSearchParams();
   const queryThreadId = params?.get("threadId") ?? null;
+  const { name: currentUserName } = useCurrentUser();
+  const currentUser = currentUserName ?? FALLBACK_USER;
+  const { names: assigneeOptions } = useActiveMembers();
   const [threads, setThreads] = useState(initialThreads);
   const [extractions, setExtractions] = useState(initialExtractions);
   const [filter, setFilter] = useState<Filter>("open");
@@ -93,7 +96,7 @@ export function InboxView({
     if (filter === "open") {
       arr = arr.filter((t) => t.status === "new" || t.status === "in_progress");
     } else if (filter === "mine") {
-      arr = arr.filter((t) => t.assignee === CURRENT_USER);
+      arr = arr.filter((t) => t.assignee === currentUser);
     }
     return arr.sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
   }, [threads, filter]);
@@ -159,7 +162,7 @@ export function InboxView({
       <div className="flex items-center gap-1 border-b border-ink-100">
         {([
           { key: "open" as Filter, label: `未対応 (${threads.filter((t) => t.status === "new" || t.status === "in_progress").length})` },
-          { key: "mine" as Filter, label: `自分の担当 (${threads.filter((t) => t.assignee === CURRENT_USER).length})` },
+          { key: "mine" as Filter, label: `自分の担当 (${threads.filter((t) => t.assignee === currentUser).length})` },
           { key: "all" as Filter, label: `すべて (${threads.length})` }
         ]).map((f) => {
           const active = filter === f.key;
@@ -291,7 +294,7 @@ export function InboxView({
                       }
                       className="border border-ink-100 rounded-md px-2 py-1 text-xs"
                     >
-                      {ASSIGNEES.map((a) => (
+                      {assigneeOptions.map((a) => (
                         <option key={a} value={a}>
                           {a}
                         </option>

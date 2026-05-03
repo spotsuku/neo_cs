@@ -17,6 +17,8 @@ import {
   describeTrigger
 } from "@/lib/mock/surveys";
 import { ProductCode } from "@/lib/mock/data";
+import { VocScanButton } from "@/components/VocScanButton";
+import type { VocSourceTextInput } from "@/lib/domain/voc";
 
 type Tab = "summary" | "insights" | "responses" | "imports";
 
@@ -61,6 +63,18 @@ export function SurveyDetail({
 }) {
   const [tab, setTab] = useState<Tab>("summary");
   const responseRate = targetCount > 0 ? Math.round((responses.length / targetCount) * 100) : 0;
+
+  // VOC スキャン用入力: 全 response の自由記述 (string value) を集約
+  const vocInputs: VocSourceTextInput[] = responses.flatMap((r) =>
+    r.answers
+      .filter((a): a is typeof a & { value: string } => typeof a.value === "string" && a.value.length >= 5)
+      .map((a) => ({
+        sourceType: "survey_response" as const,
+        sourceId: r.id,
+        text: a.value,
+        companyId: r.companyId
+      }))
+  );
 
   return (
     <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
@@ -135,6 +149,13 @@ export function SurveyDetail({
           <KpiCard label="質問数" value={String(aggregation.byQuestion.length)} />
         </div>
       </section>
+
+      {/* VOC スキャン (H項) */}
+      {vocInputs.length > 0 && (
+        <div className="flex items-center justify-end">
+          <VocScanButton inputs={vocInputs} companyId={companyId} />
+        </div>
+      )}
 
       {/* タブ */}
       <nav className="flex items-center gap-1 border-b border-ink-100">

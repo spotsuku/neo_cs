@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ProductCode,
   productByCode,
@@ -20,8 +20,15 @@ import {
   weeksStuck
 } from "@/lib/mock/weekly";
 import { activeContracts } from "@/lib/mock/onboarding";
+import { weeklyReviewRepo, DEFAULT_ORG_ID } from "@/lib/repository";
+import { useDraftPersistence } from "@/lib/hooks/useDraftPersistence";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
-const ASSIGNEES = ["古野", "松田", "三木"];
+const FALLBACK_ASSIGNEE = "古野";
+
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 function ProductTab({
   code,
@@ -56,6 +63,7 @@ function ProductTab({
 }
 
 export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
+  const { name: currentUserName } = useCurrentUser();
   // この企業が契約している研修一覧
   const products = useMemo(() => {
     return Array.from(
@@ -169,6 +177,47 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
         }
       : null);
 
+  const p = productByCode[product];
+  const selectedRange = getWeekRange(selectedWeekStart);
+
+  // ── 保存配線 ──
+  const draftKey = `weekly_review:${companyId}:${product}:${selectedWeekStart}`;
+  const dirty = isEditable && draft !== null;
+  const { savedAt: localSavedAt, markClean } = useDraftPersistence(
+    draftKey,
+    draft,
+    dirty
+  );
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [lockConfirmOpen, setLockConfirmOpen] = useState(false);
+
+  async function persist(locked: boolean): Promise<void> {
+    if (!isEditable) return;
+    const d = draft ?? ensureDraft();
+    setSaveState("saving");
+    setSaveError(null);
+    try {
+      await weeklyReviewRepo.upsert({
+        organizationId: DEFAULT_ORG_ID,
+        companyId,
+        product,
+        weekStart: selectedRange.start,
+        actions: d.actions,
+        good: d.good,
+        more: d.more,
+        nextActions: d.nextActions,
+        authorName: currentUserName ?? FALLBACK_ASSIGNEE,
+        locked
+      });
+      setSaveState("saved");
+      markClean();
+    } catch (e) {
+      setSaveState("error");
+      setSaveError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   if (products.length === 0) {
     return (
       <div className="liquid-surface p-8 text-center text-sm text-ink-500">
@@ -176,9 +225,6 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
       </div>
     );
   }
-
-  const p = productByCode[product];
-  const selectedRange = getWeekRange(selectedWeekStart);
 
   return (
     <div className="space-y-4">
@@ -327,7 +373,7 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
                       id: `new-${Date.now()}`,
                       text,
                       done: true,
-                      assigneeName: "古野",
+                      assigneeName: currentUserName ?? FALLBACK_ASSIGNEE,
                       completedAt: new Date().toISOString().slice(0, 10)
                     }
                   ]
@@ -376,12 +422,21 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
 
           {/* 保存ボタン (今週のみ) */}
           {isEditable && (
-            <div className="flex items-center justify-end gap-2 mt-6 pt-5 border-t border-ink-100">
-              <button className="px-4 py-2 rounded-full text-xs text-ink-700 border border-ink-100 hover:bg-ink-50">
-                下書き保存
+            <div className="flex items-center justify-end gap-3 mt-6 pt-5 border-t border-ink-100 flex-wrap">
+              <PanelSaveStatus state={saveState} error={saveError} localSavedAt={localSavedAt} />
+              <button
+                type="button"
+                onClick={() => persist(false)}
+                disabled={saveState === "saving"}
+                className="px-4 py-2 rounded-full text-xs text-ink-700 border border-ink-100 hover:bg-ink-50 disabled:opacity-50"
+              >
+                {saveState === "saving" ? "保存中..." : "下書き保存"}
               </button>
               <button
-                className="px-4 py-2 rounded-full text-xs text-white font-medium hover:opacity-90"
+                type="button"
+                onClick={() => setLockConfirmOpen(true)}
+                disabled={saveState === "saving"}
+                className="px-4 py-2 rounded-full text-xs text-white font-medium hover:opacity-90 disabled:opacity-50"
                 style={{ background: p.accent }}
               >
                 完了としてロック
@@ -395,8 +450,52 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
       {prevReview && (
         <PreviousWeekSummary review={prevReview} />
       )}
+
+      <ConfirmDialog
+        open={lockConfirmOpen}
+        title="この週次レビューをロックしますか?"
+        description="ロック後は編集できなくなります。Good / More / 来週やること がすべて埋まっていることを確認してください。"
+        confirmLabel="ロックして完了"
+        tone="warning"
+        onCancel={() => setLockConfirmOpen(false)}
+        onConfirm={async () => {
+          setLockConfirmOpen(false);
+          await persist(true);
+        }}
+      />
     </div>
   );
+}
+
+function PanelSaveStatus({
+  state,
+  error,
+  localSavedAt
+}: {
+  state: SaveState;
+  error: string | null;
+  localSavedAt: string | null;
+}) {
+  if (state === "saving") {
+    return <span className="text-[11px] text-ink-500">保存中...</span>;
+  }
+  if (state === "saved") {
+    return <span className="text-[11px] text-emerald-600">✓ 保存しました</span>;
+  }
+  if (state === "error") {
+    return (
+      <span className="text-[11px] text-rose-600">
+        保存失敗: {error ?? "不明なエラー"}
+      </span>
+    );
+  }
+  if (localSavedAt) {
+    const t = localSavedAt.slice(11, 16);
+    return (
+      <span className="text-[11px] text-ink-500">自動下書き保存 {t}</span>
+    );
+  }
+  return null;
 }
 
 function Section({
@@ -593,9 +692,17 @@ function NextActionsList({
   editable: boolean;
   onChange: (list: WeeklyNextAction[]) => void;
 }) {
+  const { names: assigneeOptions } = useActiveMembers();
   const [newText, setNewText] = useState("");
-  const [newAssignee, setNewAssignee] = useState(ASSIGNEES[0]);
+  const [newAssignee, setNewAssignee] = useState("");
   const [newDue, setNewDue] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<WeeklyNextAction | null>(null);
+
+  useEffect(() => {
+    if (!newAssignee && assigneeOptions.length > 0) {
+      setNewAssignee(assigneeOptions[0]);
+    }
+  }, [assigneeOptions, newAssignee]);
 
   const update = (id: string, patch: Partial<WeeklyNextAction>) => {
     onChange(actions.map((a) => (a.id === id ? { ...a, ...patch } : a)));
@@ -649,7 +756,7 @@ function NextActionsList({
                       onChange={(e) => update(a.id, { assigneeName: e.target.value })}
                       className="rounded-full border border-ink-100 px-2 py-0.5 bg-white"
                     >
-                      {ASSIGNEES.map((n) => (
+                      {assigneeOptions.map((n) => (
                         <option key={n} value={n}>
                           {n}
                         </option>
@@ -679,7 +786,9 @@ function NextActionsList({
             </div>
             {editable && (
               <button
-                onClick={() => remove(a.id)}
+                type="button"
+                aria-label={`「${a.text || "未入力"}」を削除`}
+                onClick={() => setRemoveTarget(a)}
                 className="text-ink-300 hover:text-rose-500 text-sm mt-1"
               >
                 ×
@@ -704,7 +813,7 @@ function NextActionsList({
             onChange={(e) => setNewAssignee(e.target.value)}
             className="text-xs rounded-full border border-ink-100 px-3 py-2 bg-white"
           >
-            {ASSIGNEES.map((n) => (
+            {assigneeOptions.map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -728,6 +837,19 @@ function NextActionsList({
       {actions.length === 0 && !editable && (
         <div className="text-center text-xs text-ink-500 py-4">来週やることの記録なし</div>
       )}
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        title="この項目を削除しますか?"
+        description={removeTarget?.text || "(未入力)"}
+        confirmLabel="削除"
+        tone="danger"
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={() => {
+          if (removeTarget) remove(removeTarget.id);
+          setRemoveTarget(null);
+        }}
+      />
     </div>
   );
 }

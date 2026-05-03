@@ -6,6 +6,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
 import {
   ProductCode,
   productByCode,
@@ -26,7 +28,7 @@ import {
   buildInitialDraft
 } from "./CompanyWeeklyEditor";
 
-const ASSIGNEES = ["古野", "松田", "三木"];
+const FALLBACK_ASSIGNEE = "古野";
 
 export type TableRow = {
   companyId: string;
@@ -458,6 +460,8 @@ function NextActionsCell({
   editable: boolean;
   onChange: (list: WeeklyNextAction[]) => void;
 }) {
+  const { name: currentUserName } = useCurrentUser();
+  const { names: assigneeOptions } = useActiveMembers();
   const [newText, setNewText] = useState("");
   const update = (id: string, patch: Partial<WeeklyNextAction>) =>
     onChange(actions.map((a) => (a.id === id ? { ...a, ...patch } : a)));
@@ -469,7 +473,7 @@ function NextActionsCell({
       {
         id: `next-${Date.now()}`,
         text: newText.trim(),
-        assigneeName: "古野"
+        assigneeName: currentUserName ?? FALLBACK_ASSIGNEE
       }
     ]);
     setNewText("");
@@ -523,7 +527,7 @@ function NextActionsCell({
                   }
                   className="text-[10px] rounded-lg border border-ink-100 bg-white px-1.5 py-0.5"
                 >
-                  {ASSIGNEES.map((n) => (
+                  {assigneeOptions.map((n) => (
                     <option key={n} value={n}>
                       {n}
                     </option>
