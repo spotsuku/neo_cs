@@ -246,11 +246,17 @@ export default function UsersSettingsPage() {
                       </td>
                       <td className="px-4 py-3 text-ink-700 tabular-nums">{u.lastLogin}</td>
                       <td className="px-4 py-3 text-right">
-                        <Link href="#" className="text-xs text-ink-700 hover:text-ink-900 mr-3">
-                          編集
+                        <Link
+                          href={`/settings/users/${u.id}`}
+                          className="text-xs text-ink-700 hover:text-ink-900 mr-3"
+                        >
+                          詳細
                         </Link>
-                        <Link href="#" className="text-xs text-rose-600 hover:text-rose-700">
-                          削除
+                        <Link
+                          href={`/settings/users/${u.id}#disable`}
+                          className="text-xs text-rose-600 hover:text-rose-700"
+                        >
+                          無効化
                         </Link>
                       </td>
                     </tr>

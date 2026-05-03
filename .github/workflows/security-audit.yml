@@ -1,0 +1,49 @@
+name: security-audit
+
+on:
+  pull_request:
+    paths:
+      - "neo-cs-v2/package.json"
+      - "neo-cs-v2/package-lock.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/security-audit.yml"
+  schedule:
+    - cron: "0 0 * * 1" # 毎週月曜 09:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-v2:
+    name: npm audit (neo-cs-v2)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: neo-cs-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: neo-cs-v2/package-lock.json
+      - name: npm audit (high+)
+        run: npm audit --audit-level=high
+
+  audit-root:
+    name: npm audit (root)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: npm audit (root, high+)
+        run: |
+          if [ -f package-lock.json ]; then
+            npm audit --audit-level=high
+          else
+            echo "no lockfile at root, skipping"
+          fi

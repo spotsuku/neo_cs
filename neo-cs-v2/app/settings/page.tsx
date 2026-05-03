@@ -39,6 +39,14 @@ const menu: MenuItem[] = [
     description: "Slack・メール通知の条件とチャンネル",
     icon: "🔔",
     accent: "#FF9838"
+  },
+  {
+    href: "/settings/consents",
+    title: "利用同意・データ取扱い",
+    description: "利用規約・プライバシー・Anthropic等への外部送信同意の記録と撤回",
+    icon: "📋",
+    accent: "#64748B",
+    adminOnly: true
   }
 ];
 
