@@ -15,13 +15,29 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Liquid Design: すりガラス＆柔らかな層 */
+/*
+ * Liquid Design: すりガラス＆柔らかな層
+ *
+ * 命名遷移:
+ *   - 新規コードは .surface / .surface-muted を使う
+ *   - .liquid-card / .liquid-surface は互換のため残置（新規利用は非推奨）
+ *   - .brand-text-gradient はトップページh1など「象徴的見出し」のみ
+ *   - .liquid-blob は限定画面のみ。layout.tsx での全画面常駐はやめる
+ */
 @layer components {
+  /* 推奨: surface = 業務用カード */
+  .surface {
+    @apply relative rounded-surface bg-white border border-ink-100 shadow-card;
+  }
+  .surface-muted {
+    @apply rounded-surface bg-ink-50 border border-ink-100;
+  }
+
+  /* 互換エイリアス（既存コード向け、新規利用は非推奨） */
   .liquid-card {
     @apply relative rounded-liquid bg-white/70 backdrop-blur-xl border border-white shadow-liquid;
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
   }
-
   .liquid-surface {
     @apply rounded-liquid bg-white border border-ink-100 shadow-liquid;
   }
@@ -30,6 +46,7 @@ body {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-ink-50 text-ink-700 border border-ink-100;
   }
 
+  /* 利用ガイドライン: 象徴的見出しのみ。各画面のh1全部に乗せない */
   .brand-text-gradient {
     background: linear-gradient(135deg, #4cd97b 0%, #3d9eff 25%, #8b5cf6 50%, #ff3d8a 75%, #ff9838 100%);
     -webkit-background-clip: text;
@@ -38,11 +55,40 @@ body {
     color: transparent;
   }
 
+  /* 利用ガイドライン: layout.tsx で全画面に置かない。
+     特定画面（オンボーディング/ランディング等）のみで <BrandBlobs/> 経由で限定使用 */
   .liquid-blob {
     position: absolute;
     border-radius: 9999px;
     filter: blur(64px);
     opacity: 0.35;
     pointer-events: none;
+  }
+}
+
+/*
+ * フォーカスリング ユーティリティ
+ *
+ * 全インタラクティブ要素は focus-ring（外側ring）または focus-ring-inset（セル内）を付ける。
+ * focus:outline-none 単独利用は禁止（ESLintで段階的に検出予定）。
+ * focus-visible: を使うのでマウスクリック時には出ない。
+ */
+@layer utilities {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focusring focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+  }
+  .focus-ring-inset {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focusring;
+  }
+}
+
+/* インタラクティブ要素の既定フォーカススタイル
+   個別に focus:outline-none を付けている箇所は段階的に focus-ring へ移行する。
+   未指定の button/a/input/select/textarea/[role=button]/[tabindex] には自動でリングを出す。 */
+@layer base {
+  :where(button, a, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid #3d9eff;
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
