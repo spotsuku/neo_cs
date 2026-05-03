@@ -1,11 +1,13 @@
 {
   "name": "neo-academia-ps-dashboard",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "dev": "npm --prefix neo-cs-v2 run dev",
+    "build": "npm --prefix neo-cs-v2 run build",
+    "start": "npm --prefix neo-cs-v2 run start"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }
