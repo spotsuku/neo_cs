@@ -5,3 +5,4 @@ node_modules/
 *.log
 .env
 .env.local
+docs/runbook/_vercel_env_apply.sh.local
