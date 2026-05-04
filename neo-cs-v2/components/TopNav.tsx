@@ -17,6 +17,7 @@ const nav = [
   { href: "/voc", label: "VOC" },
   { href: "/renewal", label: "更新" },
   { href: "/attendance", label: "出席" },
+  { href: "/sales-handoff", label: "営業引継" },
   { href: "/settings", label: "設定" }
 ];
 

@@ -16,6 +16,7 @@
 | [10_integration_checklist.md](10_integration_checklist.md) | 中間統合確認チェックリスト + 3 Stage ロールアウト順序 |
 | [11_voc_notification.md](11_voc_notification.md) | VOC (Voice of Customer) Slack 通知の運用・検証 |
 | (12_audit_review.md) | 月次の audit_logs レビュー手順 (未整備) |
+| [13_sales_handoff.md](13_sales_handoff.md) | 営業 (neo-sales) → CS 引継ぎ webhook の運用・検証 (Phase4-#6) |
 
 > 各ファイルは「いつ」「誰が」「どのコマンドで」「どこで成功確認するか」を明記。
 > 未整備項目は `(stub)` 表記で残し、期日と担当を記す。

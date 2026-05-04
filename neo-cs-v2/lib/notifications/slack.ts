@@ -25,7 +25,8 @@ export type SlackChannel =
   | 'CS_OPPORTUNITY'
   | 'CHURN_ALERTS'
   | 'EXPANSION'
-  | 'VOC';
+  | 'VOC'
+  | 'HANDOFF';
 
 export interface SlackPayload {
   text: string;
