@@ -24,7 +24,6 @@
  */
 
 import "server-only";
-import { optionalImport } from "@/lib/security/optional-import";
 import { buildFolderName } from "./drive-naming";
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
@@ -124,10 +123,10 @@ export async function createDriveClient(): Promise<DriveApi> {
   const cfg = readDriveConfig();
   if (!cfg) throw new DriveIntegrationError("not_configured", "Google Drive env not configured");
 
-  const mod = await optionalImport<typeof import("googleapis")>("googleapis");
-  if (!mod) {
-    throw new DriveIntegrationError("not_configured", "googleapis package not installed");
-  }
+  // 静的import: bundler に google パッケージを含めさせる
+  // (optionalImport の new Function 経由だと Vercel build が googleapis を bundle せず
+  //  ランタイムで「Cannot find module」になり Drive 連携が無音失敗する)
+  const { google } = await import("googleapis");
 
   let creds: { client_email: string; private_key: string };
   try {
@@ -138,13 +137,13 @@ export async function createDriveClient(): Promise<DriveApi> {
     });
   }
 
-  const auth = new mod.google.auth.JWT({
+  const auth = new google.auth.JWT({
     email: creds.client_email,
     key: creds.private_key,
     scopes: DRIVE_SCOPES,
   });
 
-  cachedClient = mod.google.drive({ version: "v3", auth }) as unknown as DriveApi;
+  cachedClient = google.drive({ version: "v3", auth }) as unknown as DriveApi;
   return cachedClient;
 }
 
