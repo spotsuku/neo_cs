@@ -3,6 +3,7 @@
 
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";
+import { DEFAULT_ORG_ID } from "../types";
 import type {
   AccountJourney,
   AccountJourneyRepo,
@@ -59,6 +60,40 @@ export const supabaseContactRepo: ContactRepo = {
         products: [] as ProductCode[]
       } satisfies Contact;
     });
+  },
+  async create(input) {
+    const sb = getServiceClient();
+    const id = `p-${Math.random().toString(36).slice(2, 10)}`;
+    const row = {
+      id,
+      organization_id: input.organizationId ?? DEFAULT_ORG_ID,
+      company_id: input.companyId,
+      name: input.name,
+      department: input.department || null,
+      title: input.title || null,
+      email: input.email || null,
+      tel: input.tel ?? null,
+      is_primary: input.isPrimary
+    };
+    const { data, error } = await sb
+      .from("company_contacts")
+      .insert(row)
+      .select("id,organization_id,company_id,name,department,title,email,tel,is_primary")
+      .single();
+    if (error) throw new Error(`company_contacts.create: ${error.message}`);
+    const r = data as ContactRow;
+    return {
+      id: r.id,
+      organizationId: r.organization_id,
+      companyId: r.company_id,
+      name: r.name,
+      department: r.department ?? "",
+      title: r.title ?? "",
+      email: r.email ?? "",
+      tel: r.tel ?? undefined,
+      isPrimary: r.is_primary,
+      products: input.products ?? []
+    } satisfies Contact;
   }
 };
 
