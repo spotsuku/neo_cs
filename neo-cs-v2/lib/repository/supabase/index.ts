@@ -20,6 +20,7 @@ import { supabaseKpiSnapshotRepo } from "./kpiSnapshotRepo";
 import { supabaseChurnSignalRepo } from "./churnSignalRepo";
 import { supabaseExpansionOpportunityRepo } from "./expansionOpportunityRepo";
 import { supabaseVocItemRepo } from "./vocItemRepo";
+import { supabaseProductCourseRepo } from "./productCourseRepo";
 import {
   supabaseContactRepo,
   supabaseMeetingLogRepo,
@@ -44,6 +45,7 @@ export const supabaseRepository: Repository = {
   renewalMilestones: supabaseRenewalMilestoneRepo,
   expansionOpportunities: supabaseExpansionOpportunityRepo,
   vocItems: supabaseVocItemRepo,
+  productCourses: supabaseProductCourseRepo,
   contacts: supabaseContactRepo,
   meetingLogs: supabaseMeetingLogRepo,
   stakeholders: supabaseStakeholderRepo,

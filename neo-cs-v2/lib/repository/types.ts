@@ -450,8 +450,13 @@ export type MeetingLogListOpts = {
   limit?: number;
 };
 
+export type ContactCreateInput = Omit<Contact, "id" | "organizationId"> & {
+  organizationId?: string;
+};
+
 export interface ContactRepo {
   listByCompany(companyId: string): Promise<Contact[]>;
+  create(input: ContactCreateInput): Promise<Contact>;
 }
 
 export interface MeetingLogRepo {
@@ -644,6 +649,44 @@ export interface RenewalMilestoneRepo {
 }
 
 // ─────────────────────────────────────────────
+// プロダクトコース (product_courses)
+// 研修プロダクト配下の「コース区分」マスタ。1プロダクト=複数コース、
+// 契約 (contracts.course_key) と FK で紐付く。code (course_key) 変更時は
+// 既存契約の影響を呼び出し側で警告表示する。
+// ─────────────────────────────────────────────
+export type ProductCourse = {
+  productCode: string;
+  courseKey: string;
+  name: string;
+  shortName?: string;
+  description?: string;
+  displayOrder: number;
+};
+
+export type ProductCourseUpsertInput = {
+  productCode: string;
+  /** 既存レコード変更時の旧 course_key (rename 検出用)。未指定なら courseKey と同一 */
+  previousCourseKey?: string;
+  courseKey: string;
+  name: string;
+  shortName?: string | null;
+  description?: string | null;
+  displayOrder?: number;
+};
+
+export type ProductCourseDeleteResult = {
+  affectedContracts: number;
+};
+
+export interface ProductCourseRepo {
+  listByProduct(productCode: string): Promise<ProductCourse[]>;
+  /** 同一 product_code 配下の既存契約数（course_key 一致）。code 変更前の影響範囲表示に使用 */
+  countContractsByCourse(productCode: string, courseKey: string): Promise<number>;
+  upsert(input: ProductCourseUpsertInput): Promise<ProductCourse>;
+  delete(productCode: string, courseKey: string): Promise<ProductCourseDeleteResult>;
+}
+
+// ─────────────────────────────────────────────
 // Repository集約
 // ─────────────────────────────────────────────
 export interface Repository {
@@ -661,6 +704,7 @@ export interface Repository {
   expansionOpportunities: ExpansionOpportunityRepo;
   renewalMilestones: RenewalMilestoneRepo;
   vocItems: VocItemRepo;
+  productCourses: ProductCourseRepo;
   // 申し送り l〜q
   contacts: ContactRepo;
   meetingLogs: MeetingLogRepo;
