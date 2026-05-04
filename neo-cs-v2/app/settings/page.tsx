@@ -47,6 +47,14 @@ const menu: MenuItem[] = [
     icon: "📋",
     accent: "#64748B",
     adminOnly: true
+  },
+  {
+    href: "/settings/demo-data",
+    title: "デモデータ管理",
+    description: "本番運用前のダミー企業を確認 / 一括削除 (is_demo=true)",
+    icon: "🚧",
+    accent: "#F59E0B",
+    adminOnly: true
   }
 ];
 

@@ -19,6 +19,9 @@ export type Company = {
   driveFolderId?: string | null;
   driveFolderUrl?: string | null;
   driveFolderCreatedAt?: string | null;
+  // 0019_is_demo_flag.sql: 本番運用前のダミーデータかどうか
+  // (mock の seed は明示しない=undefined。リポジトリ層で true 扱い)
+  isDemo?: boolean;
 };
 
 const baseCompanies: Company[] = [

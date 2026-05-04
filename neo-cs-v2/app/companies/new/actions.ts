@@ -41,6 +41,12 @@ export type WizardSavePayload = {
     foundedYear?: string;
     corporateNumber?: string;
     memo?: string;
+    /**
+     * 0019_is_demo_flag.sql: 本番運用前のダミーデータかどうか。
+     * 本番開始前のフェーズでは true 既定でフォームに表示する。
+     * 本番開始後はウィザード側のデフォルトを false に切り替える。
+     */
+    isDemo?: boolean;
   };
   contact?: {
     name: string;
@@ -106,7 +112,9 @@ export async function saveCompanyWizard(
       contracts: productCodes,
       mrr: Math.round(totalAnnual / 12),
       lastTouchDays: 0,
-      memo: buildMemo(payload)
+      memo: buildMemo(payload),
+      // is_demo を repo に伝搬。未指定なら true (本番開始前のフェーズ)
+      isDemo: payload.company.isDemo ?? true
     });
 
     // 2) company_contacts (任意)

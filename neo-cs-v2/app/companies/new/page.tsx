@@ -105,6 +105,11 @@ type FormState = {
   assignment: AssignmentDraft;
   // Step 5
   memo: string;
+  /**
+   * 0019_is_demo_flag.sql: 本番運用前のダミーデータかどうか。
+   * 本番開始前は true 既定。本番開始後はこの初期値を false に変更する。
+   */
+  isDemo: boolean;
 };
 
 const EMPTY_FORM: FormState = {
@@ -138,7 +143,10 @@ const EMPTY_FORM: FormState = {
     secondaryUserId: "",
     salesOwnerUserId: ""
   },
-  memo: ""
+  memo: "",
+  // 本番開始前: true 既定 (デモデータとして登録)
+  // 本番開始後: ここを false に切り替えれば全件本データとして入る
+  isDemo: true
 };
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -370,7 +378,8 @@ export default function NewCompanyWizardPage() {
         websiteUrl: form.websiteUrl,
         foundedYear: form.foundedYear,
         corporateNumber: form.corporateNumber,
-        memo: form.memo
+        memo: form.memo,
+        isDemo: form.isDemo
       },
       contact: form.contactName.trim()
         ? {
@@ -1101,6 +1110,29 @@ function Step5({
           value={form.memo}
           onChange={(e) => patch("memo", e.target.value)}
         />
+      </Section>
+
+      {/*
+        🚧 デモデータフラグ (0019_is_demo_flag.sql)
+        本番運用開始前のダミーデータ管理用。本番開始時は EMPTY_FORM の
+        isDemo: true を false に変更し、本セクションを削除 or 説明文変更する。
+      */}
+      <Section title="🚧 デモデータ">
+        <label className="inline-flex items-start gap-2 text-xs text-ink-700">
+          <input
+            type="checkbox"
+            checked={form.isDemo}
+            onChange={(e) => patch("isDemo", e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="font-medium text-ink-900">これはデモデータです</span>
+            <span className="block text-ink-500 mt-0.5">
+              チェックを付けると is_demo=true で登録され、後から /settings/demo-data
+              で一括削除できます。本番運用が始まるまではONのまま登録してください。
+            </span>
+          </span>
+        </label>
       </Section>
     </div>
   );

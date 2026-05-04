@@ -41,6 +41,8 @@ export default function CompaniesPage() {
   const [productFilter, setProductFilter] = useState<ProductCode[]>([]);
   const [owner, setOwner] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("default");
+  // 🚧 デモ非表示トグル (本番開始前は OFF=全表示が合理的)
+  const [hideDemo, setHideDemo] = useState<boolean>(false);
 
   // 企業ごとの完成度スコアを計算 (純関数)。companies は固定なので useMemo
   const completenessByCompany = useMemo(() => {
@@ -110,9 +112,12 @@ export default function CompaniesPage() {
         if (!has) return false;
       }
       if (owner !== "all" && c.ownerName !== owner) return false;
+      // is_demo: undefined は true 扱い (mock seed が isDemo フィールド持たないため)
+      const isDemo = c.isDemo ?? true;
+      if (hideDemo && isDemo) return false;
       return true;
     });
-  }, [q, health, productFilter, owner]);
+  }, [q, health, productFilter, owner, hideDemo]);
 
   const sorted = useMemo(() => {
     if (sortKey === "default") return filtered;
@@ -209,6 +214,16 @@ export default function CompaniesPage() {
               <option value="completeness_asc">完成度: 低い順</option>
               <option value="completeness_desc">完成度: 高い順</option>
             </select>
+
+            {/* 🚧 デモ非表示トグル (0019_is_demo_flag.sql) */}
+            <label className="inline-flex items-center gap-1.5 text-xs text-ink-700 px-3 py-2 rounded-full border border-ink-100 bg-white cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hideDemo}
+                onChange={(e) => setHideDemo(e.target.checked)}
+              />
+              🚧 デモ非表示
+            </label>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -274,12 +289,22 @@ export default function CompaniesPage() {
                   className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50 transition"
                 >
                   <td className="px-5 py-3">
-                    <Link
-                      href={`/companies/${c.id}`}
-                      className="font-medium text-ink-900 hover:underline"
-                    >
-                      {c.name}
-                    </Link>
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        href={`/companies/${c.id}`}
+                        className="font-medium text-ink-900 hover:underline"
+                      >
+                        {c.name}
+                      </Link>
+                      {(c.isDemo ?? true) && (
+                        <span
+                          title="デモデータ (is_demo=true)"
+                          className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
+                        >
+                          🚧
+                        </span>
+                      )}
+                    </div>
                     {c.group && (
                       <div className="text-[11px] text-ink-500 mt-0.5">
                         {c.group}

@@ -157,8 +157,16 @@ export function CompanyDetail({
                 </>
               )}
             </div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink-900">
-              {company.name}
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink-900 flex items-center gap-2">
+              <span>{company.name}</span>
+              {(company.isDemo ?? true) && (
+                <span
+                  title="デモデータ (is_demo=true) — /settings/demo-data で管理"
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
+                >
+                  🚧 デモデータ
+                </span>
+              )}
             </h1>
             <div className="mt-3 flex items-center gap-3 text-sm">
               <span className="inline-flex items-center gap-1.5 liquid-chip">

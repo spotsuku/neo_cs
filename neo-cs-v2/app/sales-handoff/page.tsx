@@ -37,6 +37,30 @@ interface HandoffRow {
   payload: { company?: { name?: string }; contract?: { productCode?: string } } | null;
 }
 
+/**
+ * 引継ぎから作られた company の is_demo を一括取得する。
+ * 0019_is_demo_flag.sql 適用済を前提。未適用環境では空 Map を返す。
+ */
+async function fetchDemoFlags(companyIds: string[]): Promise<Map<string, boolean>> {
+  const map = new Map<string, boolean>();
+  const ids = companyIds.filter((s): s is string => !!s);
+  if (ids.length === 0) return map;
+  try {
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("companies")
+      .select("id, is_demo")
+      .in("id", ids);
+    if (error) return map;
+    for (const row of data ?? []) {
+      map.set((row as { id: string }).id, Boolean((row as { is_demo?: boolean }).is_demo));
+    }
+  } catch {
+    // 0019 未適用 / RLS 等で失敗してもサイレント (バッジ非表示)
+  }
+  return map;
+}
+
 async function fetchHandoffs(status?: string): Promise<HandoffRow[]> {
   try {
     const sb = getServiceClient();
@@ -67,6 +91,9 @@ export default async function SalesHandoffPage({
   const sp = await searchParams;
   const status = sp.status;
   const items = await fetchHandoffs(status);
+  const demoFlags = await fetchDemoFlags(
+    items.map((h) => h.company_id).filter((s): s is string => !!s)
+  );
 
   return (
     <>
@@ -139,13 +166,23 @@ export default async function SalesHandoffPage({
                         {formatJst(h.received_at)}
                       </td>
                       <td className="px-4 py-2 text-ink-900">
-                        {h.company_id ? (
-                          <Link href={`/companies/${h.company_id}`} className="hover:underline">
-                            {companyName}
-                          </Link>
-                        ) : (
-                          companyName
-                        )}
+                        <span className="inline-flex items-center gap-1.5">
+                          {h.company_id ? (
+                            <Link href={`/companies/${h.company_id}`} className="hover:underline">
+                              {companyName}
+                            </Link>
+                          ) : (
+                            companyName
+                          )}
+                          {h.company_id && demoFlags.get(h.company_id) === true && (
+                            <span
+                              title="デモデータ (is_demo=true)"
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
+                            >
+                              🚧
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td className="px-4 py-2 text-ink-700">{product}</td>
                       <td className="px-4 py-2 text-ink-500 text-xs">

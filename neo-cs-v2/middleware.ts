@@ -59,6 +59,7 @@ function requiredRoleFor(pathname: string): Role | null {
   if (pathname.startsWith("/settings/users")) return "admin";
   if (pathname.startsWith("/api/admin")) return "admin";
   if (pathname.startsWith("/settings/consents")) return "admin";
+  if (pathname.startsWith("/settings/demo-data")) return "admin";
   // manager 以上
   if (pathname.startsWith("/team")) return "manager";
   if (pathname.startsWith("/reports")) return "manager";

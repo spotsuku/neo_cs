@@ -46,7 +46,13 @@ export const DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001";
 // ─────────────────────────────────────────────
 // マルチテナント拡張: mock型に organization_id を加えた app-level 型
 // ─────────────────────────────────────────────
-export type Company = MockCompany & { organizationId: string };
+export type Company = MockCompany & {
+  organizationId: string;
+  /** 本番運用前のダミーデータかどうか (0019_is_demo_flag.sql) */
+  isDemo?: boolean;
+  /** companies.created_at (ISO8601) — デモデータ管理ページの期間フィルタで参照 */
+  createdAt?: string;
+};
 export type Contact = MockContact & { organizationId: string };
 export type Stakeholder = MockStakeholder & { organizationId: string };
 export type Contract = MockContract & { organizationId: string };
@@ -184,7 +190,8 @@ export type AuditAction =
   | "consent_revoke"
   | "role_change"
   | "disable_user"
-  | "enable_user";
+  | "enable_user"
+  | "demo_wipe";
 
 export type AuditLog = {
   id: string;
@@ -220,6 +227,17 @@ export type CompanyFilter = {
   ownerUserId?: string;
   industry?: string;
   search?: string;
+  /** true: is_demo=true のみ / false: is_demo=false のみ / undefined: 制約なし */
+  isDemo?: boolean;
+};
+
+export type DemoWipeRange = "24h" | "7d" | "all";
+
+export type DemoWipeResult = {
+  /** 削除した companies の件数 (CASCADE で関連も削除される) */
+  deletedCompanies: number;
+  /** 削除対象の company_id 一覧 (audit ログ用) */
+  deletedIds: string[];
 };
 
 export type ContractFilter = {
@@ -287,6 +305,20 @@ export interface CompanyRepo {
     id: string,
     drive: { folderId: string; folderUrl: string }
   ): Promise<void>;
+  /** is_demo=true な企業を抽出。range で createdAt フィルタを掛ける */
+  listDemo(opts?: {
+    organizationId?: string;
+    range?: DemoWipeRange;
+  }): Promise<Company[]>;
+  /** is_demo=true 件数を高速カウント (UI 表示用) */
+  countDemo(opts?: { organizationId?: string }): Promise<number>;
+  /** is_demo=true な企業 (とCASCADE関連) を一括削除し audit_logs に記録 */
+  wipeDemoData(opts: {
+    range?: DemoWipeRange;
+    organizationId?: string;
+    actorUserId?: string;
+    actorEmail?: string;
+  }): Promise<DemoWipeResult>;
 }
 
 export type ContractCreateInput = Omit<Contract, "id" | "organizationId"> & {
