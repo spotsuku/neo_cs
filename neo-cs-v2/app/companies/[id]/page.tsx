@@ -3,6 +3,8 @@ import { TopNav } from "@/components/TopNav";
 import { CompanyDetail } from "./CompanyDetail";
 import { CompletenessChecklistCard } from "@/components/CompletenessChecklistCard";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness";
+import { computeStakeholderEngagement } from "@/lib/domain/engagement-builder";
+import type { StakeholderEngagementMetrics } from "@/components/StakeholderEngagementCard";
 import {
   companyRepo,
   contactRepo,
@@ -105,6 +107,20 @@ export default async function CompanyDetailPage({
     stakeholders: stakeholders.map((s) => ({ type: s.type }))
   });
 
+  // 顧客側担当者ごとの engagement 指標 (Phase2-#4)
+  const engagementByStakeholder: Record<string, StakeholderEngagementMetrics> = {};
+  for (const s of stakeholders) {
+    const r = computeStakeholderEngagement(s, { meetingLogs: meetings });
+    engagementByStakeholder[s.id] = {
+      tier: r.tier,
+      suggestedTier: r.suggestedTier,
+      score: r.score,
+      lastTouchAt: r.lastTouchAt,
+      touchCount30d: r.touchCount30d,
+      touchCount90d: r.touchCount90d
+    };
+  }
+
   return (
     <>
       <TopNav current="/companies" />
@@ -123,6 +139,7 @@ export default async function CompanyDetailPage({
         journeys={journeys}
         tasks={tasks}
         members={members.map((u) => ({ id: u.id, name: u.name }))}
+        engagementByStakeholder={engagementByStakeholder}
       />
     </>
   );

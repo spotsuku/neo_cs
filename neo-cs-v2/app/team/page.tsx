@@ -6,11 +6,16 @@ import {
   assignmentRepo,
   companyRepo,
   contractRepo,
-  healthSnapshotRepo
+  healthSnapshotRepo,
+  stakeholderRepo,
+  meetingLogRepo
 } from "@/lib/repository";
 import { weeklyReviews, CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 import { meetingLogs } from "@/lib/mock/entities";
 import type { AppUser, Assignment, Contract } from "@/lib/repository";
+import { computeStakeholderEngagement } from "@/lib/domain/engagement-builder";
+import { tallyByTier, type EngagementTier } from "@/lib/domain/engagement";
+import { EngagementDistribution } from "@/components/EngagementDistribution";
 
 export const metadata: Metadata = {
   title: "チーム | NEO CS",
@@ -45,6 +50,7 @@ type MemberStat = {
   riskYellowCount: number;
   weeklyDoneThisWeek: number;
   weeklyDueThisWeek: number;
+  engagementTally: Record<EngagementTier, number>;
 };
 
 function avg(nums: number[]): number | null {
@@ -63,13 +69,37 @@ function healthBadge(score: number | null): {
 }
 
 export default async function TeamPage() {
-  const [users, allAssignments, companies, contracts, latestSnapshots] = await Promise.all([
+  const [users, allAssignments, companies, contracts, latestSnapshots, allStakeholders] = await Promise.all([
     userRepo.list({ activeOnly: true }),
     assignmentRepo.list({ activeOnly: true }),
     companyRepo.list(),
     contractRepo.list({ activeOnly: true }),
-    healthSnapshotRepo.latestAll()
+    healthSnapshotRepo.latestAll(),
+    stakeholderRepo.list()
   ]);
+
+  // 全 company 分の meetings を 1 度だけ取得 → engagement 算出
+  const companyIdsAll = Array.from(new Set(allStakeholders.map((s) => s.companyId)));
+  const meetingsByCompanyAll = new Map<string, Awaited<ReturnType<typeof meetingLogRepo.listByCompany>>>();
+  await Promise.all(
+    companyIdsAll.map(async (cid) => {
+      const ms = await meetingLogRepo.listByCompany(cid, { sort: "date desc", limit: 50 });
+      meetingsByCompanyAll.set(cid, ms);
+    })
+  );
+
+  // stakeholder.id → tier
+  const tierByStakeholder = new Map<string, EngagementTier>();
+  for (const s of allStakeholders) {
+    const r = computeStakeholderEngagement(s, {
+      meetingLogs: meetingsByCompanyAll.get(s.companyId) ?? []
+    });
+    tierByStakeholder.set(s.id, r.tier);
+  }
+
+  const orgTally = tallyByTier(
+    allStakeholders.map((s) => ({ tier: tierByStakeholder.get(s.id)! }))
+  );
 
   // contractId -> 最新スナップショット
   const snapshotByContract = new Map(
@@ -140,6 +170,12 @@ export default async function TeamPage() {
         r.authorName === u.name
     ).length;
 
+    // 担当社の stakeholders → 自身が担当する顧客側担当者の tier 分布
+    const myStakeholders = allStakeholders.filter((s) => myCompanyIds.has(s.companyId));
+    const engagementTally = tallyByTier(
+      myStakeholders.map((s) => ({ tier: tierByStakeholder.get(s.id)! }))
+    );
+
     return {
       user: u,
       primaryAssignments: myPrimary,
@@ -150,7 +186,8 @@ export default async function TeamPage() {
       riskRedCount,
       riskYellowCount,
       weeklyDoneThisWeek,
-      weeklyDueThisWeek
+      weeklyDueThisWeek,
+      engagementTally
     };
   });
 
@@ -193,6 +230,19 @@ export default async function TeamPage() {
           <SummaryCard label="担当社" value={totals.companies} unit="社" />
           <SummaryCard label="週次入力(30日)" value={totals.weekly30d} unit="件" />
           <SummaryCard label="面談ログ(30日)" value={totals.meetings30d} unit="件" />
+        </section>
+
+        {/* 顧客側担当者 エンゲージメント分布 (Phase2-#4) */}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <EngagementDistribution tally={orgTally} title="全社 顧客側担当者 tier 分布" />
+          {stats.slice(0, 3).map((s) => (
+            <EngagementDistribution
+              key={s.user.id}
+              tally={s.engagementTally}
+              title={`${s.user.name} 担当先 tier`}
+              showLegend={false}
+            />
+          ))}
         </section>
 
         {/* メンバーテーブル */}

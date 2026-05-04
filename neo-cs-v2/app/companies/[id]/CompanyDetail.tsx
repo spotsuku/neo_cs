@@ -103,7 +103,8 @@ export function CompanyDetail({
   successPlans,
   journeys,
   tasks = [],
-  members = []
+  members = [],
+  engagementByStakeholder = {}
 }: {
   company: Company;
   contacts: Contact[];
@@ -116,6 +117,7 @@ export function CompanyDetail({
   journeys: AccountJourney[];
   tasks?: CompanyTask[];
   members?: { id: string; name: string }[];
+  engagementByStakeholder?: Record<string, StakeholderEngagementMetrics>;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
   const healthColor: HealthColor = companyHealthColor(company.id);
@@ -206,7 +208,7 @@ export function CompanyDetail({
 
       {/* タブコンテンツ */}
       {tab === "overview" && (
-        <OverviewTab company={company} contacts={contacts} contracts={contracts} journeys={journeys} stakeholders={stakeholders} />
+        <OverviewTab company={company} contacts={contacts} contracts={contracts} journeys={journeys} stakeholders={stakeholders} engagementByStakeholder={engagementByStakeholder} companyId={company.id} />
       )}
       {tab === "tasks" && (
         <CompanyTasksSection
@@ -239,18 +241,22 @@ function OverviewTab({
   contacts,
   contracts,
   journeys,
-  stakeholders
+  stakeholders,
+  engagementByStakeholder,
+  companyId
 }: {
   company: Company;
   contacts: Contact[];
   contracts: ActiveContract[];
   journeys: AccountJourney[];
   stakeholders: Stakeholder[];
+  engagementByStakeholder: Record<string, StakeholderEngagementMetrics>;
+  companyId: string;
 }) {
   return (
     <section className="space-y-4">
       <AccountJourneySection journeys={journeys} />
-      <StakeholderSection stakeholders={stakeholders} />
+      <StakeholderSection stakeholders={stakeholders} engagementByStakeholder={engagementByStakeholder} companyId={companyId} />
       <CustomerJourneySection contracts={contracts} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 左: 企業情報 */}
@@ -874,7 +880,15 @@ function AccountJourneySection({ journeys }: { journeys: AccountJourney[] }) {
 }
 
 /* ──────────────── ステークホルダー ──────────────── */
-function StakeholderSection({ stakeholders }: { stakeholders: Stakeholder[] }) {
+function StakeholderSection({
+  stakeholders,
+  engagementByStakeholder,
+  companyId
+}: {
+  stakeholders: Stakeholder[];
+  engagementByStakeholder: Record<string, StakeholderEngagementMetrics>;
+  companyId: string;
+}) {
   if (stakeholders.length === 0) return null;
   // 個人へのリスクラベル (at_risk) は撤廃。type は役割のみ表現する
   const typeColor: Record<Stakeholder["type"], string> = {
@@ -919,6 +933,15 @@ function StakeholderSection({ stakeholders }: { stakeholders: Stakeholder[] }) {
                 </span>
               )}
             </div>
+            {engagementByStakeholder[s.id] && (
+              <StakeholderEngagementBlock
+                stakeholderId={s.id}
+                stakeholderName={s.name}
+                companyId={companyId}
+                metrics={engagementByStakeholder[s.id]}
+                currentNote={s.engagementNote}
+              />
+            )}
             {s.note && (
               <div className="mt-2 text-[11px] text-ink-600 leading-relaxed">{s.note}</div>
             )}

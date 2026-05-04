@@ -11,6 +11,7 @@ import { PeriodSwitcher } from "@/components/PeriodSwitcher";
 import { ChurnAlerts } from "@/components/ChurnAlerts";
 import { MyTasksWidget } from "@/components/MyTasksWidget";
 import { ExpansionOpportunities } from "@/components/ExpansionOpportunities";
+import { AtRiskStakeholders } from "@/components/AtRiskStakeholders";
 import { KpiExplainButton } from "@/components/KpiExplainButton";
 import { allContracts, activeContracts } from "@/lib/mock/onboarding";
 import { participants } from "@/lib/mock/participants";
@@ -293,6 +294,11 @@ export default async function Page() {
         <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <ChurnAlerts limit={8} />
           <ExpansionOpportunities limit={6} />
+        </section>
+
+        {/* ── ⑨ at_risk な顧客側担当者 (Phase2-#4) ────────────────── */}
+        <section>
+          <AtRiskStakeholders limit={5} />
         </section>
 
         {/* フッタ */}
