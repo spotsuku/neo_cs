@@ -235,8 +235,7 @@ export async function listFolders(
   return withRetry("listFolders", async () => {
     const res = await drive.files.list({
       q: qParts.join(" and "),
-      corpora: "drive",
-      driveId: cfg.sharedDriveId,
+      corpora: "allDrives",
       includeItemsFromAllDrives: true,
       supportsAllDrives: true,
       fields: "files(id,name,mimeType,parents,webViewLink)",
@@ -352,8 +351,7 @@ export async function cloneFolderRecursive(
   const children = await withRetry("list(children)", async () => {
     const res = await drive.files.list({
       q: `'${sourceFolderId}' in parents and trashed=false`,
-      corpora: "drive",
-      driveId: cfg.sharedDriveId,
+      corpora: "allDrives",
       includeItemsFromAllDrives: true,
       supportsAllDrives: true,
       fields: "files(id,name,mimeType)",
