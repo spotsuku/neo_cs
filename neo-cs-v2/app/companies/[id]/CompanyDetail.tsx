@@ -1646,12 +1646,14 @@ function EngagementTab({
     );
   }
 
-  const cellColor = (status: "present" | "absent" | "late" | "not_expected") => {
+  const cellColor = (status: "present" | "absent" | "late" | "excused" | "not_expected") => {
     switch (status) {
       case "present":
         return "#10B981";
       case "late":
         return "#F59E0B";
+      case "excused":
+        return "#6366F1";
       case "absent":
         return "#EF4444";
       default:
@@ -1662,7 +1664,7 @@ function EngagementTab({
   const cellStatus = (
     sessionId: string,
     participantId: string
-  ): "present" | "absent" | "late" | "not_expected" => {
+  ): "present" | "absent" | "late" | "excused" | "not_expected" => {
     const sess = companySessions.find((s) => s.id === sessionId);
     if (!sess) return "not_expected";
     if (!sess.expectedParticipantIds.includes(participantId)) return "not_expected";

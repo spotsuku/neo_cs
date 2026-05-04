@@ -35,7 +35,7 @@ export type AttendanceRecord = {
   id: string;
   participantId: string;
   sessionId: string;
-  status: "present" | "absent" | "late";
+  status: "present" | "absent" | "late" | "excused";
   recordedAt: string;
   recordedBy: string;
   note?: string;
@@ -73,7 +73,16 @@ export const participants: Participant[] = [
   // c-nccb hyogikai
   { id: "pa-nccb-1", companyId: "c-nccb", contractId: "k-nccb-hyogikai", name: "横山 大樹", email: "yokoyama@ncbank.co.jp", role: "経営企画部長", status: "active", joinedAt: "2026-05-10", department: "経営企画部", seniority: "exec" },
   { id: "pa-nccb-2", companyId: "c-nccb", contractId: "k-nccb-hyogikai", name: "原 由紀", email: "hara@ncbank.co.jp", role: "DX推進室長", status: "active", joinedAt: "2026-05-10", department: "DX推進室", seniority: "senior" },
-  { id: "pa-nccb-3", companyId: "c-nccb", contractId: "k-nccb-hyogikai", name: "三浦 健太郎", email: "miura@ncbank.co.jp", role: "リスク管理", status: "active", joinedAt: "2026-05-10", department: "リスク管理部", seniority: "mid" }
+  { id: "pa-nccb-3", companyId: "c-nccb", contractId: "k-nccb-hyogikai", name: "三浦 健太郎", email: "miura@ncbank.co.jp", role: "リスク管理", status: "active", joinedAt: "2026-05-10", department: "リスク管理部", seniority: "mid" },
+
+  // c-aeon hyogikai (ピボット表デモ拡充)
+  { id: "pa-aeon-h1", companyId: "c-aeon", contractId: "k-aeon-hyogikai", name: "山本 浩", email: "yamamoto@aeon-kyushu.jp", role: "取締役", status: "active", joinedAt: "2025-08-01", department: "経営", seniority: "exec" },
+  { id: "pa-aeon-h2", companyId: "c-aeon", contractId: "k-aeon-hyogikai", name: "黒田 真央", email: "kuroda@aeon-kyushu.jp", role: "経営戦略", status: "active", joinedAt: "2025-08-01", department: "経営企画部", seniority: "senior" },
+
+  // c-toto aiken (ピボット表デモ拡充)
+  { id: "pa-toto-a1", companyId: "c-toto", contractId: "k-toto-aiken", name: "上田 健", email: "ueda@toto.co.jp", role: "技術企画", status: "active", joinedAt: "2026-06-03", department: "技術部", seniority: "senior" },
+  { id: "pa-toto-a2", companyId: "c-toto", contractId: "k-toto-aiken", name: "古川 美月", email: "furukawa@toto.co.jp", role: "AI推進", status: "active", joinedAt: "2026-06-03", department: "DX推進室", seniority: "mid" },
+  { id: "pa-toto-a3", companyId: "c-toto", contractId: "k-toto-aiken", name: "宮本 大", email: "miyamoto@toto.co.jp", role: "データ基盤", status: "active", joinedAt: "2026-06-03", department: "技術部", seniority: "young" }
 ];
 
 // ─────────────────────────────────────────────
@@ -93,7 +102,20 @@ const baseSessions: Omit<Session, "expectedParticipantIds">[] = [
   { id: "s-fukugin-2", contractId: "k-fukugin-commu", sessionNumber: 2, scheduledAt: "2026-06-09", title: "第2回" },
 
   // c-nccb hyogikai
-  { id: "s-nccb-1", contractId: "k-nccb-hyogikai", sessionNumber: 1, scheduledAt: "2026-05-25", title: "初回定例会" }
+  { id: "s-nccb-1", contractId: "k-nccb-hyogikai", sessionNumber: 1, scheduledAt: "2026-05-25", title: "初回定例会" },
+
+  // c-aeon hyogikai (ピボット表デモ用)
+  { id: "s-aeon-h-1", contractId: "k-aeon-hyogikai", sessionNumber: 1, scheduledAt: "2026-04-10", completedAt: "2026-04-10", title: "第1回 評議会" },
+  { id: "s-aeon-h-2", contractId: "k-aeon-hyogikai", sessionNumber: 2, scheduledAt: "2026-04-24", completedAt: "2026-04-24", title: "第2回 評議会" },
+
+  // c-levias aiken
+  { id: "s-levias-1", contractId: "k-levias-aiken", sessionNumber: 1, scheduledAt: "2026-04-15", completedAt: "2026-04-15", title: "Kickoff" },
+  { id: "s-levias-2", contractId: "k-levias-aiken", sessionNumber: 2, scheduledAt: "2026-04-22", completedAt: "2026-04-22", title: "第2回" },
+  { id: "s-levias-3", contractId: "k-levias-aiken", sessionNumber: 3, scheduledAt: "2026-04-29", completedAt: "2026-04-29", title: "第3回" },
+
+  // c-toto aiken
+  { id: "s-toto-a-1", contractId: "k-toto-aiken", sessionNumber: 1, scheduledAt: "2026-04-17", completedAt: "2026-04-17", title: "Kickoff" },
+  { id: "s-toto-a-2", contractId: "k-toto-aiken", sessionNumber: 2, scheduledAt: "2026-04-24", completedAt: "2026-04-24", title: "第2回" }
 ];
 
 export const sessions: Session[] = baseSessions.map((s) => ({
@@ -126,7 +148,38 @@ export const attendanceRecords: AttendanceRecord[] = [
   // s-aeon-5（第15回）
   { id: "ar-13", participantId: "pa-aeon-1", sessionId: "s-aeon-5", status: "present", recordedAt: "2026-04-22", recordedBy: "古野" },
   { id: "ar-14", participantId: "pa-aeon-2", sessionId: "s-aeon-5", status: "absent", recordedAt: "2026-04-22", recordedBy: "古野", note: "出張で欠席、代替参加希望" },
-  { id: "ar-15", participantId: "pa-aeon-3", sessionId: "s-aeon-5", status: "present", recordedAt: "2026-04-22", recordedBy: "古野" }
+  { id: "ar-15", participantId: "pa-aeon-3", sessionId: "s-aeon-5", status: "present", recordedAt: "2026-04-22", recordedBy: "古野" },
+
+  // c-aeon hyogikai
+  { id: "ar-h-1", participantId: "pa-aeon-h1", sessionId: "s-aeon-h-1", status: "present", recordedAt: "2026-04-10", recordedBy: "三木" },
+  { id: "ar-h-2", participantId: "pa-aeon-h2", sessionId: "s-aeon-h-1", status: "present", recordedAt: "2026-04-10", recordedBy: "三木" },
+  { id: "ar-h-3", participantId: "pa-aeon-h1", sessionId: "s-aeon-h-2", status: "absent", recordedAt: "2026-04-24", recordedBy: "三木", note: "海外出張" },
+  { id: "ar-h-4", participantId: "pa-aeon-h2", sessionId: "s-aeon-h-2", status: "present", recordedAt: "2026-04-24", recordedBy: "三木" },
+
+  // c-levias aiken
+  { id: "ar-l-1", participantId: "pa-levias-1", sessionId: "s-levias-1", status: "present", recordedAt: "2026-04-15", recordedBy: "松田" },
+  { id: "ar-l-2", participantId: "pa-levias-2", sessionId: "s-levias-1", status: "present", recordedAt: "2026-04-15", recordedBy: "松田" },
+  { id: "ar-l-3", participantId: "pa-levias-3", sessionId: "s-levias-1", status: "late", recordedAt: "2026-04-15", recordedBy: "松田" },
+  { id: "ar-l-4", participantId: "pa-levias-1", sessionId: "s-levias-2", status: "present", recordedAt: "2026-04-22", recordedBy: "松田" },
+  { id: "ar-l-5", participantId: "pa-levias-2", sessionId: "s-levias-2", status: "absent", recordedAt: "2026-04-22", recordedBy: "松田", note: "体調不良" },
+  { id: "ar-l-6", participantId: "pa-levias-3", sessionId: "s-levias-2", status: "present", recordedAt: "2026-04-22", recordedBy: "松田" },
+  { id: "ar-l-7", participantId: "pa-levias-1", sessionId: "s-levias-3", status: "present", recordedAt: "2026-04-29", recordedBy: "松田" },
+  { id: "ar-l-8", participantId: "pa-levias-2", sessionId: "s-levias-3", status: "present", recordedAt: "2026-04-29", recordedBy: "松田" },
+  { id: "ar-l-9", participantId: "pa-levias-3", sessionId: "s-levias-3", status: "present", recordedAt: "2026-04-29", recordedBy: "松田" },
+
+  // c-toto aiken
+  { id: "ar-ta-1", participantId: "pa-toto-a1", sessionId: "s-toto-a-1", status: "present", recordedAt: "2026-04-17", recordedBy: "古野" },
+  { id: "ar-ta-2", participantId: "pa-toto-a2", sessionId: "s-toto-a-1", status: "present", recordedAt: "2026-04-17", recordedBy: "古野" },
+  { id: "ar-ta-3", participantId: "pa-toto-a3", sessionId: "s-toto-a-1", status: "present", recordedAt: "2026-04-17", recordedBy: "古野" },
+  { id: "ar-ta-4", participantId: "pa-toto-a1", sessionId: "s-toto-a-2", status: "present", recordedAt: "2026-04-24", recordedBy: "古野" },
+  { id: "ar-ta-5", participantId: "pa-toto-a2", sessionId: "s-toto-a-2", status: "absent", recordedAt: "2026-04-24", recordedBy: "古野", note: "プロジェクト対応" },
+  { id: "ar-ta-6", participantId: "pa-toto-a3", sessionId: "s-toto-a-2", status: "present", recordedAt: "2026-04-24", recordedBy: "古野" },
+
+  // c-fukugin commu
+  { id: "ar-f-1", participantId: "pa-fukugin-1", sessionId: "s-fukugin-1", status: "present", recordedAt: "2026-05-12", recordedBy: "古野" },
+  { id: "ar-f-2", participantId: "pa-fukugin-2", sessionId: "s-fukugin-1", status: "present", recordedAt: "2026-05-12", recordedBy: "古野" },
+  { id: "ar-f-3", participantId: "pa-fukugin-3", sessionId: "s-fukugin-1", status: "absent", recordedAt: "2026-05-12", recordedBy: "古野", note: "産休前最終出勤" },
+  { id: "ar-f-4", participantId: "pa-fukugin-4", sessionId: "s-fukugin-1", status: "present", recordedAt: "2026-05-12", recordedBy: "古野" }
 ];
 
 // ─────────────────────────────────────────────
