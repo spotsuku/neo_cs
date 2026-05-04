@@ -11,6 +11,7 @@ const nav = [
   { href: "/companies", label: "企業" },
   { href: "/surveys", label: "アンケート" },
   { href: "/onboarding", label: "オンボ" },
+  { href: "/tasks", label: "ToDo" },
   { href: "/weekly", label: "週次" },
   { href: "/team", label: "チーム" },
   { href: "/voc", label: "VOC" },

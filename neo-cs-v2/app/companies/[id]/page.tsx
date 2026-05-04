@@ -12,7 +12,9 @@ import {
   accountJourneyRepo,
   onboardingItemRepo,
   successPlanRepo,
-  assignmentRepo
+  assignmentRepo,
+  companyTaskRepo,
+  userRepo
 } from "@/lib/repository";
 
 // 「現行サイクル」判定 — lib/mock/onboarding.ts:293 の activeContracts と同じ式。
@@ -36,13 +38,17 @@ export default async function CompanyDetailPage({
     meetings,
     allCycles,
     stakeholders,
-    journeys
+    journeys,
+    tasks,
+    members
   ] = await Promise.all([
     contactRepo.listByCompany(id),
     meetingLogRepo.listByCompany(id, { sort: "date desc", limit: 50 }),
     contractRepo.listByCompany(id),
     stakeholderRepo.listByCompany(id),
-    accountJourneyRepo.listByCompany(id)
+    accountJourneyRepo.listByCompany(id),
+    companyTaskRepo.list({ companyId: id }),
+    userRepo.list({ activeOnly: true })
   ]);
 
   // active 集合 (UI デフォルト)。allCycles から派生させて再フェッチを避ける
@@ -115,6 +121,8 @@ export default async function CompanyDetailPage({
         stakeholders={stakeholders}
         successPlans={plans}
         journeys={journeys}
+        tasks={tasks}
+        members={members.map((u) => ({ id: u.id, name: u.name }))}
       />
     </>
   );

@@ -37,6 +37,7 @@ export const expansionOpportunityRepo = repo.expansionOpportunities;
 export const renewalMilestoneRepo = repo.renewalMilestones;
 export const vocItemRepo = repo.vocItems;
 export const productCourseRepo = repo.productCourses;
+export const companyTaskRepo = repo.companyTasks;
 // 申し送り l〜q (N+1解消用)
 export const contactRepo = repo.contacts;
 export const meetingLogRepo = repo.meetingLogs;

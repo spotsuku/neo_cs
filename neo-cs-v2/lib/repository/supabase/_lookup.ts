@@ -4,6 +4,8 @@
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_ORG_ID } from "../types";
+import { runAfterWrite } from "../_base";
+import { getActorContext } from "./_actor";
 import type {
   AccountJourney,
   AccountJourneyRepo,
@@ -174,7 +176,31 @@ type StakeholderRow = {
   active_from: string;
   active_to: string | null;
   note: string | null;
+  engagement_tier: "core" | "active" | "casual" | "at_risk" | null;
+  engagement_tier_overridden_by: string | null;
+  engagement_tier_overridden_at: string | null;
+  engagement_note: string | null;
 };
+
+function toStakeholder(r: StakeholderRow): Stakeholder {
+  return {
+    id: r.id,
+    organizationId: r.organization_id,
+    companyId: r.company_id,
+    name: r.name,
+    role: r.role_title ?? "",
+    department: r.department ?? undefined,
+    type: r.stakeholder_type as Stakeholder["type"],
+    products: [] as ProductCode[],
+    activeFrom: r.active_from,
+    activeTo: r.active_to ?? undefined,
+    note: r.note ?? undefined,
+    engagementTier: r.engagement_tier,
+    engagementTierOverriddenBy: r.engagement_tier_overridden_by ?? undefined,
+    engagementTierOverriddenAt: r.engagement_tier_overridden_at ?? undefined,
+    engagementNote: r.engagement_note ?? undefined
+  } satisfies Stakeholder;
+}
 
 export const supabaseStakeholderRepo: StakeholderRepo = {
   async listByCompany(companyId) {
@@ -184,20 +210,62 @@ export const supabaseStakeholderRepo: StakeholderRepo = {
       .select("*")
       .eq("company_id", companyId);
     if (error) throw new Error(`stakeholders.listByCompany: ${error.message}`);
-    return (data ?? []).map((r: StakeholderRow) => ({
-      id: r.id,
-      organizationId: r.organization_id,
-      companyId: r.company_id,
-      name: r.name,
-      role: r.role_title ?? "",
-      department: r.department ?? undefined,
-      // type / engagement は mock 型に揃える
-      type: r.stakeholder_type as Stakeholder["type"],
-      products: [] as ProductCode[],
-      activeFrom: r.active_from,
-      activeTo: r.active_to ?? undefined,
-      note: r.note ?? undefined
-    } satisfies Stakeholder));
+    return (data ?? []).map((r: StakeholderRow) => toStakeholder(r));
+  },
+
+  async list(filter) {
+    const sb = getServiceClient();
+    let q = sb.from("stakeholders").select("*");
+    if (filter?.organizationId) q = q.eq("organization_id", filter.organizationId);
+    const { data, error } = await q;
+    if (error) throw new Error(`stakeholders.list: ${error.message}`);
+    return (data ?? []).map((r: StakeholderRow) => toStakeholder(r));
+  },
+
+  async setEngagementTier(id, input) {
+    const sb = getServiceClient();
+    const ctx = getActorContext();
+    const { data: before } = await sb
+      .from("stakeholders")
+      .select(
+        "engagement_tier,engagement_tier_overridden_by,engagement_tier_overridden_at,engagement_note"
+      )
+      .eq("id", id)
+      .maybeSingle();
+
+    const patch = input.tier === null
+      ? {
+          engagement_tier: null,
+          engagement_tier_overridden_by: null,
+          engagement_tier_overridden_at: null,
+          engagement_note: input.note ?? null
+        }
+      : {
+          engagement_tier: input.tier,
+          engagement_tier_overridden_by:
+            input.actorUserId ?? ctx.actor.userId ?? null,
+          engagement_tier_overridden_at: new Date().toISOString(),
+          engagement_note: input.note ?? null
+        };
+
+    const { data, error } = await sb
+      .from("stakeholders")
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) throw new Error(`stakeholders.setEngagementTier: ${error.message}`);
+
+    await runAfterWrite({
+      entityType: "stakeholders",
+      entityId: id,
+      before,
+      after: patch,
+      action: "update",
+      ctx
+    });
+
+    return toStakeholder(data as StakeholderRow);
   }
 };
 

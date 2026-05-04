@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { ProductBadge } from "@/components/ProductBadge";
 import { WeeklyReviewPanel } from "./WeeklyReviewPanel";
+import { CompanyTasksSection } from "@/components/CompanyTasksSection";
+import type { CompanyTask } from "@/lib/repository/types";
 import type {
   Company,
   Contact,
@@ -41,6 +43,10 @@ import { ContractChurnSignals } from "@/components/ContractChurnSignals";
 import { ContractExpansionOpportunities } from "@/components/ContractExpansionOpportunities";
 import { RenewalMilestoneList } from "@/components/RenewalMilestoneList";
 import { CompanyVocList } from "@/components/CompanyVocList";
+import {
+  StakeholderEngagementBlock,
+  type StakeholderEngagementMetrics
+} from "@/components/StakeholderEngagementCard";
 import { useHealthSnapshots } from "@/lib/hooks/useHealthSnapshots";
 import type { ChurnRecord } from "@/lib/mock/churn";
 import { reasonCategoryLabels, reasonCategoryOrder, churnRecords as initialChurnRecords } from "@/lib/mock/churn";
@@ -64,10 +70,11 @@ import {
 
 type HealthColor = "green" | "yellow" | "red";
 
-type Tab = "overview" | "weekly" | "contracts" | "logs" | "onboarding" | "surveys" | "engagement" | "mail";
+type Tab = "overview" | "tasks" | "weekly" | "contracts" | "logs" | "onboarding" | "surveys" | "engagement" | "mail";
 
 const tabs: { key: Tab; label: string }[] = [
   { key: "overview", label: "概要" },
+  { key: "tasks", label: "業務ToDo" },
   { key: "weekly", label: "週次レビュー" },
   { key: "contracts", label: "契約・更新" },
   { key: "logs", label: "面談ログ" },
@@ -94,7 +101,9 @@ export function CompanyDetail({
   items,
   stakeholders,
   successPlans,
-  journeys
+  journeys,
+  tasks = [],
+  members = []
 }: {
   company: Company;
   contacts: Contact[];
@@ -105,6 +114,8 @@ export function CompanyDetail({
   stakeholders: Stakeholder[];
   successPlans: SuccessPlan[];
   journeys: AccountJourney[];
+  tasks?: CompanyTask[];
+  members?: { id: string; name: string }[];
 }) {
   const [tab, setTab] = useState<Tab>("overview");
   const healthColor: HealthColor = companyHealthColor(company.id);
@@ -196,6 +207,17 @@ export function CompanyDetail({
       {/* タブコンテンツ */}
       {tab === "overview" && (
         <OverviewTab company={company} contacts={contacts} contracts={contracts} journeys={journeys} stakeholders={stakeholders} />
+      )}
+      {tab === "tasks" && (
+        <CompanyTasksSection
+          companyId={company.id}
+          initialTasks={tasks}
+          contracts={allCycles.map((c) => ({
+            id: c.id,
+            label: `${c.product} / ${c.courseKey ?? "-"} (${cycleLabel(c.product, c.cycleNumber)})`
+          }))}
+          members={members}
+        />
       )}
       {tab === "weekly" && <WeeklyReviewPanel companyId={company.id} />}
       {tab === "contracts" && <ContractsTab allCycles={allCycles} successPlans={successPlans} />}

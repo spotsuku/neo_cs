@@ -463,8 +463,18 @@ export interface MeetingLogRepo {
   listByCompany(companyId: string, opts?: MeetingLogListOpts): Promise<MeetingLog[]>;
 }
 
+export type EngagementTierValue = "core" | "active" | "casual" | "at_risk";
+
+export type SetEngagementTierInput = {
+  tier: EngagementTierValue | null;
+  note?: string;
+  actorUserId?: string;
+};
+
 export interface StakeholderRepo {
   listByCompany(companyId: string): Promise<Stakeholder[]>;
+  list(filter?: { organizationId?: string }): Promise<Stakeholder[]>;
+  setEngagementTier(id: string, input: SetEngagementTierInput): Promise<Stakeholder>;
 }
 
 export interface AccountJourneyRepo {
@@ -687,6 +697,77 @@ export interface ProductCourseRepo {
 }
 
 // ─────────────────────────────────────────────
+// 業務 ToDo (company_tasks) — オンボとは別の汎用タスク
+// マイグレーション: supabase/migrations/0014_company_tasks.sql
+// 純関数群: lib/domain/task.ts
+// ─────────────────────────────────────────────
+import type {
+  CompanyTaskCategory,
+  CompanyTaskPriority,
+  CompanyTaskStatus
+} from "@/lib/domain/task";
+
+export type { CompanyTaskCategory, CompanyTaskPriority, CompanyTaskStatus };
+
+export type CompanyTask = {
+  id: string;
+  organizationId: string;
+  companyId: string;
+  contractId?: string;
+  title: string;
+  description?: string;
+  category?: CompanyTaskCategory;
+  status: CompanyTaskStatus;
+  priority: CompanyTaskPriority;
+  dueDate?: string; // YYYY-MM-DD
+  notifyAt?: string; // 将来通知連携用 (本実装では未使用)
+  assignedTo?: string;
+  createdBy?: string;
+  completedAt?: string;
+  completedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CompanyTaskFilter = {
+  organizationId?: string;
+  companyId?: string;
+  contractId?: string;
+  assignedTo?: string;
+  status?: CompanyTaskStatus | CompanyTaskStatus[];
+  priority?: CompanyTaskPriority;
+  /** YYYY-MM-DD 以下の dueDate を抽出 (未完了のみ対象) */
+  dueOnOrBefore?: string;
+  /** true: due_date IS NOT NULL かつ < today */
+  overdueOnly?: boolean;
+  /** true: status in ('pending','in_progress') */
+  openOnly?: boolean;
+};
+
+export type CompanyTaskCreateInput = Omit<
+  CompanyTask,
+  "id" | "createdAt" | "updatedAt" | "organizationId" | "status" | "completedAt" | "completedBy"
+> & {
+  id?: string;
+  organizationId?: string;
+  status?: CompanyTaskStatus;
+};
+
+export type CompanyTaskUpdatePatch = Partial<
+  Omit<CompanyTask, "id" | "organizationId" | "createdAt" | "updatedAt" | "createdBy">
+>;
+
+export interface CompanyTaskRepo {
+  list(filter?: CompanyTaskFilter): Promise<CompanyTask[]>;
+  getById(id: string): Promise<CompanyTask | null>;
+  create(input: CompanyTaskCreateInput): Promise<CompanyTask>;
+  update(id: string, patch: CompanyTaskUpdatePatch): Promise<CompanyTask>;
+  markDone(id: string, opts: { completedBy?: string; completedAt?: string }): Promise<CompanyTask>;
+  markSkipped(id: string, opts?: { actorUserId?: string }): Promise<CompanyTask>;
+  markCancelled(id: string, opts?: { actorUserId?: string }): Promise<CompanyTask>;
+}
+
+// ─────────────────────────────────────────────
 // Repository集約
 // ─────────────────────────────────────────────
 export interface Repository {
@@ -705,6 +786,7 @@ export interface Repository {
   renewalMilestones: RenewalMilestoneRepo;
   vocItems: VocItemRepo;
   productCourses: ProductCourseRepo;
+  companyTasks: CompanyTaskRepo;
   // 申し送り l〜q
   contacts: ContactRepo;
   meetingLogs: MeetingLogRepo;

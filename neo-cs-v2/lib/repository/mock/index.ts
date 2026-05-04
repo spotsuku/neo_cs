@@ -20,6 +20,7 @@ import { mockAccountJourneyRepo } from "./accountJourneyRepo";
 import { mockOnboardingItemRepo } from "./onboardingItemRepo";
 import { mockSuccessPlanRepo } from "./successPlanRepo";
 import { mockProductCourseRepo } from "./productCourseRepo";
+import { mockCompanyTaskRepo } from "./companyTaskRepo";
 
 export const mockRepository: Repository = {
   companies: mockCompanyRepo,
@@ -42,5 +43,6 @@ export const mockRepository: Repository = {
   accountJourneys: mockAccountJourneyRepo,
   onboardingItems: mockOnboardingItemRepo,
   successPlans: mockSuccessPlanRepo,
-  productCourses: mockProductCourseRepo
+  productCourses: mockProductCourseRepo,
+  companyTasks: mockCompanyTaskRepo
 };

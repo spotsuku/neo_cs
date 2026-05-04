@@ -28,6 +28,11 @@ export type Stakeholder = {
   note?: string;
   /** 個人の関与度。低下時に CS が把握するための事実情報 (個人へのリスクラベルではない) */
   engagement?: StakeholderEngagement;
+  /** 接点頻度 tier の手動上書き値 (Phase2-#4) */
+  engagementTier?: "core" | "active" | "casual" | "at_risk" | null;
+  engagementTierOverriddenBy?: string;
+  engagementTierOverriddenAt?: string;
+  engagementNote?: string;
 };
 
 export const stakeholderTypeLabel: Record<StakeholderType, string> = {
@@ -46,8 +51,8 @@ export const stakeholders: Stakeholder[] = [
   { id: "sh-aeon-1", companyId: "c-aeon", name: "山田 次郎", role: "副社長", type: "decision_maker", products: ["academia", "hyogikai"], activeFrom: "2024-09-01", note: "更新可否の最終判断者" },
   { id: "sh-aeon-2", companyId: "c-aeon", name: "田中 太郎", role: "人事部長", type: "champion", products: ["academia", "aiken", "hyogikai"], activeFrom: "2024-09-01", note: "取り組みを社内で推進" },
   // 旧 at_risk → user (受講者) + engagement: low に置換 (法人ヘルスへの影響は health_score_snapshots で表現)
-  { id: "sh-aeon-3", companyId: "c-aeon", name: "佐藤 花子", role: "経営企画課長", type: "user", products: ["academia"], activeFrom: "2024-09-01", note: "稼働逼迫で参加頻度低下", engagement: "low" },
-  { id: "sh-jrq-1", companyId: "c-jrq", name: "（人事部長）", role: "人事部長", type: "decision_maker", products: ["academia", "hyogikai"], activeFrom: "2024-08-01" },
+  { id: "sh-aeon-3", companyId: "c-aeon", name: "佐藤 花子", role: "経営企画課長", type: "user", products: ["academia"], activeFrom: "2024-09-01", note: "稼働逼迫で参加頻度低下", engagement: "low", engagementTier: "at_risk", engagementNote: "3ヶ月接点なし。代替要員へ引き継ぎ検討" },
+  { id: "sh-jrq-1", companyId: "c-jrq", name: "（人事部長）", role: "人事部長", type: "decision_maker", products: ["academia", "hyogikai"], activeFrom: "2024-08-01", engagementTier: "casual" },
   { id: "sh-kyudenko-1", companyId: "c-kyudenko", name: "（研修担当）", role: "人材開発課長", type: "champion", products: ["commu", "aiken"], activeFrom: "2025-08-15" }
 ];
 

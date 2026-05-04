@@ -9,6 +9,7 @@ import { ContinuousProductCard } from "@/components/ContinuousProductCard";
 import { OneShotProductCard } from "@/components/OneShotProductCard";
 import { PeriodSwitcher } from "@/components/PeriodSwitcher";
 import { ChurnAlerts } from "@/components/ChurnAlerts";
+import { MyTasksWidget } from "@/components/MyTasksWidget";
 import { ExpansionOpportunities } from "@/components/ExpansionOpportunities";
 import { KpiExplainButton } from "@/components/KpiExplainButton";
 import { allContracts, activeContracts } from "@/lib/mock/onboarding";
@@ -267,6 +268,11 @@ export default async function Page() {
               ))}
             </ul>
           </div>
+        </section>
+
+        {/* ── あなたの未完了ToDo (Phase2-#2) ─────────────────────── */}
+        <section>
+          <MyTasksWidget />
         </section>
 
         {/* ── ⑥ 研修別サマリー（タイプ別レイアウト）──────────── */}
