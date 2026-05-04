@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { CompanyDetail } from "./CompanyDetail";
+import { CompletenessChecklistCard } from "@/components/CompletenessChecklistCard";
+import { checkCompanyCompleteness } from "@/lib/domain/completeness";
 import {
   companyRepo,
   contactRepo,
@@ -9,7 +11,8 @@ import {
   stakeholderRepo,
   accountJourneyRepo,
   onboardingItemRepo,
-  successPlanRepo
+  successPlanRepo,
+  assignmentRepo
 } from "@/lib/repository";
 
 // 「現行サイクル」判定 — lib/mock/onboarding.ts:293 の activeContracts と同じ式。
@@ -64,9 +67,44 @@ export default async function CompanyDetailPage({
   const items = onboardingItemsAll.filter((i) => activeIdSet.has(i.contractId));
   const plans = plansAll.filter((sp) => allIdSet.has(sp.contractId));
 
+  // 未入力チェックリスト (純関数 lib/domain/completeness)
+  const assignments = await assignmentRepo
+    .listByCompany(id, { activeOnly: true })
+    .catch(() => []);
+  const completeness = checkCompanyCompleteness({
+    company: {
+      id: company.id,
+      name: company.name,
+      industry: company.industry
+      // size / website / legalNumber は現行 Company 型に未定義 (将来追加予定)
+    },
+    contacts: contacts.map((c) => ({
+      isPrimary: c.isPrimary,
+      name: c.name,
+      email: c.email,
+      title: c.title
+      // slackId は将来追加予定
+    })),
+    contracts: allCycles.map((c) => ({
+      status: c.status,
+      courseKey: c.courseKey,
+      mrr: c.mrr,
+      revenue: c.revenue,
+      startDate: c.startDate,
+      endDate: c.endDate
+    })),
+    assignments: assignments.map((a) => ({ role: a.role, unassignedAt: a.unassignedAt })),
+    fallbackPrimaryOwnerName: company.ownerName,
+    onboarding: { taskCount: items.length },
+    stakeholders: stakeholders.map((s) => ({ type: s.type }))
+  });
+
   return (
     <>
       <TopNav current="/companies" />
+      <div className="mx-auto max-w-[1400px] px-6 pt-8">
+        <CompletenessChecklistCard result={completeness} />
+      </div>
       <CompanyDetail
         company={company}
         contacts={contacts}

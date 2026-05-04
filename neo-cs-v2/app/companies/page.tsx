@@ -4,11 +4,16 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { ProductBadge } from "@/components/ProductBadge";
-import { companies } from "@/lib/mock/entities";
-import { activeContracts } from "@/lib/mock/onboarding";
+import { CompletenessBadge } from "@/components/CompletenessChecklistCard";
+import { companies, contacts as allContacts } from "@/lib/mock/entities";
+import { activeContracts, contractOnboardingItems } from "@/lib/mock/onboarding";
+import { stakeholders as allStakeholders } from "@/lib/mock/cycles";
 import { companyHealthColor } from "@/lib/mock/health";
+import { checkCompanyCompleteness } from "@/lib/domain/completeness";
 // コース表示に対応
 import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/mock/data";
+
+type SortKey = "default" | "completeness_asc" | "completeness_desc";
 
 type HealthFilter = "all" | "green" | "yellow" | "red";
 
@@ -35,6 +40,46 @@ export default function CompaniesPage() {
   const [health, setHealth] = useState<HealthFilter>("all");
   const [productFilter, setProductFilter] = useState<ProductCode[]>([]);
   const [owner, setOwner] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+
+  // 企業ごとの完成度スコアを計算 (純関数)。companies は固定なので useMemo
+  const completenessByCompany = useMemo(() => {
+    const map = new Map<string, number>();
+    companies.forEach((c) => {
+      const r = checkCompanyCompleteness({
+        company: { id: c.id, name: c.name, industry: c.industry },
+        contacts: allContacts
+          .filter((p) => p.companyId === c.id)
+          .map((p) => ({
+            isPrimary: p.isPrimary,
+            name: p.name,
+            email: p.email,
+            title: p.title
+          })),
+        contracts: activeContracts
+          .filter((ac) => ac.companyId === c.id)
+          .map((ac) => ({
+            status: ac.status,
+            courseKey: ac.courseKey,
+            mrr: ac.mrr,
+            revenue: ac.revenue,
+            startDate: ac.startDate,
+            endDate: ac.endDate
+          })),
+        fallbackPrimaryOwnerName: c.ownerName,
+        onboarding: {
+          taskCount: contractOnboardingItems.filter((i) =>
+            activeContracts.some((ac) => ac.id === i.contractId && ac.companyId === c.id)
+          ).length
+        },
+        stakeholders: allStakeholders
+          .filter((s) => s.companyId === c.id)
+          .map((s) => ({ type: s.type }))
+      });
+      map.set(c.id, r.score);
+    });
+    return map;
+  }, []);
 
   const owners = useMemo(() => {
     const set = new Set<string>();
@@ -67,6 +112,16 @@ export default function CompaniesPage() {
       return true;
     });
   }, [q, health, productFilter, owner]);
+
+  const sorted = useMemo(() => {
+    if (sortKey === "default") return filtered;
+    const dir = sortKey === "completeness_asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const sa = completenessByCompany.get(a.id) ?? 0;
+      const sb = completenessByCompany.get(b.id) ?? 0;
+      return (sa - sb) * dir;
+    });
+  }, [filtered, sortKey, completenessByCompany]);
 
   return (
     <>
@@ -142,6 +197,17 @@ export default function CompaniesPage() {
                 </option>
               ))}
             </select>
+
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="px-3 py-2 rounded-full border border-ink-100 bg-white text-sm text-ink-700"
+              title="完成度で並び替え"
+            >
+              <option value="default">並び替え: 既定</option>
+              <option value="completeness_asc">完成度: 低い順</option>
+              <option value="completeness_desc">完成度: 高い順</option>
+            </select>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -194,13 +260,14 @@ export default function CompaniesPage() {
                 <th className="px-3 py-3 font-medium">業種</th>
                 <th className="px-3 py-3 font-medium">契約研修</th>
                 <th className="px-3 py-3 font-medium">Health</th>
+                <th className="px-3 py-3 font-medium">完成度</th>
                 <th className="px-3 py-3 font-medium text-right">MRR</th>
                 <th className="px-3 py-3 font-medium">主担当</th>
                 <th className="px-5 py-3 font-medium whitespace-nowrap">最終接点</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
+              {sorted.map((c) => (
                 <tr
                   key={c.id}
                   className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50 transition"
@@ -256,6 +323,9 @@ export default function CompaniesPage() {
                   <td className="px-3 py-3">
                     <HealthDot color={companyHealthColor(c.id)} />
                   </td>
+                  <td className="px-3 py-3">
+                    <CompletenessBadge score={completenessByCompany.get(c.id) ?? 0} />
+                  </td>
                   <td className="px-3 py-3 text-right text-ink-900 font-medium whitespace-nowrap">
                     {yen(c.mrr)}
                   </td>
@@ -267,10 +337,10 @@ export default function CompaniesPage() {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {sorted.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-5 py-12 text-center text-sm text-ink-500"
                   >
                     該当する企業がありません
