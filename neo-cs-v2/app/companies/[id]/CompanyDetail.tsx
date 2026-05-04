@@ -172,6 +172,23 @@ export function CompanyDetail({
               <span className="text-ink-900 font-semibold">{yen(company.mrr)}</span>
               <span className="text-ink-500">最終接点</span>
               <span className="text-ink-700">{company.lastTouchDays}日前</span>
+              {company.driveFolderUrl ? (
+                <a
+                  href={company.driveFolderUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-ink-100 bg-white/70 px-3 py-1 text-xs text-ink-700 hover:bg-ink-50"
+                  title="Google Drive 顧客フォルダを開く"
+                >
+                  <span aria-hidden>📁</span>
+                  <span>Driveフォルダ</span>
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700">
+                  <span aria-hidden>📁</span>
+                  <span>フォルダ未作成</span>
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">

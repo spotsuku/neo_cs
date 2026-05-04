@@ -282,6 +282,11 @@ export interface CompanyRepo {
   create(input: CompanyCreateInput): Promise<Company>;
   update(id: string, patch: Partial<Omit<Company, "id">>): Promise<Company>;
   delete(id: string): Promise<void>;
+  /** Phase4-#5: Google Drive 自動連携で生成したフォルダIDとURLを保存 */
+  setDriveFolder(
+    id: string,
+    drive: { folderId: string; folderUrl: string }
+  ): Promise<void>;
 }
 
 export type ContractCreateInput = Omit<Contract, "id" | "organizationId"> & {

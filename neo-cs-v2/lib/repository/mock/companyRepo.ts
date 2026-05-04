@@ -51,5 +51,15 @@ export const mockCompanyRepo: CompanyRepo = {
   async delete(id) {
     const idx = store.findIndex((c) => c.id === id);
     if (idx >= 0) store.splice(idx, 1);
+  },
+  async setDriveFolder(id, drive) {
+    const idx = store.findIndex((c) => c.id === id);
+    if (idx < 0) throw new Error(`Company not found: ${id}`);
+    store[idx] = {
+      ...store[idx],
+      driveFolderId: drive.folderId,
+      driveFolderUrl: drive.folderUrl,
+      driveFolderCreatedAt: new Date().toISOString()
+    };
   }
 };

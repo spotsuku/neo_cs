@@ -109,7 +109,12 @@ export default async function SalesHandoffDetailPage({
                   開く
                 </a>
               ) : (
-                <span className="text-amber-600">Phase4-#5 で自動作成 (現状: 待ち)</span>
+                <span className="text-amber-600">
+                  未作成 ／ リトライ:{" "}
+                  <code className="text-xs">
+                    POST /api/integrations/drive/retry/{h.company_id ?? "<companyId>"}
+                  </code>
+                </span>
               )}
             </dd>
             <dt className="text-ink-500">Slack 通知</dt>

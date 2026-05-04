@@ -16,6 +16,9 @@ type Row = {
   group_name: string | null;
   owner_user_id: string | null;
   memo: string | null;
+  drive_folder_id?: string | null;
+  drive_folder_url?: string | null;
+  drive_folder_created_at?: string | null;
 };
 
 function toCompany(row: Row, ownerName: string = ""): Company {
@@ -34,7 +37,10 @@ function toCompany(row: Row, ownerName: string = ""): Company {
     contracts: [],
     mrr: 0,
     lastTouchDays: 0,
-    memo: row.memo ?? undefined
+    memo: row.memo ?? undefined,
+    driveFolderId: row.drive_folder_id ?? null,
+    driveFolderUrl: row.drive_folder_url ?? null,
+    driveFolderCreatedAt: row.drive_folder_created_at ?? null
   };
 }
 
@@ -138,5 +144,18 @@ export const supabaseCompanyRepo: CompanyRepo = {
       action: "delete",
       ctx
     });
+  },
+
+  async setDriveFolder(id, drive) {
+    const sb = getServiceClient();
+    const { error } = await sb
+      .from("companies")
+      .update({
+        drive_folder_id: drive.folderId,
+        drive_folder_url: drive.folderUrl,
+        drive_folder_created_at: new Date().toISOString()
+      })
+      .eq("id", id);
+    if (error) throw new Error(`companies.setDriveFolder: ${error.message}`);
   }
 };

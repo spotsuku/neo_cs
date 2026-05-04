@@ -74,7 +74,8 @@ export default function CompaniesPage() {
         },
         stakeholders: allStakeholders
           .filter((s) => s.companyId === c.id)
-          .map((s) => ({ type: s.type }))
+          .map((s) => ({ type: s.type })),
+        drive: { folderUrl: c.driveFolderUrl ?? null }
       });
       map.set(c.id, r.score);
     });

@@ -32,6 +32,7 @@ import {
   type SalesHandoffPayload,
 } from "@/lib/integrations/sales-handoff";
 import { notifySalesHandoff } from "@/lib/notifications/sales-handoff";
+import { provisionDriveFolder } from "@/lib/integrations/drive-provisioning";
 import { getServiceClient } from "@/lib/supabase/server";
 import { getLogger } from "@/lib/observability/logger";
 import { captureException } from "@/lib/observability/sentry";
@@ -218,6 +219,22 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     if (hErr) throw new Error(`handoff_insert_failed: ${hErr.message}`);
 
+    // ── Google Drive 自動作成 (失敗しても handoff は成功扱いとし、
+    //    後で手動リトライ可能にする。詳細は lib/integrations/drive-provisioning.ts) ──
+    let driveFolderUrl: string | null = null;
+    try {
+      const driveRes = await provisionDriveFolder({
+        companyId,
+        companyName: payload.company.name,
+        handoffId: handoffRow?.id ?? null,
+        date: payload.contract.startDate,
+        requestId,
+      });
+      if (driveRes.ok && driveRes.folderUrl) driveFolderUrl = driveRes.folderUrl;
+    } catch (e) {
+      log.warn({ kind: "drive_provision_failed", message: (e as Error).message });
+    }
+
     // ── Slack 通知 (失敗しても 200 を返す) ──
     try {
       await notifySalesHandoff({
@@ -253,6 +270,7 @@ export async function POST(req: NextRequest) {
         contractId,
         primaryContactId: contactId,
         assignmentId,
+        driveFolderUrl,
         dashboardUrl: `${APP_BASE_URL}/sales-handoff/${handoffRow?.id ?? ""}`,
         request_id: requestId,
       },

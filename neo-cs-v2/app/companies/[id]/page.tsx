@@ -104,7 +104,8 @@ export default async function CompanyDetailPage({
     assignments: assignments.map((a) => ({ role: a.role, unassignedAt: a.unassignedAt })),
     fallbackPrimaryOwnerName: company.ownerName,
     onboarding: { taskCount: items.length },
-    stakeholders: stakeholders.map((s) => ({ type: s.type }))
+    stakeholders: stakeholders.map((s) => ({ type: s.type })),
+    drive: { folderUrl: company.driveFolderUrl ?? null }
   });
 
   // 顧客側担当者ごとの engagement 指標 (Phase2-#4)

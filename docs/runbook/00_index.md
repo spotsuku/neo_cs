@@ -17,6 +17,7 @@
 | [11_voc_notification.md](11_voc_notification.md) | VOC (Voice of Customer) Slack 通知の運用・検証 |
 | (12_audit_review.md) | 月次の audit_logs レビュー手順 (未整備) |
 | [13_sales_handoff.md](13_sales_handoff.md) | 営業 (neo-sales) → CS 引継ぎ webhook の運用・検証 (Phase4-#6) |
+| [14_drive_integration.md](14_drive_integration.md) | Google Drive 自動連携 (テンプレフォルダ複製) の運用・リトライ・障害対応 (Phase4-#5) |
 
 > 各ファイルは「いつ」「誰が」「どのコマンドで」「どこで成功確認するか」を明記。
 > 未整備項目は `(stub)` 表記で残し、期日と担当を記す。

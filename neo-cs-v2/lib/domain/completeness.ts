@@ -203,15 +203,17 @@ export function checkCompanyCompleteness(input: CompanyCompletenessInput): Compl
     mk("onboard.tasksStarted", "onboard", "オンボタスク開始", `${companyHref}?tab=onboarding`, input.onboarding.taskCount > 0),
     mk("onboard.champion", "onboard", "Champion指定", `${companyHref}?tab=overview`, champion, "社内推進者を1名以上ステークホルダーに登録"),
 
-    // drive (Phase4 placeholder)
+    // drive (Phase4-#5 で本番化済。営業引継ぎ後は必須)
     {
       key: "drive.folderUrl",
       category: "drive",
       label: "共有フォルダURL",
       editHref: `${companyHref}#drive`,
       filled: isFilled(input.drive?.folderUrl),
-      hint: "ストリームPhase4で連携予定",
-      scoreOptional: true
+      hint: postHandoff
+        ? "handoff受信時に自動作成。失敗時は /api/integrations/drive/retry/[companyId] で再実行可"
+        : "内諾後に自動生成されます",
+      scoreOptional: !postHandoff
     }
   ];
 

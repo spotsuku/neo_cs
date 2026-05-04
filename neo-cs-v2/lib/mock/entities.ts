@@ -15,6 +15,10 @@ export type Company = {
   mrr: number;
   lastTouchDays: number;
   memo?: string;
+  // Phase4-#5: Google Drive 自動連携 (テンプレフォルダ複製で生成された顧客フォルダ)
+  driveFolderId?: string | null;
+  driveFolderUrl?: string | null;
+  driveFolderCreatedAt?: string | null;
 };
 
 const baseCompanies: Company[] = [
