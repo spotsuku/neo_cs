@@ -120,6 +120,9 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/api/auth", // /api/auth/* (callback / signout)
   "/api/health",
+  "/api/cron", // Vercel Cron からの Bearer 認証 (各 route 内で verifyBearer)
+  "/api/integrations", // 外部システム連携の Bearer 認証 (handoff / drive retry 等)
+  "/api/claude", // 内部呼出 + Bearer 認証
   "/styleguide" // 静的なデザイン参照ページ
 ];
 
