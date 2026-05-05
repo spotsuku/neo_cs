@@ -23,8 +23,8 @@ type SupabaseModule = {
   };
 };
 
-export const SESSION_IDLE_MAX_MS = 30 * 60 * 1000;  // 30分無操作でログアウト
-export const SESSION_ABS_MAX_MS  = 8 * 60 * 60 * 1000; // 絶対上限 8時間
+export const SESSION_IDLE_MAX_MS = 8 * 60 * 60 * 1000;   // 8時間無操作でログアウト
+export const SESSION_ABS_MAX_MS  = 24 * 60 * 60 * 1000;  // 絶対上限 24時間
 
 export interface SessionState {
   loginAt: number;       // ms epoch

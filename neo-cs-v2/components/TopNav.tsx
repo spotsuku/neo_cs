@@ -363,13 +363,15 @@ export function TopNav({ current = "/" }: { current?: string }) {
                 </ul>
 
                 <div className="border-t border-ink-100 py-1">
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"
-                  >
-                    <span className="w-5 text-center">↩</span>
-                    <span>ログアウト</span>
-                  </button>
+                  <form action="/api/auth/signout" method="post">
+                    <button
+                      type="submit"
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"
+                    >
+                      <span className="w-5 text-center">↩</span>
+                      <span>ログアウト</span>
+                    </button>
+                  </form>
                 </div>
               </div>
             )}
