@@ -1,0 +1,24 @@
+# gitleaks 設定 — 既定ルールを継承し、本リポ固有の誤検知のみ allowlist 化
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "v1 凍結アーカイブ (_legacy) は更新しないため履歴含めて対象外"
+paths = [
+  '''_legacy/.*''',
+]
+
+[[allowlists]]
+description = "runbook の curl サンプルにあるダミー Bearer トークン"
+regexTarget = "match"
+regexes = [
+  '''Bearer\s+(dev-[A-Za-z0-9_-]+|test-[A-Za-z0-9_-]+|wrong|anything|your-[A-Za-z0-9_-]+|\$\{[A-Z_]+\}|<[A-Z_]+>)''',
+]
+
+[[allowlists]]
+description = "履歴の Supabase ANON キー (削除済み・ローテーション対応で安全化想定)"
+targetRules = ["jwt"]
+commits = [
+  "9b3cfec9d47f9f52fe931c7c03ad94f4d4acc7a8",
+  "37a792f60c3479cd0cad1b01587db614adf5deaf",
+]
