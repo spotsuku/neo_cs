@@ -4,5 +4,22 @@ node_modules/
 .next/
 *.log
 .env
-.env.local
+.env.*
+!.env.example
 docs/runbook/_vercel_env_apply.sh.local
+
+# シークレット形状のファイル（誤コミット防止）
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*-service-account*.json
+service-account*.json
+service_account*.json
+gcp-credentials*.json
+credentials.json
+*.tfvars
+*.tfvars.json
+secrets.yaml
+secrets.yml

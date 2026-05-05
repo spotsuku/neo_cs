@@ -21,12 +21,12 @@ export async function register() {
     const log = await getLogger();
     log.info({ kind: "instrumentation.register" }, "registered hooks: [audit, logging]");
   } catch {
-    process.stderr.write(
+    console.error(
       JSON.stringify({
         at: new Date().toISOString(),
         kind: "instrumentation.register",
         message: "registered hooks: [audit, logging]"
-      }) + "\n"
+      })
     );
   }
 }

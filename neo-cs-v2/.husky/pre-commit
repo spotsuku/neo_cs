@@ -1,0 +1,53 @@
+#!/usr/bin/env sh
+# Pre-commit: ステージ済み差分のシークレット検査
+# - gitleaks があれば優先（精度高）
+# - なければ簡易 regex フォールバック
+# 緊急時は HUSKY=0 git commit ... または --no-verify でバイパス可
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# 1) gitleaks があれば --staged で検査
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "▶ gitleaks protect --staged"
+  gitleaks protect --staged --redact --verbose
+  exit 0
+fi
+
+# 2) Docker があれば gitleaks イメージで検査
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  echo "▶ gitleaks (docker) protect --staged"
+  docker run --rm -v "$REPO_ROOT:/repo" -w /repo zricethezav/gitleaks:latest \
+    protect --staged --redact --verbose
+  exit 0
+fi
+
+# 3) フォールバック: 簡易 regex で代表的シークレット形状を検査
+echo "▶ gitleaks 未インストール → 簡易 regex フォールバック"
+echo "  (推奨: brew install gitleaks)"
+
+PATTERNS='(AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|ghs_[A-Za-z0-9]{30,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|"private_key":\s*"-----BEGIN)'
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$STAGED" ] && exit 0
+
+HIT=0
+for f in $STAGED; do
+  [ -f "$f" ] || continue
+  if git diff --cached -- "$f" | grep -E "^\+" | grep -Eq "$PATTERNS"; then
+    echo "✗ 疑わしいシークレットを検出: $f"
+    HIT=1
+  fi
+done
+
+if [ "$HIT" -ne 0 ]; then
+  echo
+  echo "コミットを中止しました。"
+  echo "  - 誤検知の場合: --no-verify で一時的にバイパス"
+  echo "  - 正しく除外したい場合: .gitignore に追加 / 値を環境変数化"
+  exit 1
+fi
+
+exit 0

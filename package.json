@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "npm --prefix neo-cs-v2 run dev",
     "build": "npm --prefix neo-cs-v2 run build",
-    "start": "npm --prefix neo-cs-v2 run start"
+    "start": "npm --prefix neo-cs-v2 run start",
+    "secret-scan": "docker run --rm -v \"$PWD:/repo\" zricethezav/gitleaks:latest detect --source=/repo --redact --verbose"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -1,9 +1,11 @@
 /** @type {import('next').NextConfig} */
 
 // セキュリティヘッダ (reviews/11_情シスセキュリティ.md, 16_SRE.md)
-//   CSP は段階導入のため最初は Report-Only。違反収集後に enforce へ昇格。
+//   CSP は段階導入を経て enforce へ昇格。緊急時は CSP_ENFORCE=false で Report-Only に戻せる。
 const isProd = process.env.NODE_ENV === 'production';
 const cspReport = process.env.CSP_REPORT_URI ?? '';
+const cspEnforce = (process.env.CSP_ENFORCE ?? 'true') !== 'false';
+const cspHeaderKey = cspEnforce ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only';
 
 const csp = [
   "default-src 'self'",
@@ -22,7 +24,7 @@ const csp = [
   .join('; ');
 
 const securityHeaders = [
-  { key: 'Content-Security-Policy-Report-Only', value: csp },
+  { key: cspHeaderKey, value: csp },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
