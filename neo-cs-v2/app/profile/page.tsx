@@ -24,11 +24,21 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+            <button
+              type="button"
+              disabled
+              title="準備中"
+              className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+            >
               キャンセル
             </button>
-            <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid">
-              変更を保存
+            <button
+              type="button"
+              disabled
+              title="準備中: プロフィール編集機能は別途実装予定"
+              className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
+            >
+              変更を保存（準備中）
             </button>
           </div>
         </section>
@@ -44,8 +54,13 @@ export default function ProfilePage() {
             <span className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium">
               Admin
             </span>
-            <button className="mt-5 px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50 w-full">
-              アバターを変更
+            <button
+              type="button"
+              disabled
+              title="準備中"
+              className="mt-5 px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-400 cursor-not-allowed w-full"
+            >
+              アバターを変更（準備中）
             </button>
             <div className="mt-6 w-full pt-4 border-t border-ink-100 text-left space-y-2">
               <div className="flex justify-between text-xs">
@@ -169,8 +184,13 @@ export default function ProfilePage() {
                     <div className="text-sm font-medium">APIトークン</div>
                     <div className="text-xs text-ink-500 mt-0.5">外部連携用のアクセストークンを発行します</div>
                   </div>
-                  <button className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
-                    トークンを発行
+                  <button
+                    type="button"
+                    disabled
+                    title="準備中"
+                    className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+                  >
+                    トークンを発行（準備中）
                   </button>
                 </div>
               </div>

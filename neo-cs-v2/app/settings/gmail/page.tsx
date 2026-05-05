@@ -58,13 +58,23 @@ const statusBadge = (status: SyncLog["status"]) => {
 const Chip = ({ label }: { label: string }) => (
   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-ink-50 border border-ink-100 text-xs text-ink-700">
     {label}
-    <button className="text-ink-400 hover:text-ink-700">×</button>
+    <button
+      type="button"
+      disabled
+      title="準備中"
+      className="text-ink-300 cursor-not-allowed"
+    >
+      ×
+    </button>
   </span>
 );
 
 const Toggle = ({ on }: { on: boolean }) => (
   <button
-    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+    type="button"
+    disabled
+    title="準備中: Gmail 連携の OAuth フローは別途実装予定"
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition cursor-not-allowed opacity-60 ${
       on ? "bg-ink-900" : "bg-ink-100"
     }`}
   >

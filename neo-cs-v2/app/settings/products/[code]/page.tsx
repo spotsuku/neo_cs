@@ -91,11 +91,21 @@ export default function ProductEditPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+              <button
+                type="button"
+                disabled
+                title="準備中"
+                className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+              >
                 キャンセル
               </button>
-              <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid">
-                保存
+              <button
+                type="button"
+                disabled
+                title="準備中: コース以外のタブの保存は別途実装予定"
+                className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
+              >
+                保存（準備中）
               </button>
             </div>
           </div>
@@ -434,14 +444,21 @@ function ScheduleTab({ accent, code }: { accent: string; code: ProductCode }) {
         </div>
 
         <div className="mt-4 flex items-center justify-end gap-2">
-          <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+          <button
+            type="button"
+            disabled
+            title="準備中"
+            className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+          >
             キャンセル
           </button>
           <button
-            className="px-4 py-2 rounded-full text-white text-sm shadow-liquid"
-            style={{ background: accent }}
+            type="button"
+            disabled
+            title="準備中: 面談スケジュールテンプレ保存は別途実装予定"
+            className="px-4 py-2 rounded-full text-white text-sm bg-ink-300 cursor-not-allowed"
           >
-            保存
+            保存（準備中）
           </button>
         </div>
       </div>
@@ -453,8 +470,13 @@ function ScheduleTab({ accent, code }: { accent: string; code: ProductCode }) {
             この変更を現在進行中のすべての契約に反映します（上書き注意）
           </div>
         </div>
-        <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
-          既存契約に反映
+        <button
+          type="button"
+          disabled
+          title="準備中"
+          className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+        >
+          既存契約に反映（準備中）
         </button>
       </div>
     </div>
@@ -700,17 +722,29 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
 
       {/* フッタ */}
       <div className="liquid-surface p-4 flex items-center justify-end gap-2">
-        <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+        <button
+          type="button"
+          disabled
+          title="準備中"
+          className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+        >
           キャンセル
         </button>
         <button
-          className="px-4 py-2 rounded-full text-white text-sm shadow-liquid"
-          style={{ background: accent }}
+          type="button"
+          disabled
+          title="準備中: オンボテンプレの保存は別途実装予定"
+          className="px-4 py-2 rounded-full text-white text-sm bg-ink-300 cursor-not-allowed"
         >
-          保存
+          保存（準備中）
         </button>
-        <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
-          既存契約に反映
+        <button
+          type="button"
+          disabled
+          title="準備中"
+          className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+        >
+          既存契約に反映（準備中）
         </button>
       </div>
     </div>

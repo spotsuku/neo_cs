@@ -117,6 +117,7 @@ const categoryStyle: Record<Notification["category"], { label: string; color: st
 export function TopNav({ current = "/" }: { current?: string }) {
   const [open, setOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [notifs, setNotifs] = useState(notifications);
   const wrapRef = useRef<HTMLDivElement>(null);
   const userWrapRef = useRef<HTMLDivElement>(null);
 
@@ -144,7 +145,7 @@ export function TopNav({ current = "/" }: { current?: string }) {
     };
   }, [open, userOpen]);
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const unreadCount = notifs.filter((n) => n.unread).length;
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/70 backdrop-blur-xl border-b border-ink-100">
@@ -199,14 +200,16 @@ export function TopNav({ current = "/" }: { current?: string }) {
                   </div>
                   <button
                     type="button"
-                    className="text-[11px] text-ink-500 hover:text-ink-700"
+                    onClick={() => setNotifs((ns) => ns.map((n) => ({ ...n, unread: false })))}
+                    disabled={unreadCount === 0}
+                    className="text-[11px] text-ink-500 hover:text-ink-700 disabled:text-ink-300 disabled:cursor-not-allowed"
                   >
                     すべて既読にする
                   </button>
                 </div>
 
                 <ul className="max-h-[420px] overflow-y-auto divide-y divide-ink-50">
-                  {notifications.map((n) => {
+                  {notifs.map((n) => {
                     const style = categoryStyle[n.category];
                     return (
                       <li key={n.id}>
@@ -341,13 +344,15 @@ export function TopNav({ current = "/" }: { current?: string }) {
                   <li>
                     <button
                       type="button"
-                      className="w-full flex items-center justify-between px-4 py-2 text-sm text-ink-700 hover:bg-ink-50"
+                      disabled
+                      title="準備中: ダークテーマ切替は別途実装予定"
+                      className="w-full flex items-center justify-between px-4 py-2 text-sm text-ink-400 cursor-not-allowed"
                     >
                       <span className="flex items-center gap-3">
                         <span className="w-5 text-center">🌓</span>
-                        <span>テーマ</span>
+                        <span>テーマ（準備中）</span>
                       </span>
-                      <span className="text-[10px] text-ink-500">ライト</span>
+                      <span className="text-[10px] text-ink-400">ライト</span>
                     </button>
                   </li>
                   <li>

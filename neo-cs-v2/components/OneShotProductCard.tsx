@@ -1,4 +1,5 @@
 // コース表示に対応
+import Link from "next/link";
 import {
   oneShotSummary,
   productByCode,
@@ -20,7 +21,7 @@ export function OneShotProductCard({ code }: { code: "aiken" }) {
   const participantSum = productContracts.reduce((acc, c) => acc + c.participants, 0);
 
   return (
-    <button className="liquid-surface p-5 text-left relative overflow-hidden hover:shadow-liquid-lg transition group">
+    <Link href={`/dashboard/${code}`} className="liquid-surface p-5 text-left relative overflow-hidden hover:shadow-liquid-lg transition group block">
       <div className="absolute top-0 left-0 right-0 h-1" style={{ background: p.accent }} />
 
       <div className="flex items-start justify-between">
@@ -90,6 +91,6 @@ export function OneShotProductCard({ code }: { code: "aiken" }) {
         <span className="text-ink-500">次回開講</span>
         <span className="text-ink-900 font-medium">{s.nextOpeningDate}</span>
       </div>
-    </button>
+    </Link>
   );
 }

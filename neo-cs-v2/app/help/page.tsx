@@ -32,6 +32,9 @@ export default function HelpPage() {
     <>
       <TopNav current="/" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
+          ⚠ ヘルプセンター（検索・カテゴリ・FAQ・問い合わせフォーム・ステータスページ）は UI モックです。本番運用は準備中です。緊急時は support@neoacademia.jp までご連絡ください。
+        </div>
         <section>
           <div className="text-xs text-ink-500">
             <Link href="/" className="hover:text-ink-700">ホーム</Link> / ヘルプ
@@ -49,19 +52,29 @@ export default function HelpPage() {
           <div className="flex items-center gap-3">
             <div className="text-xl">🔍</div>
             <input
-              className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm"
-              placeholder="キーワードで検索"
+              disabled
+              className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-ink-50 cursor-not-allowed"
+              placeholder="キーワードで検索（準備中）"
             />
-            <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid whitespace-nowrap">
+            <button
+              type="button"
+              disabled
+              title="準備中"
+              className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm whitespace-nowrap cursor-not-allowed"
+            >
               検索
             </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
             <span className="text-ink-500">よく検索されるキーワード:</span>
             {["週次レビュー", "ヘルススコア", "Gmail連携", "通知設定", "ショートカット"].map((k) => (
-              <a key={k} href="#" className="px-2 py-0.5 rounded-full bg-ink-50 text-ink-700 hover:bg-ink-100">
+              <span
+                key={k}
+                title="準備中"
+                className="px-2 py-0.5 rounded-full bg-ink-50 text-ink-400 cursor-not-allowed"
+              >
                 {k}
-              </a>
+              </span>
             ))}
           </div>
         </section>
@@ -71,10 +84,10 @@ export default function HelpPage() {
           <h2 className="text-base font-semibold mb-4">カテゴリから探す</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {categories.map((c) => (
-              <a
+              <div
                 key={c.title}
-                href="#"
-                className="liquid-surface p-6 relative overflow-hidden hover:shadow-liquid-lg transition group"
+                title="準備中"
+                className="liquid-surface p-6 relative overflow-hidden opacity-70 cursor-not-allowed"
               >
                 <div
                   className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-10 group-hover:opacity-20 transition"
@@ -90,8 +103,8 @@ export default function HelpPage() {
                   <div className="text-sm font-semibold">{c.title}</div>
                 </div>
                 <div className="mt-3 text-xs text-ink-500 leading-relaxed">{c.description}</div>
-                <div className="mt-4 text-xs text-ink-700 font-medium">見る →</div>
-              </a>
+                <div className="mt-4 text-xs text-ink-400 font-medium">準備中</div>
+              </div>
             ))}
           </div>
         </section>
@@ -111,7 +124,7 @@ export default function HelpPage() {
             ))}
           </div>
           <div className="mt-4 text-right">
-            <a href="#" className="text-xs text-ink-700 hover:text-ink-900 font-medium">FAQ一覧をすべて見る →</a>
+            <span title="準備中" className="text-xs text-ink-400 font-medium cursor-not-allowed">FAQ一覧をすべて見る（準備中）</span>
           </div>
         </section>
 
@@ -144,11 +157,21 @@ export default function HelpPage() {
                 <div className="mt-1 text-xs text-ink-500">スクリーンショットやログを添付できます（最大10MB）</div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
+                <button
+                  type="button"
+                  disabled
+                  title="準備中"
+                  className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+                >
                   下書き保存
                 </button>
-                <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid">
-                  送信
+                <button
+                  type="button"
+                  disabled
+                  title="準備中: 問い合わせフォームの送信は別途実装予定。緊急時は support@neoacademia.jp へ"
+                  className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
+                >
+                  送信（準備中）
                 </button>
               </div>
             </div>
@@ -183,9 +206,9 @@ export default function HelpPage() {
                 <span className="w-2 h-2 rounded-full bg-green-500"></span>
                 <span className="text-ink-900">全システム正常稼働中</span>
               </div>
-              <a href="#" className="mt-3 inline-block text-xs text-ink-700 hover:text-ink-900 font-medium">
-                ステータスページを開く →
-              </a>
+              <span title="準備中" className="mt-3 inline-block text-xs text-ink-400 font-medium cursor-not-allowed">
+                ステータスページを開く（準備中）
+              </span>
             </div>
           </div>
         </section>

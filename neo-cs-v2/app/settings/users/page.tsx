@@ -158,8 +158,13 @@ export default function UsersSettingsPage() {
                 CS担当者・管理者・閲覧ユーザーの追加と権限ロールを設定
               </div>
             </div>
-            <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid">
-              + ユーザーを追加
+            <button
+              type="button"
+              disabled
+              title="準備中: ユーザー招待は別途実装予定 (Supabase Auth admin invite)"
+              className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
+            >
+              + ユーザーを追加（準備中）
             </button>
           </div>
         </section>
@@ -273,9 +278,12 @@ export default function UsersSettingsPage() {
               <h2 className="text-lg font-bold text-ink-900">ロール一覧</h2>
               <div className="text-xs text-ink-500 mt-0.5">3種類のロールに権限が紐づいています</div>
             </div>
-            <Link href="#" className="text-xs text-ink-700 hover:text-ink-900">
-              権限定義を編集 →
-            </Link>
+            <span
+              title="準備中: 権限定義の編集は別途実装予定"
+              className="text-xs text-ink-400 cursor-not-allowed"
+            >
+              権限定義を編集（準備中）
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {roles.map((r) => {

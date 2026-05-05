@@ -200,11 +200,21 @@ export function CompanyDetail({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 shadow-liquid hover:bg-ink-50">
-              編集
+            <button
+              type="button"
+              disabled
+              title="準備中: 企業情報の編集機能は別途実装予定"
+              className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
+            >
+              編集（準備中）
             </button>
-            <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:opacity-90">
-              + ログ追加
+            <button
+              type="button"
+              disabled
+              title="準備中: 接点ログ追加は別途実装予定"
+              className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
+            >
+              + ログ追加（準備中）
             </button>
           </div>
         </div>
@@ -582,8 +592,13 @@ function LogsTab({ logs }: { logs: MeetingLog[] }) {
         <div className="text-sm text-ink-500">
           全 {logs.length} 件の接点ログ
         </div>
-        <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:opacity-90">
-          + ログ追加
+        <button
+          type="button"
+          disabled
+          title="準備中"
+          className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
+        >
+          + ログ追加（準備中）
         </button>
       </div>
 
