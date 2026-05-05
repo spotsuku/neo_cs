@@ -17,16 +17,72 @@ export type EmailThreadStatus =
   | "waiting"
   | "closed";
 
+// 返信担当者の決定根拠
+//   - received : 受信者（To/Cc に入っていた社内メンバー）→ デフォルト
+//   - program  : 事業ラベルに紐づく事業担当者
+//   - manual   : 手動アサイン（履歴を残す目的で区別）
+export type AssigneeReason = "received" | "program" | "manual";
+
+// ステータス自動遷移ルール
+//   - inbound_new      : 新規受信スレッド            → new
+//   - inbound_reopen   : 既存スレッドへの新規受信    → in_progress（waiting/replied/closed から再開）
+//   - sent_reply       : 自社からの返信送信          → waiting
+//   - manual           : ユーザーによる手動変更
+export type StatusChangeReason =
+  | "inbound_new"
+  | "inbound_reopen"
+  | "sent_reply"
+  | "manual";
+
+export type StatusChangeEntry = {
+  at: string;
+  from: EmailThreadStatus | null;
+  to: EmailThreadStatus;
+  reason: StatusChangeReason;
+  by?: string;
+};
+
+// 状態遷移の純関数: イベントから次状態を導出
+//   - "inbound" : 受信あり
+//   - "send"    : 自社送信あり
+//   - "close"   : 手動クローズ
+export function nextStatus(
+  current: EmailThreadStatus,
+  event: "inbound" | "send" | "close"
+): { status: EmailThreadStatus; reason: StatusChangeReason } | null {
+  if (event === "send") {
+    if (current === "waiting") return null; // 既に返信待ちなら維持
+    return { status: "waiting", reason: "sent_reply" };
+  }
+  if (event === "inbound") {
+    if (current === "new" || current === "in_progress") return null;
+    return { status: "in_progress", reason: "inbound_reopen" };
+  }
+  if (event === "close") {
+    if (current === "closed") return null;
+    return { status: "closed", reason: "manual" };
+  }
+  return null;
+}
+
 export type EmailThread = {
   id: string;
   companyId: string;
   contractId?: string;
+  // 事業ラベル（program_terms.id）。未分類は null
+  programTermId?: string | null;
   subject: string;
   status: EmailThreadStatus;
+  // 返信担当者（社内ユーザー名 — useActiveMembers と整合）
   assignee: string;
+  assigneeReason?: AssigneeReason;
+  // 受信者（To/Cc に入っていた社内メンバー）。assignee の自動決定根拠になる
+  receivedBy?: string;
   slaDeadline?: string;
   lastMessageAt: string;
   messageIds: string[];
+  // ステータス変更履歴（最新が末尾）
+  statusHistory?: StatusChangeEntry[];
 };
 
 export type EmailMessage = {
@@ -234,6 +290,38 @@ export const emailThreads: EmailThread[] = [
     messageIds: ["em-24"]
   }
 ];
+
+// 事業ラベル（programTermId）と受信者（receivedBy）をスレッドに自動付与
+// 実装時は contract.product/courseKey から program_terms を逆引きするロジックに差し替え
+const PROGRAM_BY_CONTRACT: Record<string, string> = {
+  "k-aeon-academia": "pt-academia-leader-7",
+  "k-toto-academia": "pt-academia-leader-7",
+  "k-saibugas-academia": "pt-academia-leader-7",
+  "k-jrq-academia": "pt-academia-leader-7",
+  "k-fukugin-academia": "pt-academia-leader-7",
+  "k-levias-aiken": "pt-aiken-basic-3",
+  "k-toto-aiken": "pt-aiken-basic-3"
+};
+for (const t of emailThreads) {
+  if (t.programTermId === undefined) {
+    t.programTermId = (t.contractId && PROGRAM_BY_CONTRACT[t.contractId]) || null;
+  }
+  if (t.receivedBy === undefined) t.receivedBy = t.assignee;
+  if (t.assigneeReason === undefined) t.assigneeReason = "received";
+}
+// バリエーション: 受信者と返信担当者が異なるケース（事業ラベル経由で自動アサイン）
+const t9 = emailThreads.find((t) => t.id === "et-9");
+if (t9) {
+  t9.receivedBy = "松田";
+  t9.assignee = "古野";
+  t9.assigneeReason = "program";
+}
+const t13 = emailThreads.find((t) => t.id === "et-13");
+if (t13) {
+  t13.receivedBy = "三木";
+  t13.assignee = "古野";
+  t13.assigneeReason = "manual";
+}
 
 // ─────────────────────────────────────────────
 // メッセージ
@@ -478,6 +566,57 @@ export const emailMessages: EmailMessage[] = [
     sentAt: "2026-04-23T14:00:00+09:00",
     body: "次回テーマの方向性について、来週までにフィードバックをお戻しします。",
     direction: "inbound"
+  }
+];
+
+// ─────────────────────────────────────────────
+// 社内チャット（メールスレッド単位の社内相談コメント）
+//   - メール本文には残さず、社内メンバーだけが見るスレッド付きメモ
+//   - @メンションで担当変更や引き継ぎの相談に使う
+//   - 将来はアプリ全体のチャット機能と統合予定（threadId 以外のスコープに拡張）
+// ─────────────────────────────────────────────
+export type InternalThreadComment = {
+  id: string;
+  threadId: string;
+  authorName: string;
+  body: string;
+  // メンションされた社内ユーザー名（簡易: 名前文字列）
+  mentions: string[];
+  createdAt: string;
+};
+
+export const internalThreadComments: InternalThreadComment[] = [
+  {
+    id: "ic-1",
+    threadId: "et-9",
+    authorName: "松田",
+    body: "@古野 FFGの更新見送りの件、来週の定例で持ち出してもらえますか？背景把握のため一度同席したいです。",
+    mentions: ["古野"],
+    createdAt: "2026-04-23T11:30:00+09:00"
+  },
+  {
+    id: "ic-2",
+    threadId: "et-9",
+    authorName: "古野",
+    body: "@松田 了解です。火曜の枠で調整します。事前に過去の議事メモまとめておきます。",
+    mentions: ["松田"],
+    createdAt: "2026-04-23T13:10:00+09:00"
+  },
+  {
+    id: "ic-3",
+    threadId: "et-13",
+    authorName: "三木",
+    body: "@古野 福岡市の予算見送りの件、自分が窓口でしたが部署異動で引き継いでいただきたいです。",
+    mentions: ["古野"],
+    createdAt: "2026-04-24T13:30:00+09:00"
+  },
+  {
+    id: "ic-4",
+    threadId: "et-1",
+    authorName: "古野",
+    body: "佐藤課長の代替参加の件、講師に確認中。返信は明日午前中に出す予定。",
+    mentions: [],
+    createdAt: "2026-04-22T11:00:00+09:00"
   }
 ];
 

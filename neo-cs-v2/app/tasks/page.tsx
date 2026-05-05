@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { companyTaskRepo, companyRepo, userRepo } from "@/lib/repository";
 import { TasksBoard } from "./TasksBoard";
 
@@ -15,7 +15,7 @@ export default async function TasksPage() {
 
   return (
     <>
-      <TopNav current="/tasks" />
+      <TopNavServer current="/tasks" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
         <header className="space-y-1">
           <div className="text-xs text-ink-500">

@@ -1,7 +1,8 @@
 import { DEFAULT_ORG_ID } from "../types";
 import type { Draft, DraftRepo } from "../types";
+import { useGlobalStore } from "./_global-store";
 
-const store: Draft[] = [];
+const store = useGlobalStore<Draft[]>("__draftStore", () => []);
 
 function genId(): string {
   return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

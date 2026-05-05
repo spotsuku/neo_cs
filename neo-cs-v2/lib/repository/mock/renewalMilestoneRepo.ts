@@ -8,6 +8,7 @@ import type {
   RenewalMilestone,
   RenewalMilestoneRepo
 } from "../types";
+import { useGlobalStore } from "./_global-store";
 
 // 起動時 seed: 全 active 契約に対して 4本のマイルストンを生成 (status=pending)
 function seedMilestones(): RenewalMilestone[] {
@@ -20,7 +21,10 @@ function seedMilestones(): RenewalMilestone[] {
   return out;
 }
 
-const store: RenewalMilestone[] = seedMilestones();
+const store = useGlobalStore<RenewalMilestone[]>(
+  "__renewalMilestoneStore",
+  seedMilestones
+);
 
 function clone(m: RenewalMilestone): RenewalMilestone {
   return {

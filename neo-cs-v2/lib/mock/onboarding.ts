@@ -258,33 +258,310 @@ function withStatus(c: ContractSeed): Contract {
   return { ...rest, status, healthScore };
 }
 
-// 過去サイクル（凍結・更新済み）
-const pastCyclesRaw: ContractSeed[] = [
-  { id: "k-aeon-academia-1", companyId: "c-aeon", product: "academia", courseKey: "pjt", startDate: "2024-09-01", endDate: "2025-08-31", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
-  { id: "k-aeon-hyogikai-1", companyId: "c-aeon", product: "hyogikai", courseKey: "standard", startDate: "2024-08-01", endDate: "2025-07-31", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
-  { id: "k-jrq-academia-1", companyId: "c-jrq", product: "academia", courseKey: "leader", startDate: "2024-08-01", endDate: "2025-07-31", mrr: 300_000, ownerName: "三木", participants: 3, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
-  { id: "k-kyudenko-commu-1", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2025-08-15", endDate: "2025-11-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 1, cycleStatus: "renewed", onboardingStatus: "complete" },
-  { id: "k-kyudenko-commu-2", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2025-11-15", endDate: "2026-02-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 2, cycleStatus: "renewed", previousContractId: "k-kyudenko-commu-1", onboardingStatus: "complete" }
+// ─────────────────────────────────────────────
+// 契約 seed (再整理版)
+// 各カテゴリを programmatic に展開
+//   - 期構造: term1 (2024-04〜2025-03), term2 (2025-04〜2026-03), term3 (2026-04〜2027-03)
+//   - 現在は 2026-05-05 想定 → term3 が 1ヶ月経過した active
+// ─────────────────────────────────────────────
+
+type AcademiaCourse = "leader" | "pjt";
+
+const TERM_DATES = [
+  { startDate: "2024-04-01", endDate: "2025-03-31" }, // term 1
+  { startDate: "2025-04-01", endDate: "2026-03-31" }, // term 2
+  { startDate: "2026-04-01", endDate: "2027-03-31" }  // term 3
 ];
 
-const pastCycles: ActiveContract[] = pastCyclesRaw.map(withStatus);
-
-// ハンドピックの主要契約（特定企業のデモ用に明示データを残す）
-const handPickedRaw: ContractSeed[] = [
-  { id: "k-fukugin-commu", companyId: "c-fukugin", product: "commu", courseKey: "standard", startDate: "2026-04-28", endDate: "2026-07-28", mrr: 120_000, ownerName: "古野", participants: 8, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
-  { id: "k-levias-aiken", companyId: "c-levias", product: "aiken", courseKey: "basic", startDate: "2026-05-15", revenue: 380_000, ownerName: "松田", participants: 12, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
-  { id: "k-toto-academia", companyId: "c-toto", product: "academia", courseKey: "leader", startDate: "2026-05-20", endDate: "2027-05-19", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
-  { id: "k-nccb-hyogikai", companyId: "c-nccb", product: "hyogikai", courseKey: "standard", startDate: "2026-05-10", endDate: "2027-05-09", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
-  { id: "k-toto-aiken", companyId: "c-toto", product: "aiken", courseKey: "advance", startDate: "2026-06-03", revenue: 520_000, ownerName: "古野", participants: 5, cycleNumber: 1, cycleStatus: "active", onboardingStatus: "in_progress" },
-
-  { id: "k-aeon-academia", companyId: "c-aeon", product: "academia", courseKey: "pjt", startDate: "2025-09-01", endDate: "2026-08-31", mrr: 300_000, ownerName: "古野", participants: 3, cycleNumber: 2, previousContractId: "k-aeon-academia-1", cycleStatus: "active", renewalStatus: "red", onboardingStatus: "complete", currentPhase: "q2", phaseEnteredAt: "2026-02-01" },
-  { id: "k-aeon-hyogikai", companyId: "c-aeon", product: "hyogikai", courseKey: "standard", startDate: "2025-08-01", endDate: "2026-07-31", mrr: 150_000, ownerName: "三木", participants: 3, cycleNumber: 2, previousContractId: "k-aeon-hyogikai-1", cycleStatus: "active", renewalStatus: "yellow", onboardingStatus: "complete", currentPhase: "running", phaseEnteredAt: "2025-10-01" },
-  { id: "k-jrq-academia", companyId: "c-jrq", product: "academia", courseKey: "leader", startDate: "2025-08-01", endDate: "2026-07-31", mrr: 300_000, ownerName: "三木", participants: 3, cycleNumber: 2, previousContractId: "k-jrq-academia-1", cycleStatus: "active", renewalStatus: "yellow", onboardingStatus: "complete", currentPhase: "mid", phaseEnteredAt: "2026-03-01" },
-  { id: "k-saibugas-academia", companyId: "c-saibugas", product: "academia", courseKey: "pjt", startDate: "2025-10-01", endDate: "2026-09-30", mrr: 300_000, ownerName: "松田", participants: 3, cycleNumber: 1, cycleStatus: "active", renewalStatus: "green", onboardingStatus: "complete", currentPhase: "q1", phaseEnteredAt: "2025-11-01" },
-  { id: "k-kyudenko-commu", companyId: "c-kyudenko", product: "commu", courseKey: "standard", startDate: "2026-02-15", endDate: "2026-05-14", mrr: 120_000, ownerName: "松田", participants: 6, cycleNumber: 3, previousContractId: "k-kyudenko-commu-2", cycleStatus: "active", renewalStatus: "yellow", onboardingStatus: "complete", currentPhase: "renewal", phaseEnteredAt: "2026-04-15" }
+const ACADEMIA_LEADERS: { id: string; ownerName: string; participants: number }[] = [
+  { id: "c-aeon",       ownerName: "古野", participants: 3 },
+  { id: "c-nishitetsu", ownerName: "三木", participants: 3 },
+  { id: "c-jrq",        ownerName: "三木", participants: 3 },
+  { id: "c-ffg",        ownerName: "古野", participants: 3 },
+  { id: "c-fukugin",    ownerName: "古野", participants: 3 },
+  { id: "c-toto",       ownerName: "古野", participants: 3 },
+  { id: "c-yamae",      ownerName: "松田", participants: 3 },
+  { id: "c-kyuden",     ownerName: "三木", participants: 3 },
+  { id: "c-yasukawa",   ownerName: "古野", participants: 3 },
+  { id: "c-toyota9",    ownerName: "古野", participants: 3 },
+  { id: "c-nissan9",    ownerName: "三木", participants: 3 },
+  { id: "c-saibugas",   ownerName: "松田", participants: 3 },
+  { id: "c-japanet",    ownerName: "古野", participants: 3 },
+  { id: "c-trial",      ownerName: "松田", participants: 3 },
+  { id: "c-cosmos",     ownerName: "古野", participants: 3 },
+  { id: "c-mitsuimatsu",ownerName: "古野", participants: 3 },
+  { id: "c-cocacola",   ownerName: "三木", participants: 3 },
+  { id: "c-shinnippon", ownerName: "松田", participants: 3 }
 ];
 
-const handPickedContracts: ActiveContract[] = [...pastCycles, ...handPickedRaw.map(withStatus)];
+const ACADEMIA_PJT: { id: string; ownerName: string; participants: number }[] = [
+  { id: "c-pietro",     ownerName: "古野", participants: 3 },
+  { id: "c-fukuya",     ownerName: "古野", participants: 3 },
+  { id: "c-kuhara",     ownerName: "古野", participants: 3 },
+  { id: "c-fukuokashi", ownerName: "古野", participants: 3 },
+  { id: "c-rkb",        ownerName: "三木", participants: 3 },
+  { id: "c-nbc",        ownerName: "三木", participants: 3 },
+  { id: "c-airport",    ownerName: "松田", participants: 3 },
+  { id: "c-asakura",    ownerName: "松田", participants: 3 }
+];
+
+// アカデミア 1期のみで解約 (3社)
+const ACADEMIA_CHURNED: { id: string; ownerName: string; participants: number; courseKey: AcademiaCourse }[] = [
+  { id: "c-ippudo",     ownerName: "三木", participants: 3, courseKey: "leader" },
+  { id: "c-suke",       ownerName: "松田", participants: 3, courseKey: "leader" },
+  { id: "c-mrmax",      ownerName: "古野", participants: 3, courseKey: "pjt" }
+];
+
+// アカデミア → 評議会移行 (1社)
+const ACADEMIA_TO_HYOGIKAI: { id: string; ownerName: string; participants: number }[] = [
+  { id: "c-daimaru",    ownerName: "三木", participants: 3 }
+];
+
+const HYOGIKAI_ONLY: { id: string; ownerName: string; participants: number }[] = [
+  { id: "c-nccb",       ownerName: "三木", participants: 3 },
+  { id: "c-higo",       ownerName: "三木", participants: 3 },
+  { id: "c-kagoshima",  ownerName: "三木", participants: 3 },
+  { id: "c-oita",       ownerName: "古野", participants: 3 },
+  { id: "c-miyazaki",   ownerName: "松田", participants: 3 },
+  { id: "c-kitaq",      ownerName: "古野", participants: 3 },
+  { id: "c-fukushoko",  ownerName: "三木", participants: 3 },
+  { id: "c-saibu",      ownerName: "松田", participants: 3 },
+  { id: "c-bunka9",     ownerName: "三木", participants: 3 }
+];
+
+// AI研修 4回 (3社/回)
+const AIKEN_BATCHES: {
+  batchNo: 1 | 2 | 3 | 4;
+  startDate: string;
+  endDate: string;
+  status: "renewed" | "active";
+  companies: { id: string; ownerName: string; courseKey: "basic" | "advance"; participants: number; revenue: number }[];
+}[] = [
+  {
+    batchNo: 1, startDate: "2024-09-01", endDate: "2024-12-31", status: "renewed",
+    companies: [
+      { id: "c-saibu-st", ownerName: "古野", courseKey: "basic", participants: 8, revenue: 380_000 },
+      { id: "c-hakata-d", ownerName: "三木", courseKey: "basic", participants: 8, revenue: 380_000 },
+      { id: "c-kyuko",    ownerName: "松田", courseKey: "advance", participants: 6, revenue: 520_000 }
+    ]
+  },
+  {
+    batchNo: 2, startDate: "2025-04-01", endDate: "2025-07-31", status: "renewed",
+    companies: [
+      { id: "c-hawks",    ownerName: "古野", courseKey: "basic", participants: 10, revenue: 380_000 },
+      { id: "c-avispa",   ownerName: "三木", courseKey: "basic", participants: 8, revenue: 380_000 },
+      { id: "c-gu",       ownerName: "松田", courseKey: "advance", participants: 6, revenue: 520_000 }
+    ]
+  },
+  {
+    batchNo: 3, startDate: "2025-10-01", endDate: "2026-01-31", status: "renewed",
+    companies: [
+      { id: "c-kyudenko", ownerName: "松田", courseKey: "basic", participants: 8, revenue: 380_000 },
+      { id: "c-astem",    ownerName: "松田", courseKey: "basic", participants: 8, revenue: 380_000 },
+      { id: "c-daihatsu", ownerName: "松田", courseKey: "advance", participants: 6, revenue: 520_000 }
+    ]
+  },
+  {
+    batchNo: 4, startDate: "2026-04-01", endDate: "2026-07-31", status: "active",
+    companies: [
+      { id: "c-levias",   ownerName: "古野", courseKey: "basic", participants: 12, revenue: 380_000 },
+      { id: "c-aikido",   ownerName: "古野", courseKey: "basic", participants: 8, revenue: 380_000 },
+      { id: "c-zenrin",   ownerName: "松田", courseKey: "advance", participants: 6, revenue: 520_000 }
+    ]
+  }
+];
+
+// コミュマネ 第1回 active
+const COMMU_BATCH_1: { id: string; ownerName: string; participants: number }[] = [
+  { id: "c-fukugin-mati", ownerName: "古野", participants: 8 },
+  { id: "c-kitaq-shoko",  ownerName: "三木", participants: 8 },
+  { id: "c-omuta",        ownerName: "松田", participants: 8 }
+];
+
+// ─────────────────────────────────────────────
+// 契約データ生成
+// ─────────────────────────────────────────────
+const generated: ContractSeed[] = [];
+
+// アカデミア (3期 active) - リーダー育成 / PJT共創
+function buildAcademia3Cycles(
+  list: { id: string; ownerName: string; participants: number }[],
+  courseKey: AcademiaCourse
+) {
+  for (const c of list) {
+    for (let i = 0; i < 3; i++) {
+      const t = TERM_DATES[i];
+      const cycleNumber = i + 1;
+      const isLast = i === 2;
+      generated.push({
+        id: `k-${c.id}-academia-${cycleNumber}`,
+        companyId: c.id,
+        product: "academia",
+        courseKey,
+        startDate: t.startDate,
+        endDate: t.endDate,
+        mrr: 300_000,
+        ownerName: c.ownerName,
+        participants: c.participants,
+        cycleNumber,
+        previousContractId:
+          i > 0 ? `k-${c.id}-academia-${cycleNumber - 1}` : undefined,
+        cycleStatus: isLast ? "active" : "renewed",
+        onboardingStatus: isLast ? "in_progress" : "complete",
+        renewalStatus: isLast ? "green" : undefined,
+        currentPhase: isLast ? "intro" : undefined,
+        phaseEnteredAt: isLast ? t.startDate : undefined
+      });
+    }
+  }
+}
+buildAcademia3Cycles(ACADEMIA_LEADERS, "leader");
+buildAcademia3Cycles(ACADEMIA_PJT, "pjt");
+
+// アカデミア 1期で解約
+for (const c of ACADEMIA_CHURNED) {
+  const t = TERM_DATES[0];
+  generated.push({
+    id: `k-${c.id}-academia-1`,
+    companyId: c.id,
+    product: "academia",
+    courseKey: c.courseKey,
+    startDate: t.startDate,
+    endDate: t.endDate,
+    mrr: 300_000,
+    ownerName: c.ownerName,
+    participants: c.participants,
+    cycleNumber: 1,
+    cycleStatus: "churned",
+    onboardingStatus: "complete"
+  });
+}
+
+// アカデミア → 評議会移行 (1社)
+//   academia cycle1 (term1) churned
+//   hyogikai cycle1 (term2) renewed → cycle2 (term3) active
+for (const c of ACADEMIA_TO_HYOGIKAI) {
+  const t1 = TERM_DATES[0];
+  generated.push({
+    id: `k-${c.id}-academia-1`,
+    companyId: c.id,
+    product: "academia",
+    courseKey: "leader",
+    startDate: t1.startDate,
+    endDate: t1.endDate,
+    mrr: 300_000,
+    ownerName: c.ownerName,
+    participants: c.participants,
+    cycleNumber: 1,
+    cycleStatus: "churned",
+    onboardingStatus: "complete"
+  });
+  // hyogikai cycle1 (term2) renewed
+  const t2 = TERM_DATES[1];
+  generated.push({
+    id: `k-${c.id}-hyogikai-1`,
+    companyId: c.id,
+    product: "hyogikai",
+    courseKey: "standard",
+    startDate: t2.startDate,
+    endDate: t2.endDate,
+    mrr: 150_000,
+    ownerName: c.ownerName,
+    participants: c.participants,
+    cycleNumber: 1,
+    previousContractId: `k-${c.id}-academia-1`,
+    cycleStatus: "renewed",
+    onboardingStatus: "complete"
+  });
+  // hyogikai cycle2 (term3) active
+  const t3 = TERM_DATES[2];
+  generated.push({
+    id: `k-${c.id}-hyogikai-2`,
+    companyId: c.id,
+    product: "hyogikai",
+    courseKey: "standard",
+    startDate: t3.startDate,
+    endDate: t3.endDate,
+    mrr: 150_000,
+    ownerName: c.ownerName,
+    participants: c.participants,
+    cycleNumber: 2,
+    previousContractId: `k-${c.id}-hyogikai-1`,
+    cycleStatus: "active",
+    onboardingStatus: "in_progress",
+    renewalStatus: "green",
+    currentPhase: "intro",
+    phaseEnteredAt: t3.startDate
+  });
+}
+
+// 評議会単独 (3期 active)
+for (const c of HYOGIKAI_ONLY) {
+  for (let i = 0; i < 3; i++) {
+    const t = TERM_DATES[i];
+    const cycleNumber = i + 1;
+    const isLast = i === 2;
+    generated.push({
+      id: `k-${c.id}-hyogikai-${cycleNumber}`,
+      companyId: c.id,
+      product: "hyogikai",
+      courseKey: "standard",
+      startDate: t.startDate,
+      endDate: t.endDate,
+      mrr: 150_000,
+      ownerName: c.ownerName,
+      participants: c.participants,
+      cycleNumber,
+      previousContractId:
+        i > 0 ? `k-${c.id}-hyogikai-${cycleNumber - 1}` : undefined,
+      cycleStatus: isLast ? "active" : "renewed",
+      onboardingStatus: isLast ? "in_progress" : "complete",
+      renewalStatus: isLast ? "green" : undefined,
+      currentPhase: isLast ? "intro" : undefined,
+      phaseEnteredAt: isLast ? t.startDate : undefined
+    });
+  }
+}
+
+// AI研修 4回×3社
+for (const batch of AIKEN_BATCHES) {
+  for (const c of batch.companies) {
+    generated.push({
+      id: `k-${c.id}-aiken-${batch.batchNo}`,
+      companyId: c.id,
+      product: "aiken",
+      courseKey: c.courseKey,
+      startDate: batch.startDate,
+      endDate: batch.endDate,
+      revenue: c.revenue,
+      ownerName: c.ownerName,
+      participants: c.participants,
+      cycleNumber: batch.batchNo,
+      cycleStatus: batch.status,
+      onboardingStatus: batch.status === "active" ? "in_progress" : "complete"
+    });
+  }
+}
+
+// コミュマネ 第1回 active
+for (const c of COMMU_BATCH_1) {
+  generated.push({
+    id: `k-${c.id}-commu-1`,
+    companyId: c.id,
+    product: "commu",
+    courseKey: "standard",
+    startDate: "2026-04-01",
+    endDate: "2026-06-30",
+    mrr: 120_000,
+    ownerName: c.ownerName,
+    participants: c.participants,
+    cycleNumber: 1,
+    cycleStatus: "active",
+    onboardingStatus: "in_progress"
+  });
+}
+
+const handPickedContracts: ActiveContract[] = generated.map(withStatus);
 
 // 全契約（過去サイクル含む）
 export const allContracts: ActiveContract[] = [...handPickedContracts, ...bulkActiveContracts];
@@ -317,7 +594,7 @@ export type ContractOnboardingItem = {
   name: string;
   dueDate: string;
   assignee: string;
-  status: "todo" | "doing" | "done" | "overdue";
+  status: "todo" | "doing" | "done" | "not_applicable" | "overdue";
   required: boolean;
   completedAt?: string;
   note?: string;

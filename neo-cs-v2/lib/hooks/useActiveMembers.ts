@@ -19,7 +19,8 @@ const ROLE_ORDER: Record<AppUserRole, number> = {
   admin: 0,
   manager: 1,
   member: 2,
-  viewer: 3
+  viewer: 3,
+  external: 4
 };
 
 let cached: AppUser[] | null = null;

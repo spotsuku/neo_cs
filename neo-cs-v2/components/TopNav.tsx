@@ -1,23 +1,44 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { BrandMark } from "./BrandMark";
+import type { AppUserRole } from "@/lib/repository/types";
+import { VIEW_MODE_STORAGE_KEY } from "@/lib/auth/permissions";
+import { setViewMode as setViewModeAction } from "@/lib/auth/actions";
+import { fetchMe, invalidateMe } from "@/lib/auth/me-client";
 
-const nav = [
+type ViewMode = "manager" | "member";
+
+type NavItem = {
+  href: string;
+  label: string;
+  /** どの effectiveRole に表示するか。未指定は全員 */
+  visibleFor?: AppUserRole[];
+  /** マネージャー専用画面（admin / manager のみ） */
+  managerOnly?: boolean;
+  /** external では非表示 */
+  hideForExternal?: boolean;
+};
+
+const nav: NavItem[] = [
   { href: "/", label: "ダッシュボード" },
   { href: "/me", label: "マイページ" },
-  { href: "/inbox", label: "受信箱" },
+  { href: "/manager", label: "マネージャー", managerOnly: true },
+  { href: "/inbox", label: "受信箱", hideForExternal: true },
+  { href: "/chat", label: "チャット", hideForExternal: true },
   { href: "/companies", label: "企業" },
-  { href: "/surveys", label: "アンケート" },
-  { href: "/onboarding", label: "オンボ" },
-  { href: "/tasks", label: "ToDo" },
+  { href: "/surveys", label: "アンケート", hideForExternal: true },
+  { href: "/onboarding", label: "オンボ", hideForExternal: true },
+  { href: "/programs", label: "事業ToDo", hideForExternal: true },
+  { href: "/tasks", label: "個社ToDo" },
   { href: "/weekly", label: "週次" },
-  { href: "/team", label: "チーム" },
-  { href: "/voc", label: "VOC" },
-  { href: "/renewal", label: "更新" },
-  { href: "/attendance", label: "出席" },
-  { href: "/sales-handoff", label: "営業引継" },
+  { href: "/team", label: "チーム", hideForExternal: true },
+  { href: "/voc", label: "VOC", hideForExternal: true },
+  { href: "/renewal", label: "更新", hideForExternal: true },
+  { href: "/attendance", label: "出席", hideForExternal: true },
+  { href: "/sales-handoff", label: "営業引継", hideForExternal: true },
   { href: "/settings", label: "設定" }
 ];
 
@@ -114,12 +135,77 @@ const categoryStyle: Record<Notification["category"], { label: string; color: st
   mail: { label: "メール", color: "#FF9838", bg: "#FFEDD5" }
 };
 
-export function TopNav({ current = "/" }: { current?: string }) {
+export type TopNavProps = {
+  current?: string;
+  /** サーバ側で解決された actor のロール。未指定なら admin 扱いで全件表示（後方互換） */
+  role?: AppUserRole;
+  /** admin が UI トグルで切り替えた表示モード。サーバから cookie 経由で渡される */
+  viewModeOverride?: ViewMode;
+  userName?: string;
+  userEmail?: string;
+};
+
+export function TopNav({
+  current = "/",
+  role,
+  viewModeOverride,
+  userName,
+  userEmail
+}: TopNavProps) {
   const [open, setOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [notifs, setNotifs] = useState(notifications);
+  const [viewMode, setViewMode] = useState<ViewMode | null>(viewModeOverride ?? null);
+  // server から渡されない場合（client page）は /api/me から fetch
+  const [resolvedRole, setResolvedRole] = useState<AppUserRole | undefined>(role);
+  const [pendingMode, startModeTransition] = useTransition();
+  const pathname = usePathname() ?? "/";
   const wrapRef = useRef<HTMLDivElement>(null);
   const userWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (role !== undefined) return; // server から渡された場合はスキップ
+    let cancelled = false;
+    fetchMe().then((data) => {
+      if (cancelled || !data?.user) return;
+      setResolvedRole(data.user.role as AppUserRole);
+      if (data.viewModeOverride) setViewMode(data.viewModeOverride as ViewMode);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
+  // localStorage にもバックアップ保存（サーバ未対応の画面遷移直後の点滅対策）
+  useEffect(() => {
+    if (viewMode) {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+    }
+  }, [viewMode]);
+
+  const activeRole = resolvedRole ?? "admin";
+  const effectiveRole: AppUserRole =
+    activeRole === "admin" && viewMode ? viewMode : activeRole;
+
+  const visibleNav = nav.filter((n) => {
+    if (n.managerOnly && effectiveRole !== "admin" && effectiveRole !== "manager") return false;
+    if (n.hideForExternal && effectiveRole === "external") return false;
+    if (n.visibleFor && !n.visibleFor.includes(effectiveRole)) return false;
+    return true;
+  });
+
+  const handleViewModeChange = (next: ViewMode) => {
+    // 楽観的更新でナビを即時切替（Server Action 完了を待たない）
+    setViewMode(next);
+    invalidateMe();
+    startModeTransition(async () => {
+      try {
+        await setViewModeAction(next, pathname);
+      } catch {
+        // Server Action 失敗時は localStorage が次回 cookie を再現するためそのまま
+      }
+    });
+  };
 
   useEffect(() => {
     if (!open && !userOpen) return;
@@ -158,7 +244,7 @@ export function TopNav({ current = "/" }: { current?: string }) {
           </div>
         </Link>
         <nav className="flex items-center gap-1">
-          {nav.map((n) => {
+          {visibleNav.map((n) => {
             const active = n.href === current;
             return (
               <Link
@@ -177,6 +263,34 @@ export function TopNav({ current = "/" }: { current?: string }) {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-3">
+          {activeRole === "admin" && (
+            <div
+              className="inline-flex items-center rounded-full border border-ink-100 bg-white p-0.5 text-[11px]"
+              role="group"
+              aria-label="表示モード"
+              title="管理者用: マネージャー画面とメンバー画面の見え方を切替"
+            >
+              {(["manager", "member"] as const).map((m) => {
+                const active = (viewMode ?? "manager") === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => handleViewModeChange(m)}
+                    disabled={pendingMode}
+                    className={[
+                      "px-2.5 py-1 rounded-full transition",
+                      active
+                        ? "bg-ink-900 text-white"
+                        : "text-ink-600 hover:bg-ink-50"
+                    ].join(" ")}
+                  >
+                    {m === "manager" ? "マネージャー表示" : "メンバー表示"}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div className="relative" ref={wrapRef}>
             <button
               type="button"

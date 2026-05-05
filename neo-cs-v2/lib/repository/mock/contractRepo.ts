@@ -6,11 +6,11 @@ import type {
   ContractRepo,
   ContractStatus
 } from "../types";
+import { useGlobalStore } from "./_global-store";
 
-const store: Contract[] = allContracts.map((c) => ({
-  ...c,
-  organizationId: DEFAULT_ORG_ID
-}));
+const store = useGlobalStore<Contract[]>("__contractStore", () =>
+  allContracts.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID }))
+);
 const activeIds = new Set(activeContracts.map((c) => c.id));
 
 function genId(): string {
@@ -50,6 +50,65 @@ export const mockContractRepo: ContractRepo = {
       .map((c) => ({ ...c }));
   },
   async create(input) {
+    // 評議会バンドルの重複防止:
+    //  - academia と hyogikai を同一会社で同時 active にしない
+    //  - 同一 (companyId, product) で active 契約を二重に作らない
+    const ACTIVE = new Set<ContractStatus>([
+      "handoff",
+      "onboarding",
+      "active",
+      "renewal_window"
+    ]);
+    if (ACTIVE.has(input.status)) {
+      const sibling = store.find(
+        (c) => c.companyId === input.companyId && ACTIVE.has(c.status)
+      );
+      if (input.product === "hyogikai") {
+        const academia = store.find(
+          (c) =>
+            c.companyId === input.companyId &&
+            c.product === "academia" &&
+            ACTIVE.has(c.status)
+        );
+        if (academia) {
+          const err: Error & { code?: string } = new Error(
+            "アカデミア契約に評議会参加権が付帯しているため、評議会単独契約は作成できません"
+          );
+          err.code = "HYOGIKAI_REDUNDANT_WITH_ACADEMIA";
+          throw err;
+        }
+      }
+      if (input.product === "academia") {
+        const hyogikai = store.find(
+          (c) =>
+            c.companyId === input.companyId &&
+            c.product === "hyogikai" &&
+            ACTIVE.has(c.status)
+        );
+        if (hyogikai) {
+          const err: Error & { code?: string } = new Error(
+            "評議会単独契約が active のため、アカデミア契約を作成する場合は先に評議会を切替・解約してください"
+          );
+          err.code = "ACADEMIA_OVERLAPS_HYOGIKAI";
+          throw err;
+        }
+      }
+      // 同一 product の二重 active も禁止
+      const dupSameProduct = store.find(
+        (c) =>
+          c.companyId === input.companyId &&
+          c.product === input.product &&
+          ACTIVE.has(c.status)
+      );
+      if (dupSameProduct) {
+        const err: Error & { code?: string } = new Error(
+          `${input.product} の active 契約が既に存在します (${dupSameProduct.id})`
+        );
+        err.code = "DUPLICATE_ACTIVE_PRODUCT";
+        throw err;
+      }
+      void sibling;
+    }
     const created: Contract = {
       ...input,
       id: genId(),

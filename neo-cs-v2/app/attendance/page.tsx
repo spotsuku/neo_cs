@@ -1,4 +1,4 @@
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { AttendanceClient } from "./AttendanceClient";
 import { participants, sessions, attendanceRecords } from "@/lib/mock/participants";
 import { allContracts } from "@/lib/mock/onboarding";
@@ -14,7 +14,7 @@ export default async function AttendancePage({
   const initialSessionId = sp.sessionId;
   return (
     <>
-      <TopNav current="/attendance" />
+      <TopNavServer current="/attendance" />
       <AttendanceClient
         initialParticipants={participants}
         initialSessions={sessions}

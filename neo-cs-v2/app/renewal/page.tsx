@@ -1,4 +1,4 @@
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { RenewalView } from "./RenewalView";
 import { activeContracts, allContracts } from "@/lib/mock/onboarding";
 import { companies } from "@/lib/mock/entities";
@@ -10,7 +10,7 @@ export default function RenewalPage() {
 
   return (
     <>
-      <TopNav current="/renewal" />
+      <TopNavServer current="/renewal" />
       <RenewalView
         renewalContracts={renewalContracts}
         allContracts={allContracts}

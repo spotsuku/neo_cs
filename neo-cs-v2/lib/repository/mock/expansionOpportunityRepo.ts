@@ -99,13 +99,19 @@ async function seedOpportunities(): Promise<ExpansionOpportunityRecord[]> {
   return out;
 }
 
-let store: ExpansionOpportunityRecord[] = [];
-let seeded = false;
+import { useGlobalStore } from "./_global-store";
+const state = useGlobalStore<{
+  store: ExpansionOpportunityRecord[];
+  seeded: boolean;
+}>("__expansionOppState", () => ({ store: [], seeded: false }));
 async function ensureSeeded(): Promise<void> {
-  if (seeded) return;
-  store = await seedOpportunities();
-  seeded = true;
+  if (state.seeded) return;
+  const seeded = await seedOpportunities();
+  state.store.length = 0;
+  state.store.push(...seeded);
+  state.seeded = true;
 }
+const store = state.store;
 
 function applyFilter(
   list: ExpansionOpportunityRecord[],

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 
 type MenuItem = {
   href: string;
@@ -17,6 +17,13 @@ const menu: MenuItem[] = [
     description: "4研修の基本情報・契約設定・面談スケジュールを管理",
     icon: "📚",
     accent: "#3D9EFF"
+  },
+  {
+    href: "/settings/journey-stages",
+    title: "ジャーニーステージ",
+    description: "企業ジャーニー (会社単位) と事業ジャーニー (商材×期) のステージ定義をカスタム",
+    icon: "🛤️",
+    accent: "#7E5BAE"
   },
   {
     href: "/settings/users",
@@ -61,7 +68,7 @@ const menu: MenuItem[] = [
 export default function SettingsPage() {
   return (
     <>
-      <TopNav current="/settings" />
+      <TopNavServer current="/settings" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
         <section>
           <div className="text-xs text-ink-500 font-medium">NEO CS 管理</div>

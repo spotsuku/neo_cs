@@ -101,13 +101,19 @@ async function seedSignals(): Promise<ChurnSignalRecord[]> {
   return out;
 }
 
-let store: ChurnSignalRecord[] = [];
-let seeded = false;
+import { useGlobalStore } from "./_global-store";
+const state = useGlobalStore<{ store: ChurnSignalRecord[]; seeded: boolean }>(
+  "__churnSignalState",
+  () => ({ store: [], seeded: false })
+);
 async function ensureSeeded(): Promise<void> {
-  if (seeded) return;
-  store = await seedSignals();
-  seeded = true;
+  if (state.seeded) return;
+  const seeded = await seedSignals();
+  state.store.length = 0;
+  state.store.push(...seeded);
+  state.seeded = true;
 }
+const store = state.store;
 
 function applyFilter(list: ChurnSignalRecord[], f?: ChurnSignalFilter): ChurnSignalRecord[] {
   if (!f) return list;

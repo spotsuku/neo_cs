@@ -26,6 +26,7 @@ type Row = {
   drive_folder_url?: string | null;
   drive_folder_created_at?: string | null;
   is_demo?: boolean | null;
+  karute_no?: number | null;
   created_at?: string | null;
 };
 
@@ -50,6 +51,7 @@ function toCompany(row: Row, ownerName: string = ""): Company {
     driveFolderUrl: row.drive_folder_url ?? null,
     driveFolderCreatedAt: row.drive_folder_created_at ?? null,
     isDemo: row.is_demo ?? true,
+    karuteNo: row.karute_no ?? undefined,
     createdAt: row.created_at ?? undefined
   };
 }
@@ -141,6 +143,35 @@ export const supabaseCompanyRepo: CompanyRepo = {
       ctx
     });
     return updated;
+  },
+
+  async setKaruteNo(id, newNo) {
+    if (!Number.isInteger(newNo) || newNo < 1) {
+      const err: Error & { code?: string } = new Error(
+        "カルテNo. は 1 以上の整数を指定してください"
+      );
+      err.code = "KARUTE_NO_INVALID";
+      throw err;
+    }
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("companies")
+      .update({ karute_no: newNo })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      // Postgres unique violation
+      if ((error as { code?: string }).code === "23505") {
+        const err: Error & { code?: string } = new Error(
+          `カルテNo. ${newNo} は既に使われています`
+        );
+        err.code = "KARUTE_NO_CONFLICT";
+        throw err;
+      }
+      throw new Error(`companies.setKaruteNo: ${error.message}`);
+    }
+    return toCompany(data as Row);
   },
 
   async delete(id) {

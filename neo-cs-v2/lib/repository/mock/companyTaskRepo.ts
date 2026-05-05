@@ -11,6 +11,7 @@ import type {
   CompanyTaskUpdatePatch
 } from "../types";
 import { sortByDueAsc } from "@/lib/domain/task";
+import { useGlobalStore } from "./_global-store";
 
 function genId(): string {
   return `ct-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -81,7 +82,9 @@ const seed: CompanyTask[] = [
   }
 ];
 
-const store: CompanyTask[] = seed.map((t) => ({ ...t }));
+const store = useGlobalStore<CompanyTask[]>("__companyTaskStore", () =>
+  seed.map((t) => ({ ...t }))
+);
 
 function clone(t: CompanyTask): CompanyTask {
   return { ...t };

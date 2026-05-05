@@ -1,4 +1,4 @@
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { ExtractionsView } from "./ExtractionsView";
 import { aiExtractions, emailThreads, emailMessages } from "@/lib/mock/email";
 import { companies } from "@/lib/mock/entities";
@@ -6,7 +6,7 @@ import { companies } from "@/lib/mock/entities";
 export default function ExtractionsPage() {
   return (
     <>
-      <TopNav current="/inbox" />
+      <TopNavServer current="/inbox" />
       <ExtractionsView
         extractions={aiExtractions}
         threads={emailThreads}

@@ -148,7 +148,8 @@ function seedVocItems(): VocItemRecord[] {
   return [...HAND_SEEDED, ...auto];
 }
 
-const store: VocItemRecord[] = seedVocItems();
+import { useGlobalStore } from "./_global-store";
+const store = useGlobalStore<VocItemRecord[]>("__vocItemStore", seedVocItems);
 
 function clone(v: VocItemRecord): VocItemRecord {
   return {

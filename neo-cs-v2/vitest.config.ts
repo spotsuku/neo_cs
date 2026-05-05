@@ -13,7 +13,9 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["lib/**/*.test.{ts,tsx}", "app/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"],
-    exclude: ["**/node_modules/**", "**/.next/**"],
+    // RLS テスト（tests/rls/**）はローカル supabase 起動が前提のため通常実行から除外。
+    // 走らせるときは npm run test:rls
+    exclude: ["**/node_modules/**", "**/.next/**", "tests/rls/**"],
     setupFiles: ["tests/setup.ts"],
     testTimeout: 10_000,
     coverage: {

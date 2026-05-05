@@ -12,6 +12,8 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:rls": "vitest run tests/rls",
     "prepare": "cd .. && husky neo-cs-v2/.husky || true"
   },
   "dependencies": {
@@ -23,6 +25,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22",

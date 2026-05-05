@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { TopNav } from "@/components/TopNav";
+import { redirect } from "next/navigation";
+import { TopNavServer } from "@/components/TopNavServer";
 import {
   userRepo,
   assignmentRepo,
@@ -8,8 +9,11 @@ import {
   contractRepo,
   healthSnapshotRepo,
   stakeholderRepo,
-  meetingLogRepo
+  meetingLogRepo,
+  userProgramRoleRepo
 } from "@/lib/repository";
+import { getPermissionContext } from "@/lib/auth/server";
+import { productByCode } from "@/lib/mock/data";
 import { weeklyReviews, CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 import { meetingLogs } from "@/lib/mock/entities";
 import type { AppUser, Assignment, Contract } from "@/lib/repository";
@@ -29,14 +33,16 @@ const ROLE_LABEL: Record<AppUser["role"], string> = {
   admin: "管理者",
   manager: "マネージャー",
   member: "メンバー",
-  viewer: "閲覧"
+  viewer: "閲覧",
+  external: "外部"
 };
 
 const ROLE_TONE: Record<AppUser["role"], string> = {
   admin: "bg-info-50 text-info-700 border-info-100",
   manager: "bg-brand-purple/10 text-brand-purple border-brand-purple/20",
   member: "bg-neutral-100 text-neutral-700 border-neutral-300",
-  viewer: "bg-neutral-50 text-neutral-500 border-neutral-100"
+  viewer: "bg-neutral-50 text-neutral-500 border-neutral-100",
+  external: "bg-amber-50 text-amber-700 border-amber-200"
 };
 
 type MemberStat = {
@@ -68,15 +74,65 @@ function healthBadge(score: number | null): {
   return { cls: "bg-danger-50 text-danger-700 border border-danger-100", label: `${score}` };
 }
 
-export default async function TeamPage() {
-  const [users, allAssignments, companies, contracts, latestSnapshots, allStakeholders] = await Promise.all([
+export default async function TeamPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ role?: string; product?: string }>;
+}) {
+  // 権限ガード: external は閲覧不可（RLS で守られているが UI でも redirect）
+  const ctx = await getPermissionContext();
+  if (ctx.actor?.role === "external") {
+    redirect("/");
+  }
+
+  const sp = (await searchParams) ?? {};
+  const filterRole = sp.role && sp.role !== "all" ? sp.role : null;
+  const filterProduct = sp.product && sp.product !== "all" ? sp.product : null;
+
+  const [
+    rawUsers,
+    allAssignments,
+    companies,
+    contracts,
+    latestSnapshots,
+    allStakeholders,
+    allProgramRoles
+  ] = await Promise.all([
     userRepo.list({ activeOnly: true }),
     assignmentRepo.list({ activeOnly: true }),
     companyRepo.list(),
     contractRepo.list({ activeOnly: true }),
     healthSnapshotRepo.latestAll(),
-    stakeholderRepo.list()
+    stakeholderRepo.list(),
+    userProgramRoleRepo.list()
   ]);
+
+  // external ユーザーは team 一覧に出さない（社内チームの実績画面のため）
+  let users = rawUsers.filter((u) => u.role !== "external");
+
+  // ロールフィルタ
+  if (filterRole) {
+    users = users.filter((u) => u.role === filterRole);
+  }
+  // 担当事業フィルタ: 指定 productCode の user_program_roles を持つユーザー
+  // admin は user_program_roles を持たないため、admin は filterProduct 指定時に
+  // 含めるか議論あり → 「全事業を担当している扱い」として常に含める
+  if (filterProduct) {
+    const matchedUserIds = new Set(
+      allProgramRoles
+        .filter((r) => r.productCode === filterProduct)
+        .map((r) => r.userId)
+    );
+    users = users.filter((u) => u.role === "admin" || matchedUserIds.has(u.id));
+  }
+
+  // userId → 担当事業ロール一覧
+  const programRolesByUser = new Map<string, typeof allProgramRoles>();
+  for (const r of allProgramRoles) {
+    const arr = programRolesByUser.get(r.userId) ?? [];
+    arr.push(r);
+    programRolesByUser.set(r.userId, arr);
+  }
 
   // 全 company 分の meetings を 1 度だけ取得 → engagement 算出
   const companyIdsAll = Array.from(new Set(allStakeholders.map((s) => s.companyId)));
@@ -208,7 +264,7 @@ export default async function TeamPage() {
 
   return (
     <>
-      <TopNav current="/team" />
+      <TopNavServer current="/team" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
         <header className="space-y-1">
           <div className="text-caption text-neutral-500">
@@ -223,6 +279,54 @@ export default async function TeamPage() {
             メンバーごとの担当社数・直近1ヶ月の活動・健全度平均
           </p>
         </header>
+
+        {/* フィルタ（GET フォーム） */}
+        <section className="rounded-xl border border-neutral-100 bg-white px-4 py-3">
+          <form className="flex flex-wrap items-center gap-3 text-sm" action="/team" method="get">
+            <label className="text-xs text-neutral-500">ロール</label>
+            <select
+              name="role"
+              defaultValue={filterRole ?? "all"}
+              className="px-3 py-1 rounded-full border border-neutral-200 text-xs"
+            >
+              <option value="all">全て</option>
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="member">Member</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            <label className="text-xs text-neutral-500 ml-2">担当事業</label>
+            <select
+              name="product"
+              defaultValue={filterProduct ?? "all"}
+              className="px-3 py-1 rounded-full border border-neutral-200 text-xs"
+            >
+              <option value="all">全事業</option>
+              {Object.values(productByCode).map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="px-3 py-1 rounded-full bg-neutral-900 text-white text-xs"
+            >
+              絞り込む
+            </button>
+            {(filterRole || filterProduct) && (
+              <Link
+                href="/team"
+                className="text-xs text-neutral-500 hover:text-neutral-700"
+              >
+                クリア
+              </Link>
+            )}
+            <span className="ml-auto text-[11px] text-neutral-500">
+              {users.length} 名 表示中
+            </span>
+          </form>
+        </section>
 
         {/* サマリー */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -287,11 +391,34 @@ export default async function TeamPage() {
                         </div>
                       </Td>
                       <Td>
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-pill border text-caption ${ROLE_TONE[s.user.role]}`}
-                        >
-                          {ROLE_LABEL[s.user.role]}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-pill border text-caption w-fit ${ROLE_TONE[s.user.role]}`}
+                          >
+                            {ROLE_LABEL[s.user.role]}
+                          </span>
+                          {s.user.role !== "admin" &&
+                            (programRolesByUser.get(s.user.id) ?? []).length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {(programRolesByUser.get(s.user.id) ?? []).map((pr) => {
+                                  const product = productByCode[pr.productCode as keyof typeof productByCode];
+                                  return (
+                                    <span
+                                      key={pr.productCode}
+                                      title={`${product?.name ?? pr.productCode} · ${pr.scopeRole}`}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-neutral-100 text-[10px] text-neutral-700"
+                                    >
+                                      <span
+                                        className="inline-block w-1 h-1 rounded-full"
+                                        style={{ background: product?.accent ?? "#999" }}
+                                      />
+                                      {product?.shortName ?? pr.productCode}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                        </div>
                       </Td>
                       <Td align="right" className="font-medium">
                         {s.primaryAssignments.length}

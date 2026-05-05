@@ -2,8 +2,11 @@ import { stakeholders as seed } from "@/lib/mock/cycles";
 import { DEFAULT_ORG_ID } from "../types";
 import type { Stakeholder, StakeholderRepo, SetEngagementTierInput } from "../types";
 import { runAfterWrite } from "../_base";
+import { useGlobalStore } from "./_global-store";
 
-const store: Stakeholder[] = seed.map((s) => ({ ...s, organizationId: DEFAULT_ORG_ID }));
+const store = useGlobalStore<Stakeholder[]>("__stakeholderStore", () =>
+  seed.map((s) => ({ ...s, organizationId: DEFAULT_ORG_ID }))
+);
 
 export const mockStakeholderRepo: StakeholderRepo = {
   async listByCompany(companyId) {

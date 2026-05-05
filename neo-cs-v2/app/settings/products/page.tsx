@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { products } from "@/lib/mock/data";
 
 export default function ProductsSettingsPage() {
   return (
     <>
-      <TopNav current="/settings" />
+      <TopNavServer current="/settings" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
         <section>
           <div className="flex items-center gap-2 text-xs text-ink-500 font-medium">

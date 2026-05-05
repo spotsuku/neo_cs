@@ -11,7 +11,7 @@
 // その他子テーブル (contacts/stakeholders/onboarding_tasks/...) は 0001 で
 // 既に CASCADE。survey 系のみ SET NULL で履歴保持。
 
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import Link from "next/link";
 import { getRepo } from "@/lib/repository/server";
 import { DemoDataPanel } from "./DemoDataPanel";
@@ -37,7 +37,7 @@ export default async function DemoDataPage() {
 
   return (
     <>
-      <TopNav current="/settings" />
+      <TopNavServer current="/settings" />
       <main className="mx-auto max-w-[1200px] px-6 py-8 space-y-6">
         <div className="text-xs text-ink-500">
           <Link href="/settings" className="hover:text-ink-700">

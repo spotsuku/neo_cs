@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { userRepo, oneOnOneLogRepo } from "@/lib/repository";
 import { OneOnOneForm } from "./OneOnOneForm";
 import { OneOnOneList } from "./OneOnOneList";
@@ -26,7 +26,7 @@ export default async function OneOnOnePage({
 
   return (
     <>
-      <TopNav current="/team" />
+      <TopNavServer current="/team" />
       <main className="mx-auto max-w-[960px] px-6 py-8 space-y-6">
         <header className="space-y-1">
           <div className="text-caption text-neutral-500">

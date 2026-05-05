@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { getServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -97,7 +97,7 @@ export default async function SalesHandoffPage({
 
   return (
     <>
-      <TopNav current="/sales-handoff" />
+      <TopNavServer current="/sales-handoff" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
         <header className="space-y-1">
           <div className="text-caption text-neutral-500">

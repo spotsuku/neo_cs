@@ -13,6 +13,12 @@
  *   - fetchHard 経由 (timeout 5s + retry 2回)
  *   - 重複通知防止 (dedupKey) を24時間メモ。再送はキー違いで強制。
  *   - Block Kit を使い、本文 + actions[] (ダッシュボードへ・スヌーズ) を生成
+ *
+ * external ユーザー対応:
+ *   本モジュールは社内 Slack へのチャンネル webhook のみを扱うため、
+ *   external への直接配信は構造上発生しない。将来「個人宛メール /
+ *   in-app 通知」を実装する際は lib/notifications/role-filter.ts の
+ *   filterRecipientsByRole を経由して受信者を絞り込むこと。
  */
 
 import 'server-only';

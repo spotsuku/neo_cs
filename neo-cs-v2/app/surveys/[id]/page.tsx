@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { SurveyDetail } from "./SurveyDetail";
 import {
   surveys,
@@ -42,7 +42,7 @@ export default async function SurveyDetailPage({
 
   return (
     <>
-      <TopNav current="/surveys" />
+      <TopNavServer current="/surveys" />
       <SurveyDetail
         survey={survey}
         schedule={schedule}

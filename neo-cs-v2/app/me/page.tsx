@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import {
   emailThreads,
   emailMessages,
@@ -11,7 +11,10 @@ import { activeContracts, contractOnboardingItems } from "@/lib/mock/onboarding"
 import { weeklyReviews, CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 import { churnRecords, reasonCategoryLabels } from "@/lib/mock/churn";
 import { allContracts } from "@/lib/mock/onboarding";
-import { userRepo } from "@/lib/repository";
+import { userRepo, contractRepo, churnSignalRepo } from "@/lib/repository";
+import { getPermissionContext } from "@/lib/auth/server";
+import { canSeeManagerView, effectiveRole } from "@/lib/auth/permissions";
+import { products as allProducts, productByCode } from "@/lib/mock/data";
 
 const TODAY = "2026-04-24";
 const FALLBACK_USER = "古野";
@@ -132,10 +135,66 @@ export default async function MyPage() {
     })
     .sort((a, b) => (a.nextActionDate! < b.nextActionDate! ? -1 : 1));
 
+  // マネージャー視点サマリー（admin/manager のみ）
+  const ctx = await getPermissionContext();
+  const showManagerSummary =
+    canSeeManagerView(ctx) && effectiveRole(ctx) !== "member";
+  const managerSections = showManagerSummary
+    ? await buildManagerSummary(ctx)
+    : null;
+
   return (
     <>
-      <TopNav current="/me" />
+      <TopNavServer current="/me" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
+        {/* マネージャー視点サマリー */}
+        {managerSections && managerSections.length > 0 && (
+          <section className="liquid-surface p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-base font-semibold text-ink-900">
+                  マネージャー視点サマリー
+                </h2>
+                <div className="text-xs text-ink-500 mt-0.5">
+                  担当事業の今週進捗・アラート・契約更新の概況
+                </div>
+              </div>
+              <Link
+                href="/manager"
+                className="text-xs text-ink-700 hover:text-ink-900 font-medium"
+              >
+                マネージャー画面へ →
+              </Link>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {managerSections.map((s) => (
+                <div
+                  key={s.code}
+                  className="rounded-xl border border-ink-100 p-4 bg-white"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block w-2 h-2 rounded-full"
+                      style={{ background: s.accent }}
+                    />
+                    <span className="text-sm font-semibold text-ink-900">
+                      {s.name}
+                    </span>
+                    <span className="ml-auto text-[11px] text-ink-500">
+                      {s.contractsCount}社
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <SmallStat label="今週未提出" value={s.weeklyMissing} warn />
+                    <SmallStat label="アラート" value={s.alertsCount} warn />
+                    <SmallStat label="更新60日" value={s.renewalSoon} warn />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ユーザヘッダ */}
         <section className="liquid-surface p-6 relative overflow-hidden">
           <div
@@ -563,6 +622,95 @@ function Empty({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-ink-100 p-6 text-center text-xs text-ink-500">
       {children}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// マネージャー視点サマリー（admin / manager のみ）
+// 担当事業ごとに今週未提出の週次・未解決アラート・更新60日内の件数を集計
+// ─────────────────────────────────────────────
+type ManagerSection = {
+  code: string;
+  name: string;
+  accent: string;
+  contractsCount: number;
+  weeklyMissing: number;
+  alertsCount: number;
+  renewalSoon: number;
+};
+
+async function buildManagerSummary(
+  ctx: Awaited<ReturnType<typeof getPermissionContext>>
+): Promise<ManagerSection[]> {
+  const codes =
+    ctx.actor?.role === "admin"
+      ? allProducts.map((p) => p.code as string)
+      : ctx.programs.map((p) => p.productCode);
+
+  if (codes.length === 0) return [];
+
+  const [allActiveContracts, allSignals] = await Promise.all([
+    contractRepo.list({ activeOnly: true }),
+    churnSignalRepo.list({ unresolvedOnly: true }).catch(() => [])
+  ]);
+
+  const horizon = addDaysIso(TODAY, 60);
+
+  return codes.map((code) => {
+    const product = productByCode[code as keyof typeof productByCode];
+    const contracts = allActiveContracts.filter((c) => c.product === code);
+    const contractIds = new Set(contracts.map((c) => c.id));
+    const companyIds = new Set(contracts.map((c) => c.companyId));
+
+    // 今週未提出: 担当事業の active 契約のうち、今週レビューが無い社の数
+    const reviewedCompanyIds = new Set(
+      weeklyReviews
+        .filter(
+          (r) =>
+            r.product === code && r.weekStart === CURRENT_WEEK_MONDAY
+        )
+        .map((r) => r.companyId)
+    );
+    const weeklyMissing = Array.from(companyIds).filter(
+      (cid) => !reviewedCompanyIds.has(cid)
+    ).length;
+
+    const alertsCount = allSignals.filter((s) => contractIds.has(s.contractId)).length;
+    const renewalSoon = contracts.filter((c) => c.endDate && c.endDate <= horizon).length;
+
+    return {
+      code,
+      name: product?.name ?? code,
+      accent: product?.accent ?? "#999",
+      contractsCount: contracts.length,
+      weeklyMissing,
+      alertsCount,
+      renewalSoon
+    };
+  });
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function SmallStat({
+  label,
+  value,
+  warn
+}: {
+  label: string;
+  value: number;
+  warn?: boolean;
+}) {
+  const cls = warn && value > 0 ? "text-rose-600" : "text-ink-900";
+  return (
+    <div>
+      <div className={`text-lg font-bold ${cls}`}>{value}</div>
+      <div className="text-[10px] text-ink-500">{label}</div>
     </div>
   );
 }

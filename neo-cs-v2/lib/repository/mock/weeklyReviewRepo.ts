@@ -6,13 +6,16 @@ import type {
   WeeklyReviewRepo,
   WeeklyReviewUpsert
 } from "../types";
+import { useGlobalStore } from "./_global-store";
 
-const store: WeeklyReview[] = weeklyReviews.map((r) => ({
-  ...r,
-  organizationId: DEFAULT_ORG_ID,
-  actions: r.actions.map((a) => ({ ...a })),
-  nextActions: r.nextActions.map((n) => ({ ...n }))
-}));
+const store = useGlobalStore<WeeklyReview[]>("__weeklyReviewStore", () =>
+  weeklyReviews.map((r) => ({
+    ...r,
+    organizationId: DEFAULT_ORG_ID,
+    actions: r.actions.map((a) => ({ ...a })),
+    nextActions: r.nextActions.map((n) => ({ ...n }))
+  }))
+);
 
 function genId(companyId: string, product: string, weekStart: string): string {
   return `w-${companyId}-${product}-${weekStart}`;

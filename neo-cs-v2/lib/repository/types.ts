@@ -30,6 +30,13 @@ import type {
   SuccessPlan,
   RenewalMilestone
 } from "@/lib/mock/cycles";
+import type {
+  JourneyType,
+  JourneyStageDefinition as MockJourneyStageDefinition,
+  CompanyJourney as MockCompanyJourney,
+  BusinessJourney as MockBusinessJourney,
+  JourneyEvent as MockJourneyEvent
+} from "@/lib/mock/journeys";
 
 // ─────────────────────────────────────────────
 // テナント (organizations)
@@ -70,14 +77,37 @@ export type {
   ProductCode,
   AccountJourney,
   SuccessPlan,
-  RenewalMilestone
+  RenewalMilestone,
+  JourneyType
 };
+
+// Journey 系: organizationId 必須化
+export type JourneyStageDefinition = MockJourneyStageDefinition;
+export type CompanyJourney = MockCompanyJourney;
+export type BusinessJourney = MockBusinessJourney;
+export type JourneyEvent = MockJourneyEvent;
 
 // ─────────────────────────────────────────────
 // 追加Domain型（mock非依存）
 // ─────────────────────────────────────────────
 
-export type AppUserRole = "admin" | "manager" | "member" | "viewer";
+/**
+ * グローバルロール
+ * - admin    : NEO 全体の編集権限。ユーザー追加削除・全社共通マスタの変更が可能
+ * - manager  : 担当事業内の全体把握・横断分析。マネージャー専用画面が見える
+ * - member   : 担当事業内の実務担当
+ * - viewer   : （旧）閲覧専用。後方互換のため残置
+ * - external : 外部ユーザー。user_company_access に登録された企業のみ閲覧/進捗編集可
+ */
+export type AppUserRole = "admin" | "manager" | "member" | "viewer" | "external";
+
+/**
+ * 事業（program / productCode）スコープ内でのロール
+ * - viewer          : 閲覧のみ
+ * - editor          : 進捗更新・週次入力など項目編集
+ * - template_editor : 列名・テンプレート編集まで可
+ */
+export type ProgramScopeRole = "viewer" | "editor" | "template_editor";
 
 export type AppUser = {
   id: string;
@@ -93,6 +123,31 @@ export type AppUser = {
   /** lib/security/session.touchLastSeen() で更新される最終リクエスト時刻 */
   lastSeenAt?: string;
   createdAt: string;
+};
+
+/**
+ * ユーザーが担当する事業（productCode）とそのスコープ内ロール
+ * admin は全事業に暗黙アクセスするため、このテーブルにレコードを持たなくてよい
+ */
+export type UserProgramRole = {
+  userId: string;
+  organizationId: string;
+  productCode: string;
+  scopeRole: ProgramScopeRole;
+  assignedAt: string;
+  assignedBy?: string;
+};
+
+/**
+ * external ユーザーが閲覧可能な企業
+ * external 以外のロールでは参照されない
+ */
+export type UserCompanyAccess = {
+  userId: string;
+  organizationId: string;
+  companyId: string;
+  grantedAt: string;
+  grantedBy?: string;
 };
 
 /**
@@ -191,7 +246,9 @@ export type AuditAction =
   | "role_change"
   | "disable_user"
   | "enable_user"
-  | "demo_wipe";
+  | "demo_wipe"
+  | "impersonate_start"
+  | "impersonate_stop";
 
 export type AuditLog = {
   id: string;
@@ -299,6 +356,11 @@ export interface CompanyRepo {
   getById(id: string): Promise<Company | null>;
   create(input: CompanyCreateInput): Promise<Company>;
   update(id: string, patch: Partial<Omit<Company, "id">>): Promise<Company>;
+  /**
+   * カルテ No. を変更。同一 organization_id 内で重複不可
+   * 重複時は code="KARUTE_NO_CONFLICT" のエラーをthrow
+   */
+  setKaruteNo(id: string, newNo: number): Promise<Company>;
   delete(id: string): Promise<void>;
   /** Phase4-#5: Google Drive 自動連携で生成したフォルダIDとURLを保存 */
   setDriveFolder(
@@ -357,6 +419,25 @@ export interface UserRepo {
   getCurrent(): Promise<AppUser | null>;
   setRole(id: string, role: AppUserRole): Promise<void>;
   setActive(id: string, isActive: boolean): Promise<void>;
+}
+
+export interface UserProgramRoleRepo {
+  /** ユーザー単位で担当事業 + スコープロールを取得 */
+  listByUser(userId: string): Promise<UserProgramRole[]>;
+  /** 事業単位で担当ユーザーを取得 */
+  listByProduct(productCode: string, opts?: { organizationId?: string }): Promise<UserProgramRole[]>;
+  /** 全件（管理画面用） */
+  list(opts?: { organizationId?: string }): Promise<UserProgramRole[]>;
+  /** スコープロールを upsert（同一 userId×productCode は上書き） */
+  upsert(input: Omit<UserProgramRole, "assignedAt"> & { assignedAt?: string }): Promise<UserProgramRole>;
+  remove(userId: string, productCode: string): Promise<void>;
+}
+
+export interface UserCompanyAccessRepo {
+  listByUser(userId: string): Promise<UserCompanyAccess[]>;
+  listByCompany(companyId: string): Promise<UserCompanyAccess[]>;
+  grant(input: Omit<UserCompanyAccess, "grantedAt"> & { grantedAt?: string }): Promise<UserCompanyAccess>;
+  revoke(userId: string, companyId: string): Promise<void>;
 }
 
 export interface HealthSnapshotRepo {
@@ -518,9 +599,24 @@ export interface AccountJourneyRepo {
   listByCompany(companyId: string): Promise<AccountJourney[]>;
 }
 
+export type OnboardingItemEditableStatus =
+  | "todo"
+  | "doing"
+  | "done"
+  | "not_applicable";
+
+export type OnboardingItemPatch = {
+  status?: OnboardingItemEditableStatus;
+  dueDate?: string | null;
+  assignee?: string | null;
+  note?: string | null;
+};
+
 export interface OnboardingItemRepo {
   /** 指定された複数 contractId に紐づくオンボ項目を一括取得 */
   listByContractIds(contractIds: string[]): Promise<ContractOnboardingItem[]>;
+  /** 単一項目を更新 (status / dueDate / assignee / note) */
+  update(id: string, patch: OnboardingItemPatch): Promise<ContractOnboardingItem>;
 }
 
 export interface SuccessPlanRepo {
@@ -805,8 +901,247 @@ export interface CompanyTaskRepo {
 }
 
 // ─────────────────────────────────────────────
+// 事業内ToDo (program_terms / program_task_templates / program_company_tasks)
+// マイグレーション: supabase/migrations/0020_program_tasks.sql
+// 純関数群: lib/domain/program.ts
+// ─────────────────────────────────────────────
+import type {
+  ProgramCellStatus,
+  ProgramTaskCategory,
+  ProgramTermStatus
+} from "@/lib/domain/program";
+
+export type { ProgramCellStatus, ProgramTaskCategory, ProgramTermStatus };
+
+export type ProgramTerm = {
+  id: string;
+  organizationId: string;
+  productCode: string;
+  courseKey?: string | null;
+  cycleNo?: number | null;
+  label: string;
+  startedAt?: string;
+  closedAt?: string;
+  status: ProgramTermStatus;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProgramTaskTemplate = {
+  id: string;
+  programTermId: string;
+  orderNo: number;
+  label: string;
+  description?: string;
+  category?: ProgramTaskCategory;
+  defaultDueOffsetDays?: number;
+  /** 列単位の期日 (set されている場合、open セルにも一括反映) */
+  defaultDueDate?: string;
+  /** 列単位の既定担当 (set されている場合、open セルにも一括反映) */
+  defaultAssigneeTo?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProgramCompanyTask = {
+  id: string;
+  organizationId: string;
+  programTermId: string;
+  templateId: string;
+  companyId: string;
+  contractId?: string;
+  status: ProgramCellStatus;
+  dueDate?: string;
+  assignedTo?: string;
+  note?: string;
+  completedAt?: string;
+  completedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProgramTermCreateInput = {
+  productCode: string;
+  courseKey?: string | null;
+  cycleNo?: number | null;
+  label: string;
+  startedAt?: string;
+  closedAt?: string;
+  status?: ProgramTermStatus;
+  createdBy?: string;
+};
+
+export type ProgramTaskTemplateInput = {
+  programTermId: string;
+  orderNo: number;
+  label: string;
+  description?: string;
+  category?: ProgramTaskCategory;
+  defaultDueOffsetDays?: number;
+};
+
+export type ProgramCellPatch = {
+  status?: ProgramCellStatus;
+  dueDate?: string | null;
+  assignedTo?: string | null;
+  note?: string | null;
+};
+
+export interface ProgramRepo {
+  listTerms(filter?: { status?: ProgramTermStatus | ProgramTermStatus[] }): Promise<ProgramTerm[]>;
+  getTerm(id: string): Promise<ProgramTerm | null>;
+  createTerm(input: ProgramTermCreateInput): Promise<ProgramTerm>;
+  closeTerm(id: string): Promise<ProgramTerm>;
+  /** 期を完全削除する (テンプレ・セル・関連データもまとめて消える) */
+  deleteTerm(id: string): Promise<void>;
+
+  listTemplates(programTermId: string): Promise<ProgramTaskTemplate[]>;
+  upsertTemplate(input: ProgramTaskTemplateInput & { id?: string }): Promise<ProgramTaskTemplate>;
+  deleteTemplate(id: string): Promise<void>;
+  /** 列の期日を設定し、open セル (pending/in_progress) にも一括反映する */
+  setTemplateDueDate(templateId: string, dueDate: string | null): Promise<ProgramTaskTemplate>;
+  /** 列の既定担当 (= 列の責任者) を設定する。propagate=true の時のみ open セルへ反映 */
+  setTemplateAssignee(
+    templateId: string,
+    userId: string | null,
+    opts?: { propagate?: boolean }
+  ): Promise<ProgramTaskTemplate>;
+  /** テンプレ全体 (label / description / order_no / category 等) を編集 */
+  updateTemplateMeta(
+    templateId: string,
+    patch: Partial<Pick<ProgramTaskTemplateInput, "label" | "description" | "category" | "orderNo" | "defaultDueOffsetDays">>
+  ): Promise<ProgramTaskTemplate>;
+
+  /** term のスコープにマッチする契約中企業から、未生成の (template×company) セルを生成 */
+  syncCompanies(programTermId: string): Promise<{ created: number }>;
+
+  /** 別の term からテンプレ (列) を複製する。defaultDueDate は複製しない (期固有のため) */
+  copyTemplates(fromTermId: string, toTermId: string): Promise<{ copied: number }>;
+
+  listCells(programTermId: string): Promise<ProgramCompanyTask[]>;
+  updateCell(id: string, patch: ProgramCellPatch): Promise<ProgramCompanyTask>;
+}
+
+// ─────────────────────────────────────────────
+// 企業ジャーニー / 事業ジャーニー (Phase: account-journey-v2)
+// ─────────────────────────────────────────────
+
+export type JourneyStageUpsertInput = {
+  organizationId?: string;
+  journeyType: JourneyType;
+  /** 既存編集時は元の stageKey (rename 対応)。未指定なら stageKey と同一 */
+  previousStageKey?: string;
+  stageKey: string;
+  displayOrder: number;
+  name: string;
+  description: string;
+  color?: string;
+  keyActions?: string;
+};
+
+export type SetCompanyJourneyStageInput = {
+  organizationId?: string;
+  companyId: string;
+  toStageKey: string;
+  /** UI 側で「後退ですが本当に変更しますか?」確認後に true で渡す */
+  acknowledgeRegression?: boolean;
+  note?: string;
+  changedBy?: string;
+};
+
+export type SetBusinessJourneyStageInput = {
+  organizationId?: string;
+  contractId: string;
+  toStageKey: string;
+  acknowledgeRegression?: boolean;
+  note?: string;
+  changedBy?: string;
+};
+
+export interface JourneyStageDefinitionRepo {
+  list(opts: {
+    organizationId?: string;
+    journeyType: JourneyType;
+  }): Promise<JourneyStageDefinition[]>;
+  upsert(input: JourneyStageUpsertInput): Promise<JourneyStageDefinition>;
+  delete(opts: {
+    organizationId?: string;
+    journeyType: JourneyType;
+    stageKey: string;
+  }): Promise<void>;
+  /** 既定値で初期化 (組織新規作成時用) */
+  resetToDefaults(opts: {
+    organizationId?: string;
+    journeyType: JourneyType;
+  }): Promise<JourneyStageDefinition[]>;
+}
+
+export interface CompanyJourneyRepo {
+  getByCompany(companyId: string): Promise<CompanyJourney | null>;
+  list(opts?: { organizationId?: string }): Promise<CompanyJourney[]>;
+  setStage(input: SetCompanyJourneyStageInput): Promise<CompanyJourney>;
+  listEvents(companyId: string): Promise<JourneyEvent[]>;
+}
+
+export interface BusinessJourneyRepo {
+  getByContract(contractId: string): Promise<BusinessJourney | null>;
+  listByCompany(companyId: string): Promise<BusinessJourney[]>;
+  listByContractIds(contractIds: string[]): Promise<BusinessJourney[]>;
+  setStage(input: SetBusinessJourneyStageInput): Promise<BusinessJourney>;
+  listEvents(contractId: string): Promise<JourneyEvent[]>;
+}
+
+// ─────────────────────────────────────────────
 // Repository集約
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// チャット (DM / 事業部 / メールスレッド統合)
+// 0025_chat.sql の chat_channels / chat_messages / chat_channel_members に対応
+// ─────────────────────────────────────────────
+export type ChatChannelKind = "dm" | "program" | "email_thread";
+
+export type ChatChannel = {
+  id: string;
+  organizationId: string;
+  kind: ChatChannelKind;
+  title: string;
+  /** kind='program' の場合の事業コード */
+  productCode?: ProductCode;
+  /** kind='email_thread' の場合の参照先 email_threads.id */
+  emailThreadId?: string;
+  /** kind='dm' の場合の参加メンバー名（簡易: 名前文字列。Supabase 実装では user_id を解決） */
+  members?: string[];
+  lastMessageAt: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  channelId: string;
+  authorName: string;
+  body: string;
+  mentions: string[];
+  createdAt: string;
+};
+
+export interface ChatRepo {
+  /** 当該ユーザーが見えるチャンネル一覧（DM はメンバーのみ、program/email_thread は組織全員） */
+  listChannels(opts: { organizationId: string; userName: string }): Promise<ChatChannel[]>;
+  listMessages(channelId: string): Promise<ChatMessage[]>;
+  postMessage(input: {
+    channelId: string;
+    authorName: string;
+    body: string;
+    mentions: string[];
+  }): Promise<ChatMessage>;
+  /** 2者間 DM を取得 or 作成 */
+  ensureDm(input: {
+    organizationId: string;
+    userA: string;
+    userB: string;
+  }): Promise<ChatChannel>;
+}
+
 export interface Repository {
   companies: CompanyRepo;
   contracts: ContractRepo;
@@ -824,6 +1159,7 @@ export interface Repository {
   vocItems: VocItemRepo;
   productCourses: ProductCourseRepo;
   companyTasks: CompanyTaskRepo;
+  programs: ProgramRepo;
   // 申し送り l〜q
   contacts: ContactRepo;
   meetingLogs: MeetingLogRepo;
@@ -831,4 +1167,13 @@ export interface Repository {
   accountJourneys: AccountJourneyRepo;
   onboardingItems: OnboardingItemRepo;
   successPlans: SuccessPlanRepo;
+  // 企業/事業ジャーニー (account-journey-v2)
+  journeyStageDefinitions: JourneyStageDefinitionRepo;
+  companyJourneys: CompanyJourneyRepo;
+  businessJourneys: BusinessJourneyRepo;
+  // 権限スコープ
+  userProgramRoles: UserProgramRoleRepo;
+  userCompanyAccess: UserCompanyAccessRepo;
+  // チャット (DM / 事業部 / メールスレッド統合)
+  chats: ChatRepo;
 }

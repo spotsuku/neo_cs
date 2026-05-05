@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { CompanyDetail } from "./CompanyDetail";
+import { getPermissionContext } from "@/lib/auth/server";
+import { products } from "@/lib/mock/data";
 import { CompletenessChecklistCard } from "@/components/CompletenessChecklistCard";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness";
 import { computeStakeholderEngagement } from "@/lib/domain/engagement-builder";
@@ -16,8 +18,22 @@ import {
   successPlanRepo,
   assignmentRepo,
   companyTaskRepo,
-  userRepo
+  userRepo,
+  companyJourneyRepo,
+  businessJourneyRepo,
+  journeyStageDefinitionRepo,
+  renewalMilestoneRepo
 } from "@/lib/repository";
+import {
+  suggestBusinessStage,
+  suggestCompanyStage,
+  type JourneySuggestion
+} from "@/lib/domain/journey";
+import type {
+  BusinessJourney,
+  CompanyJourney,
+  JourneyStageDefinition
+} from "@/lib/repository/types";
 
 // 「現行サイクル」判定 — lib/mock/onboarding.ts:293 の activeContracts と同じ式。
 // repo.listByCompany() 経由で取得した全契約から、画面に渡す active 集合を作る。
@@ -34,6 +50,13 @@ export default async function CompanyDetailPage({
   const company = await companyRepo.getById(id);
   if (!company) return notFound();
 
+  const ctx = await getPermissionContext();
+  const viewerRole = ctx.actor?.role ?? "viewer";
+  const accessibleProductCodes =
+    viewerRole === "admin"
+      ? products.map((p) => p.code as string)
+      : ctx.programs.map((p) => p.productCode);
+
   // ─── 第1段: 親キーで完結する 5 リソースを並列取得 ───────────
   const [
     contacts,
@@ -42,7 +65,11 @@ export default async function CompanyDetailPage({
     stakeholders,
     journeys,
     tasks,
-    members
+    members,
+    companyJourney,
+    businessJourneysRaw,
+    companyStageDefs,
+    businessStageDefs
   ] = await Promise.all([
     contactRepo.listByCompany(id),
     meetingLogRepo.listByCompany(id, { sort: "date desc", limit: 50 }),
@@ -50,7 +77,11 @@ export default async function CompanyDetailPage({
     stakeholderRepo.listByCompany(id),
     accountJourneyRepo.listByCompany(id),
     companyTaskRepo.list({ companyId: id }),
-    userRepo.list({ activeOnly: true })
+    userRepo.list({ activeOnly: true }),
+    companyJourneyRepo.getByCompany(id),
+    businessJourneyRepo.listByCompany(id),
+    journeyStageDefinitionRepo.list({ journeyType: "company" }),
+    journeyStageDefinitionRepo.list({ journeyType: "business" })
   ]);
 
   // active 集合 (UI デフォルト)。allCycles から派生させて再フェッチを避ける
@@ -122,13 +153,41 @@ export default async function CompanyDetailPage({
     };
   }
 
+  // ─── 事業ジャーニー: 契約ごとに更新マイルストーン取得 → 推奨算出 ─────
+  const milestonesByContract = await Promise.all(
+    allContractIds.map((cid) => renewalMilestoneRepo.listByContract(cid))
+  );
+  const businessSuggestionByContract = new Map<string, JourneySuggestion>();
+  allCycles.forEach((c, idx) => {
+    businessSuggestionByContract.set(
+      c.id,
+      suggestBusinessStage({
+        contract: c,
+        milestones: milestonesByContract[idx],
+        current: businessJourneysRaw.find((bj) => bj.contractId === c.id) ?? null,
+        stageDefinitions: businessStageDefs
+      })
+    );
+  });
+
+  // ─── 企業ジャーニー: 推奨算出 ─────
+  const companySuggestion = suggestCompanyStage({
+    contracts: allCycles,
+    businessJourneys: businessJourneysRaw,
+    current: companyJourney,
+    companyStageDefinitions: companyStageDefs,
+    businessStageDefinitions: businessStageDefs
+  });
+
   return (
     <>
-      <TopNav current="/companies" />
+      <TopNavServer current="/companies" />
       <div className="mx-auto max-w-[1400px] px-6 pt-8">
         <CompletenessChecklistCard result={completeness} />
       </div>
       <CompanyDetail
+        viewerRole={viewerRole}
+        accessibleProductCodes={accessibleProductCodes}
         company={company}
         contacts={contacts}
         logs={meetings}
@@ -141,6 +200,14 @@ export default async function CompanyDetailPage({
         tasks={tasks}
         members={members.map((u) => ({ id: u.id, name: u.name }))}
         engagementByStakeholder={engagementByStakeholder}
+        companyJourney={companyJourney}
+        businessJourneys={businessJourneysRaw}
+        companyStageDefs={companyStageDefs}
+        businessStageDefs={businessStageDefs}
+        companySuggestion={companySuggestion}
+        businessSuggestions={Object.fromEntries(
+          businessSuggestionByContract.entries()
+        )}
       />
     </>
   );

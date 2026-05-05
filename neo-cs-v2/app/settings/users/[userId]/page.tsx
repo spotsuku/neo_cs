@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TopNav } from "@/components/TopNav";
-import { userRepo } from "@/lib/repository";
+import { TopNavServer } from "@/components/TopNavServer";
+import { userRepo, userProgramRoleRepo, userCompanyAccessRepo, companyRepo } from "@/lib/repository";
 import { DisableUserPanel } from "./DisableUserPanel";
+import { ScopeRolesPanel } from "./ScopeRolesPanel";
+import { CompanyAccessPanel } from "./CompanyAccessPanel";
+import { GlobalRolePanel } from "./GlobalRolePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +13,8 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "管理者",
   manager: "マネージャー",
   member: "メンバー",
-  viewer: "閲覧"
+  viewer: "閲覧",
+  external: "外部"
 };
 
 export default async function UserDetailPage({
@@ -19,7 +23,13 @@ export default async function UserDetailPage({
   params: Promise<{ userId: string }>;
 }) {
   const { userId } = await params;
-  const [user, current] = await Promise.all([userRepo.getById(userId), userRepo.getCurrent()]);
+  const [user, current, programRoles, companyAccess, allCompanies] = await Promise.all([
+    userRepo.getById(userId),
+    userRepo.getCurrent(),
+    userProgramRoleRepo.listByUser(userId),
+    userCompanyAccessRepo.listByUser(userId),
+    companyRepo.list()
+  ]);
   if (!user) return notFound();
 
   const isSelf = current?.id === user.id;
@@ -27,7 +37,7 @@ export default async function UserDetailPage({
 
   return (
     <>
-      <TopNav current="/settings" />
+      <TopNavServer current="/settings" />
       <main className="mx-auto max-w-[800px] px-6 py-8 space-y-6">
         <header className="space-y-1">
           <div className="text-caption text-neutral-500">
@@ -81,6 +91,43 @@ export default async function UserDetailPage({
             canManage={canManage}
           />
         </section>
+
+        {canManage && !isSelf && (
+          <section className="surface p-5 space-y-4">
+            <h2 className="text-h4 font-semibold text-neutral-900">グローバルロール</h2>
+            <GlobalRolePanel userId={user.id} currentRole={user.role} />
+          </section>
+        )}
+
+        {canManage && user.role !== "admin" && user.role !== "external" && (
+          <section className="surface p-5 space-y-4">
+            <h2 className="text-h4 font-semibold text-neutral-900">担当事業 × スコープロール</h2>
+            <p className="text-caption text-neutral-500">
+              事業ごとに編集権限の範囲を設定します（admin は暗黙的に全事業 template_editor 相当）
+            </p>
+            <ScopeRolesPanel
+              userId={user.id}
+              programRoles={programRoles.map((r) => ({
+                productCode: r.productCode,
+                scopeRole: r.scopeRole
+              }))}
+            />
+          </section>
+        )}
+
+        {canManage && user.role === "external" && (
+          <section className="surface p-5 space-y-4">
+            <h2 className="text-h4 font-semibold text-neutral-900">閲覧可能企業</h2>
+            <p className="text-caption text-neutral-500">
+              この外部ユーザーがアクセスできる企業を指定します
+            </p>
+            <CompanyAccessPanel
+              userId={user.id}
+              grantedCompanyIds={companyAccess.map((a) => a.companyId)}
+              companies={allCompanies.map((c) => ({ id: c.id, name: c.name }))}
+            />
+          </section>
+        )}
       </main>
     </>
   );

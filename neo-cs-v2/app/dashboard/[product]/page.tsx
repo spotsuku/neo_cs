@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { KpiCard } from "@/components/KpiCard";
 import { HealthDistribution } from "@/components/HealthDistribution";
 import { MrrSparkline } from "@/components/MrrSparkline";
@@ -70,7 +70,7 @@ export default async function ProductDashboard({
 
   return (
     <>
-      <TopNav current="/dashboard" />
+      <TopNavServer current="/dashboard" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-10">
         {/* ヘッダ */}
         <section>

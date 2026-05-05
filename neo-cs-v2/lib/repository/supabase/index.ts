@@ -22,6 +22,9 @@ import { supabaseExpansionOpportunityRepo } from "./expansionOpportunityRepo";
 import { supabaseVocItemRepo } from "./vocItemRepo";
 import { supabaseProductCourseRepo } from "./productCourseRepo";
 import { supabaseCompanyTaskRepo } from "./companyTaskRepo";
+// program (事業内ToDo): supabase 実装は migration 0020 投入後に追加予定。
+// 現状は mock 実装に委譲し型を満たす。
+import { mockProgramRepo } from "../mock/programRepo";
 import {
   supabaseContactRepo,
   supabaseMeetingLogRepo,
@@ -30,6 +33,18 @@ import {
   supabaseOnboardingItemRepo,
   supabaseSuccessPlanRepo
 } from "./_lookup";
+// 企業/事業ジャーニー (account-journey-v2): supabase 実装は migration 0020
+// 投入後に追加予定。現状は mock 実装に委譲し型を満たす。
+import {
+  mockJourneyStageDefinitionRepo
+} from "../mock/journeyStageDefinitionRepo";
+import { mockCompanyJourneyRepo } from "../mock/companyJourneyRepo";
+import { mockBusinessJourneyRepo } from "../mock/businessJourneyRepo";
+// 権限スコープ (user_program_roles / user_company_access)
+// マイグレーション 0022 投入後に有効
+import { supabaseUserProgramRoleRepo } from "./userProgramRoleRepo";
+import { supabaseUserCompanyAccessRepo } from "./userCompanyAccessRepo";
+import { supabaseChatRepo } from "./chatRepo";
 
 export const supabaseRepository: Repository = {
   users: supabaseUserRepo,
@@ -48,10 +63,17 @@ export const supabaseRepository: Repository = {
   vocItems: supabaseVocItemRepo,
   productCourses: supabaseProductCourseRepo,
   companyTasks: supabaseCompanyTaskRepo,
+  programs: mockProgramRepo,
   contacts: supabaseContactRepo,
   meetingLogs: supabaseMeetingLogRepo,
   stakeholders: supabaseStakeholderRepo,
   accountJourneys: supabaseAccountJourneyRepo,
   onboardingItems: supabaseOnboardingItemRepo,
-  successPlans: supabaseSuccessPlanRepo
+  successPlans: supabaseSuccessPlanRepo,
+  journeyStageDefinitions: mockJourneyStageDefinitionRepo,
+  companyJourneys: mockCompanyJourneyRepo,
+  businessJourneys: mockBusinessJourneyRepo,
+  userProgramRoles: supabaseUserProgramRoleRepo,
+  userCompanyAccess: supabaseUserCompanyAccessRepo,
+  chats: supabaseChatRepo
 };

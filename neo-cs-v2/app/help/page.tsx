@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 
 type Category = {
   title: string;
@@ -30,7 +30,7 @@ const contactCategories = ["バグ報告", "機能要望", "アカウント・�
 export default function HelpPage() {
   return (
     <>
-      <TopNav current="/" />
+      <TopNavServer current="/" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
           ⚠ ヘルプセンター（検索・カテゴリ・FAQ・問い合わせフォーム・ステータスページ）は UI モックです。本番運用は準備中です。緊急時は support@neoacademia.jp までご連絡ください。

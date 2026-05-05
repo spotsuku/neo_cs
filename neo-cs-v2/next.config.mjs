@@ -7,9 +7,15 @@ const cspReport = process.env.CSP_REPORT_URI ?? '';
 const cspEnforce = (process.env.CSP_ENFORCE ?? 'true') !== 'false';
 const cspHeaderKey = cspEnforce ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only';
 
+// dev モードでは Next.js の React Fast Refresh が eval() を使うため
+// 'unsafe-eval' が必要。本番では含めない。
+const scriptSrc = isProd
+  ? "script-src 'self' 'unsafe-inline'"
+  : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  scriptSrc,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",

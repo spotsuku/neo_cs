@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 
 type Category = "alert" | "review" | "renewal" | "onboarding" | "mail";
 
@@ -51,7 +51,7 @@ export default function NotificationsPage() {
 
   return (
     <>
-      <TopNav current="/" />
+      <TopNavServer current="/" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
         <section className="flex items-end justify-between">
           <div>

@@ -338,6 +338,14 @@ export const supabaseOnboardingItemRepo: OnboardingItemRepo = {
       required: true,
       completedAt: r.completed_at ?? undefined
     } satisfies ContractOnboardingItem));
+  },
+  async update(_id, _patch) {
+    // supabase 実装は migration 0021 (or later) で onboarding_tasks に
+    // assignee_user_id / note / not_applicable status を追加してから対応予定。
+    // 現状は mock 専用機能。
+    throw new Error(
+      "onboardingItems.update is not yet implemented for the supabase driver"
+    );
   }
 };
 

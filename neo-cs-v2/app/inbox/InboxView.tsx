@@ -9,12 +9,18 @@ import {
   AiExtraction,
   AiExtractionType,
   EmailThreadStatus,
-  mockGenerateReplyDraft
+  AssigneeReason,
+  InternalThreadComment,
+  StatusChangeEntry,
+  mockGenerateReplyDraft,
+  nextStatus
 } from "@/lib/mock/email";
-import type { Company } from "@/lib/mock/entities";
+import type { Company, Contact, ContactCommunityTier } from "@/lib/mock/entities";
 import type { Contract } from "@/lib/mock/contracts";
+import type { ProgramTerm } from "@/lib/repository";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
+import { ReplyEditor, type ReplySubmit } from "./ReplyEditor";
 
 const TODAY = "2026-04-24";
 const FALLBACK_USER = "古野";
@@ -47,7 +53,18 @@ const TYPE_COLOR: Record<AiExtractionType, string> = {
   renewal_signal: "#F59E0B"
 };
 
-type Filter = "open" | "mine" | "all";
+type Filter = "received" | "assigned" | "program" | "all";
+
+const ASSIGNEE_REASON_LABEL: Record<AssigneeReason, string> = {
+  received: "受信者ベース",
+  program: "事業ラベル経由",
+  manual: "手動アサイン"
+};
+const ASSIGNEE_REASON_COLOR: Record<AssigneeReason, string> = {
+  received: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  program: "bg-violet-50 text-violet-700 border-violet-200",
+  manual: "bg-ink-100 text-ink-700 border-ink-200"
+};
 
 function isOverdue(slaDeadline?: string): boolean {
   if (!slaDeadline) return false;
@@ -59,13 +76,19 @@ export function InboxView({
   messages,
   extractions: initialExtractions,
   companies,
-  contracts
+  contacts,
+  contracts,
+  programs,
+  internalComments: initialComments
 }: {
   threads: EmailThread[];
   messages: EmailMessage[];
   extractions: AiExtraction[];
   companies: Company[];
+  contacts: Contact[];
   contracts: Contract[];
+  programs: ProgramTerm[];
+  internalComments: InternalThreadComment[];
 }) {
   const params = useSearchParams();
   const queryThreadId = params?.get("threadId") ?? null;
@@ -74,13 +97,22 @@ export function InboxView({
   const { names: assigneeOptions } = useActiveMembers();
   const [threads, setThreads] = useState(initialThreads);
   const [extractions, setExtractions] = useState(initialExtractions);
-  const [filter, setFilter] = useState<Filter>("open");
+  const [filter, setFilter] = useState<Filter>("received");
+  const [programFilter, setProgramFilter] = useState<string>("");
+  const [openOnly, setOpenOnly] = useState<boolean>(true);
+
+  const programById = useMemo(
+    () => new Map(programs.map((p) => [p.id, p])),
+    [programs]
+  );
   const initialSelected =
     queryThreadId && initialThreads.some((t) => t.id === queryThreadId)
       ? queryThreadId
       : initialThreads[0]?.id ?? "";
   const [selectedId, setSelectedId] = useState<string>(initialSelected);
   const [replyDraft, setReplyDraft] = useState<string | null>(null);
+  const [comments, setComments] = useState<InternalThreadComment[]>(initialComments);
+  const [chatInput, setChatInput] = useState<string>("");
 
   const companyById = useMemo(
     () => new Map(companies.map((c) => [c.id, c])),
@@ -90,16 +122,46 @@ export function InboxView({
     () => new Map(contracts.map((c) => [c.id, c])),
     [contracts]
   );
+  // メールアドレス → コンタクトの逆引き（小文字キー）
+  const contactByEmail = useMemo(() => {
+    const m = new Map<string, Contact>();
+    for (const c of contacts) m.set(c.email.toLowerCase(), c);
+    return m;
+  }, [contacts]);
+  const contactQuery = params?.get("contact")?.toLowerCase() ?? null;
+
+  // threadId -> 出現する from メールの集合（コンタクト絞り込み用）
+  const fromsByThread = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const m of messages) {
+      const set = map.get(m.threadId) ?? new Set<string>();
+      set.add(m.from.toLowerCase());
+      map.set(m.threadId, set);
+    }
+    return map;
+  }, [messages]);
 
   const filtered = useMemo(() => {
     let arr = [...threads];
-    if (filter === "open") {
-      arr = arr.filter((t) => t.status === "new" || t.status === "in_progress");
-    } else if (filter === "mine") {
+    if (filter === "received") {
+      arr = arr.filter((t) => t.receivedBy === currentUser);
+    } else if (filter === "assigned") {
       arr = arr.filter((t) => t.assignee === currentUser);
+    } else if (filter === "program") {
+      if (programFilter === "__none__") {
+        arr = arr.filter((t) => !t.programTermId);
+      } else if (programFilter) {
+        arr = arr.filter((t) => t.programTermId === programFilter);
+      }
+    }
+    if (openOnly) {
+      arr = arr.filter((t) => t.status === "new" || t.status === "in_progress");
+    }
+    if (contactQuery) {
+      arr = arr.filter((t) => fromsByThread.get(t.id)?.has(contactQuery));
     }
     return arr.sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
-  }, [threads, filter]);
+  }, [threads, filter, programFilter, openOnly, contactQuery, fromsByThread, currentUser]);
 
   const selected = threads.find((t) => t.id === selectedId);
   const selectedMessages = selected
@@ -121,8 +183,47 @@ export function InboxView({
   ).length;
   const pendingCount = extractions.filter((e) => e.status === "pending").length;
 
+  // タブごとのカウント（未対応のみフィルタは無視して総数を見せる方が判断しやすい）
+  const counts = useMemo(() => {
+    return {
+      received: threads.filter((t) => t.receivedBy === currentUser).length,
+      assigned: threads.filter((t) => t.assignee === currentUser).length,
+      all: threads.length
+    };
+  }, [threads, currentUser]);
+
+  // 自分が返信担当の未対応件数（通知バッジ相当）
+  const myOpenAssigned = threads.filter(
+    (t) =>
+      t.assignee === currentUser &&
+      (t.status === "new" || t.status === "in_progress")
+  ).length;
+
   const updateThread = (id: string, patch: Partial<EmailThread>) => {
     setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  };
+
+  // 状態自動遷移: イベントを受け取り、ルールに従って status を更新 + 履歴追加
+  const applyEvent = (id: string, event: "inbound" | "send" | "close") => {
+    setThreads((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const result = nextStatus(t.status, event);
+        if (!result) return t;
+        const entry: StatusChangeEntry = {
+          at: new Date().toISOString(),
+          from: t.status,
+          to: result.status,
+          reason: result.reason,
+          by: currentUser
+        };
+        return {
+          ...t,
+          status: result.status,
+          statusHistory: [...(t.statusHistory ?? []), entry]
+        };
+      })
+    );
   };
 
   const handleExtraction = (id: string, status: "approved" | "rejected") => {
@@ -137,6 +238,38 @@ export function InboxView({
     if (!last) return;
     setReplyDraft(mockGenerateReplyDraft(selected, last));
   };
+
+  // 社内チャット: @メンションを単純パース（半角/全角@ + 既存メンバー名）
+  const parseMentions = (body: string): string[] => {
+    const found = new Set<string>();
+    for (const name of assigneeOptions) {
+      const re = new RegExp(`[@＠]${name}`, "g");
+      if (re.test(body)) found.add(name);
+    }
+    return Array.from(found);
+  };
+
+  const postComment = () => {
+    if (!selected) return;
+    const body = chatInput.trim();
+    if (!body) return;
+    const c: InternalThreadComment = {
+      id: `ic-mock-${Date.now()}`,
+      threadId: selected.id,
+      authorName: currentUser,
+      body,
+      mentions: parseMentions(body),
+      createdAt: new Date().toISOString()
+    };
+    setComments((prev) => [...prev, c]);
+    setChatInput("");
+  };
+
+  const selectedComments = selected
+    ? comments
+        .filter((c) => c.threadId === selected.id)
+        .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+    : [];
 
   return (
     <main className="mx-auto max-w-[1500px] px-4 py-6 space-y-4">
@@ -158,12 +291,36 @@ export function InboxView({
         </div>
       </header>
 
+      {/* コンタクト絞り込みバナー */}
+      {contactQuery && (() => {
+        const c = contactByEmail.get(contactQuery);
+        const co = c ? companyById.get(c.companyId) : undefined;
+        return (
+          <div className="rounded-xl border border-brand-blue/30 bg-brand-blue/5 px-3 py-2 text-xs text-ink-700 flex items-center gap-2">
+            <span>担当者で絞り込み中:</span>
+            {c ? (
+              <>
+                <span className="font-semibold">{c.name}</span>
+                {co && <span className="text-ink-500">/ {co.name}</span>}
+                <span className="text-ink-400">&lt;{c.email}&gt;</span>
+              </>
+            ) : (
+              <span className="font-mono">{contactQuery}</span>
+            )}
+            <Link href="/inbox" className="ml-auto text-brand-blue hover:underline">
+              絞り込み解除
+            </Link>
+          </div>
+        );
+      })()}
+
       {/* フィルタタブ */}
-      <div className="flex items-center gap-1 border-b border-ink-100">
+      <div className="flex items-center gap-1 border-b border-ink-100 flex-wrap">
         {([
-          { key: "open" as Filter, label: `未対応 (${threads.filter((t) => t.status === "new" || t.status === "in_progress").length})` },
-          { key: "mine" as Filter, label: `自分の担当 (${threads.filter((t) => t.assignee === currentUser).length})` },
-          { key: "all" as Filter, label: `すべて (${threads.length})` }
+          { key: "received" as Filter, label: `自分宛 (${counts.received})` },
+          { key: "assigned" as Filter, label: `自分が返信担当 (${counts.assigned})` },
+          { key: "program" as Filter, label: "事業別" },
+          { key: "all" as Filter, label: `すべて (${counts.all})` }
         ]).map((f) => {
           const active = filter === f.key;
           return (
@@ -181,12 +338,73 @@ export function InboxView({
             </button>
           );
         })}
-        {overdueCount > 0 && (
-          <span className="ml-auto text-[11px] text-rose-600 font-medium">
-            🔴 SLA超過 {overdueCount} 件
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-3 text-[11px]">
+          {myOpenAssigned > 0 && (
+            <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+              🔔 自分の未対応 {myOpenAssigned} 件
+            </span>
+          )}
+          {overdueCount > 0 && (
+            <span className="text-rose-600 font-medium">
+              🔴 SLA超過 {overdueCount} 件
+            </span>
+          )}
+          <label className="flex items-center gap-1 text-ink-500">
+            <input
+              type="checkbox"
+              checked={openOnly}
+              onChange={(e) => setOpenOnly(e.target.checked)}
+            />
+            未対応のみ
+          </label>
+        </div>
       </div>
+
+      {/* 事業別タブ選択時のサブセレクタ */}
+      {filter === "program" && (
+        <div className="flex items-center gap-1.5 flex-wrap text-xs">
+          <button
+            onClick={() => setProgramFilter("")}
+            className={[
+              "px-2.5 py-1 rounded-full border",
+              programFilter === ""
+                ? "bg-ink-900 text-white border-ink-900"
+                : "bg-white text-ink-700 border-ink-200 hover:bg-ink-50"
+            ].join(" ")}
+          >
+            すべての事業
+          </button>
+          {programs.map((p) => {
+            const active = programFilter === p.id;
+            const count = threads.filter((t) => t.programTermId === p.id).length;
+            return (
+              <button
+                key={p.id}
+                onClick={() => setProgramFilter(p.id)}
+                className={[
+                  "px-2.5 py-1 rounded-full border",
+                  active
+                    ? "bg-ink-900 text-white border-ink-900"
+                    : "bg-white text-ink-700 border-ink-200 hover:bg-ink-50"
+                ].join(" ")}
+              >
+                {p.label} <span className="opacity-70">({count})</span>
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setProgramFilter("__none__")}
+            className={[
+              "px-2.5 py-1 rounded-full border",
+              programFilter === "__none__"
+                ? "bg-ink-900 text-white border-ink-900"
+                : "bg-white text-ink-500 border-dashed border-ink-200 hover:bg-ink-50"
+            ].join(" ")}
+          >
+            未分類 ({threads.filter((t) => !t.programTermId).length})
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-4">
         {/* 左ペイン: スレッド一覧 */}
@@ -235,8 +453,20 @@ export function InboxView({
                     <div className={["text-xs truncate", active ? "text-white/80" : "text-ink-700"].join(" ")}>
                       {t.subject}
                     </div>
-                    <div className={["text-[10px] mt-0.5", active ? "text-white/60" : "text-ink-500"].join(" ")}>
-                      担当: {t.assignee}
+                    <div className={["text-[10px] mt-0.5 flex items-center gap-1.5 flex-wrap", active ? "text-white/60" : "text-ink-500"].join(" ")}>
+                      <span>返信担当: {t.assignee}</span>
+                      {t.programTermId && (
+                        <span
+                          className={[
+                            "px-1.5 py-0.5 rounded-full",
+                            active
+                              ? "bg-white/15 text-white"
+                              : "bg-violet-50 text-violet-700 border border-violet-100"
+                          ].join(" ")}
+                        >
+                          {programById.get(t.programTermId)?.label ?? t.programTermId}
+                        </span>
+                      )}
                     </div>
                   </button>
                 </li>
@@ -271,11 +501,23 @@ export function InboxView({
                     <span className="text-ink-500">ステータス</span>
                     <select
                       value={selected.status}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const to = e.target.value as EmailThreadStatus;
+                        const entry: StatusChangeEntry = {
+                          at: new Date().toISOString(),
+                          from: selected.status,
+                          to,
+                          reason: "manual",
+                          by: currentUser
+                        };
                         updateThread(selected.id, {
-                          status: e.target.value as EmailThreadStatus
-                        })
-                      }
+                          status: to,
+                          statusHistory: [
+                            ...(selected.statusHistory ?? []),
+                            entry
+                          ]
+                        });
+                      }}
                       className="border border-ink-100 rounded-md px-2 py-1 text-xs"
                     >
                       {(Object.keys(STATUS_LABEL) as EmailThreadStatus[]).map((s) => (
@@ -284,19 +526,67 @@ export function InboxView({
                         </option>
                       ))}
                     </select>
+                    <span
+                      className="text-[10px] text-ink-400 cursor-help"
+                      title={[
+                        "自動遷移ルール:",
+                        "・送信 → 返信待ち",
+                        "・受信(既存) → 対応中",
+                        "・新規受信 → 未対応"
+                      ].join("\n")}
+                    >
+                      ⓘ
+                    </span>
                   </label>
                   <label className="flex items-center gap-1">
-                    <span className="text-ink-500">担当</span>
+                    <span className="text-ink-500">返信担当</span>
                     <select
                       value={selected.assignee}
                       onChange={(e) =>
-                        updateThread(selected.id, { assignee: e.target.value })
+                        updateThread(selected.id, {
+                          assignee: e.target.value,
+                          assigneeReason: "manual"
+                        })
                       }
                       className="border border-ink-100 rounded-md px-2 py-1 text-xs"
                     >
                       {assigneeOptions.map((a) => (
                         <option key={a} value={a}>
                           {a}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {selected.assigneeReason && (
+                    <span
+                      className={[
+                        "px-1.5 py-0.5 rounded-full text-[10px] border",
+                        ASSIGNEE_REASON_COLOR[selected.assigneeReason]
+                      ].join(" ")}
+                      title={
+                        selected.receivedBy
+                          ? `受信者: ${selected.receivedBy}`
+                          : undefined
+                      }
+                    >
+                      {ASSIGNEE_REASON_LABEL[selected.assigneeReason]}
+                    </span>
+                  )}
+                  <label className="flex items-center gap-1">
+                    <span className="text-ink-500">事業</span>
+                    <select
+                      value={selected.programTermId ?? ""}
+                      onChange={(e) =>
+                        updateThread(selected.id, {
+                          programTermId: e.target.value || null
+                        })
+                      }
+                      className="border border-ink-100 rounded-md px-2 py-1 text-xs"
+                    >
+                      <option value="">未分類</option>
+                      {programs.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
                         </option>
                       ))}
                     </select>
@@ -314,6 +604,31 @@ export function InboxView({
                     </span>
                   )}
                 </div>
+                {selected.statusHistory && selected.statusHistory.length > 0 && (
+                  <div className="mt-2 text-[10px] text-ink-500">
+                    {(() => {
+                      const last = selected.statusHistory[selected.statusHistory.length - 1];
+                      const REASON: Record<typeof last.reason, string> = {
+                        sent_reply: "返信送信により",
+                        inbound_new: "新規受信により",
+                        inbound_reopen: "新着受信により",
+                        manual: "手動変更"
+                      };
+                      return (
+                        <>
+                          🕘 {REASON[last.reason]} → {STATUS_LABEL[last.to]}（
+                          {new Date(last.at).toLocaleString("ja-JP", {
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                          {last.by ? ` / ${last.by}` : ""}）
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
 
               <ul className="space-y-3">
@@ -328,7 +643,14 @@ export function InboxView({
                     ].join(" ")}
                   >
                     <div className="flex items-center justify-between gap-2 text-[11px] text-ink-500">
-                      <span className="font-medium text-ink-700">{m.from}</span>
+                      <FromLine
+                        email={m.from}
+                        contact={contactByEmail.get(m.from.toLowerCase())}
+                        company={(() => {
+                          const cc = contactByEmail.get(m.from.toLowerCase());
+                          return cc ? companyById.get(cc.companyId) : undefined;
+                        })()}
+                      />
                       <span>{new Date(m.sentAt).toLocaleString("ja-JP")}</span>
                     </div>
                     <div className="text-[11px] text-ink-500">
@@ -342,7 +664,14 @@ export function InboxView({
                 ))}
               </ul>
 
-              <div className="mt-4">
+              <div className="mt-4 space-y-2">
+                {selected.assignee !== currentUser && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                    このスレッドの返信担当は <b>{selected.assignee}</b> さんです。
+                    あなた（{currentUser}）も返信下書きを作成できます。
+                    作成後は担当者へ共有 / 引き継ぎが可能です。
+                  </div>
+                )}
                 {!replyDraft && (
                   <button
                     onClick={generateReply}
@@ -351,36 +680,57 @@ export function InboxView({
                     🤖 AI返信下書きを作成
                   </button>
                 )}
-                {replyDraft !== null && (
-                  <div className="rounded-xl border border-ink-200 p-3 bg-white">
-                    <div className="text-[11px] text-ink-500 mb-2">
-                      AI下書き（モック）— 編集して送信できます
-                    </div>
-                    <textarea
-                      value={replyDraft}
-                      onChange={(e) => setReplyDraft(e.target.value)}
-                      rows={8}
-                      className="w-full text-sm border border-ink-100 rounded-md p-2 leading-relaxed"
+                {replyDraft !== null && (() => {
+                  const lastInbound = [...selectedMessages]
+                    .reverse()
+                    .find((m) => m.direction === "inbound");
+                  const replyTo = lastInbound ? [lastInbound.from] : [];
+                  // 全員返信（Reply-All）デフォルト: 元 To から自分（社内アドレス）を除外し、元 Cc とマージ
+                  // 社内アドレスは @neo.example.com 固定（実装時はログインユーザーのメールで除外）
+                  const SELF_PATTERN = /@neo\.example\.com$/i;
+                  const replyCc = lastInbound
+                    ? Array.from(
+                        new Set([
+                          ...lastInbound.to.filter((e) => !SELF_PATTERN.test(e)),
+                          ...lastInbound.cc
+                        ])
+                      )
+                    : [];
+                  const recipientContact = lastInbound
+                    ? contactByEmail.get(lastInbound.from.toLowerCase())
+                    : undefined;
+                  // Cc 候補: 同社の他コンタクト + 過去スレッドの cc
+                  const sameCompanyContacts = selected
+                    ? contacts
+                        .filter((c) => c.companyId === selected.companyId)
+                        .filter(
+                          (c) => c.email.toLowerCase() !== lastInbound?.from.toLowerCase()
+                        )
+                    : [];
+                  const ccSuggestions = sameCompanyContacts.map((c) => ({
+                    email: c.email,
+                    label: `${c.name}（${c.title ?? ""}）`
+                  }));
+                  const handleSubmit = (draft: ReplySubmit) => {
+                    // mock: 送信イベントとして status を自動遷移 (→ waiting)
+                    // 実装時は Gmail API drafts.create + 送信検知後にイベント発火
+                    void draft;
+                    applyEvent(selected.id, "send");
+                    setReplyDraft(null);
+                  };
+                  return (
+                    <ReplyEditor
+                      initialBody={replyDraft}
+                      to={replyTo}
+                      initialCc={replyCc}
+                      ccSuggestions={ccSuggestions}
+                      recipientDisplayName={recipientContact?.name}
+                      authorName={currentUser}
+                      onSubmit={handleSubmit}
+                      onCancel={() => setReplyDraft(null)}
                     />
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        className="px-3 py-1.5 rounded-full bg-ink-900 text-white text-xs hover:opacity-90"
-                        onClick={() => {
-                          updateThread(selected.id, { status: "replied" });
-                          setReplyDraft(null);
-                        }}
-                      >
-                        送信（モック）
-                      </button>
-                      <button
-                        className="px-3 py-1.5 rounded-full bg-white border border-ink-100 text-xs text-ink-700 hover:bg-ink-50"
-                        onClick={() => setReplyDraft(null)}
-                      >
-                        破棄
-                      </button>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </>
           )}
@@ -443,6 +793,95 @@ export function InboxView({
                 </ul>
               </div>
 
+              {/* 社内チャット（メールスレッド単位の社内相談） */}
+              <div className="liquid-surface p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-semibold text-ink-700">
+                    💬 社内チャット
+                  </div>
+                  <span className="text-[10px] text-ink-400">
+                    社内のみ・メール本文には含まれません
+                  </span>
+                </div>
+                <ul className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                  {selectedComments.length === 0 && (
+                    <li className="text-xs text-ink-500">
+                      まだコメントがありません。@メンションで担当者に相談・引き継ぎができます。
+                    </li>
+                  )}
+                  {selectedComments.map((c) => {
+                    const mine = c.authorName === currentUser;
+                    return (
+                      <li
+                        key={c.id}
+                        className={[
+                          "rounded-lg p-2 border text-xs",
+                          mine
+                            ? "bg-sky-50 border-sky-100"
+                            : "bg-white border-ink-100"
+                        ].join(" ")}
+                      >
+                        <div className="flex items-center justify-between text-[10px] text-ink-500 mb-1">
+                          <span className="font-semibold text-ink-700">
+                            {c.authorName}
+                          </span>
+                          <span>
+                            {new Date(c.createdAt).toLocaleString("ja-JP", {
+                              month: "numeric",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        </div>
+                        <div className="text-ink-900 whitespace-pre-wrap leading-relaxed">
+                          {renderCommentBody(c.body, assigneeOptions)}
+                        </div>
+                        {c.mentions.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {c.mentions.map((m) => (
+                              <span
+                                key={m}
+                                className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100"
+                              >
+                                🔔 {m} 宛
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="mt-2">
+                  <textarea
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="社内メモ・@メンションで相談（例: @古野 引き継ぎお願いします）"
+                    rows={2}
+                    className="w-full text-xs border border-ink-100 rounded-md p-2 leading-relaxed"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault();
+                        postComment();
+                      }
+                    }}
+                  />
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] text-ink-400">
+                      ⌘/Ctrl + Enter で送信
+                    </span>
+                    <button
+                      onClick={postComment}
+                      disabled={!chatInput.trim()}
+                      className="px-3 py-1 rounded-full bg-ink-900 text-white text-[11px] hover:opacity-90 disabled:opacity-40"
+                    >
+                      投稿
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {selectedCompany && (
                 <div className="liquid-surface p-4">
                   <div className="text-sm font-semibold text-ink-700 mb-2">
@@ -479,5 +918,86 @@ export function InboxView({
         </aside>
       </div>
     </main>
+  );
+}
+
+// 社内チャット本文中の @メンションをハイライト表示
+function renderCommentBody(body: string, members: string[]): React.ReactNode {
+  if (members.length === 0) return body;
+  // 名前を長い順にソートして部分一致の取りこぼしを防ぐ
+  const sorted = [...members].sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(`[@＠](${sorted.map(escapeRegex).join("|")})`, "g");
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = pattern.exec(body)) !== null) {
+    if (m.index > lastIndex) parts.push(body.slice(lastIndex, m.index));
+    parts.push(
+      <span
+        key={key++}
+        className="px-1 rounded bg-amber-100 text-amber-800 font-medium"
+      >
+        {m[0]}
+      </span>
+    );
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < body.length) parts.push(body.slice(lastIndex));
+  return parts;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// メール送信元の行: コンタクトと突合できれば「会社名 / 名前 / 関与度」を表示
+const COMMUNITY_TONE: Record<ContactCommunityTier, string> = {
+  core:    "bg-amber-100 text-amber-900 border-amber-300",
+  active:  "bg-sky-100 text-sky-800 border-sky-200",
+  casual:  "bg-emerald-100 text-emerald-800 border-emerald-200",
+  at_risk: "bg-rose-100 text-rose-800 border-rose-200"
+};
+const COMMUNITY_LABEL: Record<ContactCommunityTier, string> = {
+  core: "コア",
+  active: "アクティブ",
+  casual: "カジュアル",
+  at_risk: "離脱危機"
+};
+
+function FromLine({
+  email,
+  contact,
+  company
+}: {
+  email: string;
+  contact?: Contact;
+  company?: Company;
+}) {
+  if (!contact) {
+    // 突合できない場合はメールアドレスのみ（社内アドレス等）
+    return <span className="font-medium text-ink-700">{email}</span>;
+  }
+  return (
+    <span className="flex items-center gap-1.5 flex-wrap">
+      {company && (
+        <Link
+          href={`/companies/${company.id}`}
+          className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-700 hover:bg-ink-200"
+        >
+          {company.name}
+        </Link>
+      )}
+      <span className="font-semibold text-ink-900">{contact.name}</span>
+      <span className="text-ink-500">{contact.title}</span>
+      {contact.community && (
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${COMMUNITY_TONE[contact.community]}`}
+        >
+          {COMMUNITY_LABEL[contact.community]}
+        </span>
+      )}
+      <span className="text-[10px] text-ink-400">&lt;{email}&gt;</span>
+    </span>
   );
 }

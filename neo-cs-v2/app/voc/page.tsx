@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { vocItemRepo, companyRepo, userRepo } from "@/lib/repository";
 import { VocBoard } from "./VocBoard";
 
@@ -14,7 +14,7 @@ export default async function VocPage() {
 
   return (
     <>
-      <TopNav current="/voc" />
+      <TopNavServer current="/voc" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
         <header className="space-y-1">
           <div className="text-caption text-neutral-500">

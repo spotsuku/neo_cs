@@ -1,149 +1,91 @@
+// ユーザー管理（admin 専用）
+//
+// グローバルロール（admin/manager/member/viewer/external）と
+// 事業×スコープロール（viewer/editor/template_editor）を一覧表示する。
+// 招待・編集 UI は Server Action 連携後に追加（mock 段階では disabled）。
+
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { redirect } from "next/navigation";
+import { TopNavServer } from "@/components/TopNavServer";
+import { getPermissionContext } from "@/lib/auth/server";
+import { canManageUsers } from "@/lib/auth/permissions";
+import {
+  userRepo,
+  userProgramRoleRepo,
+  userCompanyAccessRepo,
+  companyRepo
+} from "@/lib/repository";
+import { InviteExternalDialog } from "./InviteExternalDialog";
+import { ImpersonateButton } from "./ImpersonateButton";
+import type {
+  AppUser,
+  AppUserRole,
+  ProgramScopeRole
+} from "@/lib/repository/types";
+import { products, productByCode } from "@/lib/mock/data";
 
-type Role = "Admin" | "CS" | "閲覧";
-
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  assignedCount: number;
-  lastLogin: string;
-  color: string;
+const ROLE_STYLE: Record<AppUserRole, { color: string; bg: string; label: string }> = {
+  admin: { color: "#6366f1", bg: "#6366f114", label: "Admin" },
+  manager: { color: "#8B5CF6", bg: "#8B5CF614", label: "Manager" },
+  member: { color: "#10b981", bg: "#10b98114", label: "Member" },
+  viewer: { color: "#64748b", bg: "#64748b14", label: "閲覧" },
+  external: { color: "#F59E0B", bg: "#F59E0B14", label: "外部" }
 };
 
-const users: User[] = [
-  {
-    id: "u01",
-    name: "古野 健太",
-    email: "k.furuno@neoacademia.jp",
-    role: "Admin",
-    assignedCount: 12,
-    lastLogin: "2026-04-25 09:12",
-    color: "#6366f1",
-  },
-  {
-    id: "u02",
-    name: "佐藤 由香",
-    email: "y.sato@neoacademia.jp",
-    role: "CS",
-    assignedCount: 18,
-    lastLogin: "2026-04-25 08:40",
-    color: "#10b981",
-  },
-  {
-    id: "u03",
-    name: "田中 拓也",
-    email: "t.tanaka@neoacademia.jp",
-    role: "CS",
-    assignedCount: 15,
-    lastLogin: "2026-04-24 19:05",
-    color: "#f59e0b",
-  },
-  {
-    id: "u04",
-    name: "鈴木 美咲",
-    email: "m.suzuki@neoacademia.jp",
-    role: "CS",
-    assignedCount: 9,
-    lastLogin: "2026-04-24 17:22",
-    color: "#ec4899",
-  },
-  {
-    id: "u05",
-    name: "高橋 翔太",
-    email: "s.takahashi@neoacademia.jp",
-    role: "Admin",
-    assignedCount: 7,
-    lastLogin: "2026-04-23 11:48",
-    color: "#0ea5e9",
-  },
-  {
-    id: "u06",
-    name: "山本 彩花",
-    email: "a.yamamoto@neoacademia.jp",
-    role: "CS",
-    assignedCount: 14,
-    lastLogin: "2026-04-22 16:10",
-    color: "#a855f7",
-  },
-  {
-    id: "u07",
-    name: "中村 健介",
-    email: "k.nakamura@neoacademia.jp",
-    role: "閲覧",
-    assignedCount: 0,
-    lastLogin: "2026-04-20 10:33",
-    color: "#64748b",
-  },
-  {
-    id: "u08",
-    name: "伊藤 真由美",
-    email: "m.ito@neoacademia.jp",
-    role: "閲覧",
-    assignedCount: 0,
-    lastLogin: "2026-04-15 14:55",
-    color: "#94a3b8",
-  },
-  {
-    id: "u09",
-    name: "小林 大輔",
-    email: "d.kobayashi@neoacademia.jp",
-    role: "CS",
-    assignedCount: 11,
-    lastLogin: "2026-04-25 07:58",
-    color: "#ef4444",
-  },
-  {
-    id: "u10",
-    name: "渡辺 さくら",
-    email: "s.watanabe@neoacademia.jp",
-    role: "CS",
-    assignedCount: 13,
-    lastLogin: "2026-04-24 21:14",
-    color: "#14b8a6",
-  },
-];
-
-const roleStyle: Record<Role, { color: string; bg: string; label: string }> = {
-  Admin: { color: "#6366f1", bg: "#6366f114", label: "Admin" },
-  CS: { color: "#10b981", bg: "#10b98114", label: "CS担当" },
-  閲覧: { color: "#64748b", bg: "#64748b14", label: "閲覧のみ" },
+const SCOPE_LABEL: Record<ProgramScopeRole, string> = {
+  viewer: "閲覧",
+  editor: "項目編集",
+  template_editor: "テンプレ編集"
 };
 
-const roles: { name: Role; description: string; capabilities: string[] }[] = [
-  {
-    name: "Admin",
-    description: "全機能へのアクセス・ユーザー管理・マスタ設定が可能",
-    capabilities: ["ユーザー管理", "研修マスタ編集", "全社データ閲覧・編集"],
-  },
-  {
-    name: "CS",
-    description: "担当企業のカルテ管理・週次レビュー・契約更新の起票が可能",
-    capabilities: ["担当企業の編集", "週次レビュー入力", "更新提案の起票"],
-  },
-  {
-    name: "閲覧",
-    description: "全データの閲覧のみ可能。編集・削除は不可",
-    capabilities: ["全社データ閲覧", "レポート出力"],
-  },
-];
+const SCOPE_TONE: Record<ProgramScopeRole, string> = {
+  viewer: "bg-ink-50 text-ink-600 border-ink-100",
+  editor: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  template_editor: "bg-indigo-50 text-indigo-700 border-indigo-100"
+};
 
 function initials(name: string) {
-  const parts = name.split(/\s+/);
-  if (parts.length >= 2) return parts[0][0] + parts[1][0];
   return name.slice(0, 2);
 }
 
-export default function UsersSettingsPage() {
-  const total = users.length;
-  const adminCount = users.filter((u) => u.role === "Admin").length;
-  const activeCount = users.filter((u) => u.lastLogin >= "2026-03-26").length;
+export default async function UsersSettingsPage() {
+  const ctx = await getPermissionContext();
+  if (!canManageUsers(ctx)) {
+    redirect("/settings");
+  }
+
+  const [allUsers, programRoles, allCompanies] = await Promise.all([
+    userRepo.list({ activeOnly: false }),
+    userProgramRoleRepo.list(),
+    companyRepo.list()
+  ]);
+  const accessByUser = new Map<string, number>();
+  await Promise.all(
+    allUsers
+      .filter((u) => u.role === "external")
+      .map(async (u) => {
+        const list = await userCompanyAccessRepo.listByUser(u.id);
+        accessByUser.set(u.id, list.length);
+      })
+  );
+
+  const programRolesByUser = new Map<string, typeof programRoles>();
+  for (const r of programRoles) {
+    const arr = programRolesByUser.get(r.userId) ?? [];
+    arr.push(r);
+    programRolesByUser.set(r.userId, arr);
+  }
+
+  const internalUsers = allUsers.filter((u) => u.role !== "external");
+  const externalUsers = allUsers.filter((u) => u.role === "external");
+
+  const total = allUsers.length;
+  const adminCount = allUsers.filter((u) => u.role === "admin").length;
+  const externalCount = externalUsers.length;
 
   return (
     <>
-      <TopNav current="/settings" />
+      <TopNavServer current="/settings" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
         <section>
           <div className="flex items-center gap-2 text-xs text-ink-500 font-medium">
@@ -155,59 +97,33 @@ export default function UsersSettingsPage() {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">ユーザー管理</h1>
               <div className="mt-1 text-sm text-ink-500">
-                CS担当者・管理者・閲覧ユーザーの追加と権限ロールを設定
+                グローバルロールと事業×スコープロールを管理（Admin のみ）
               </div>
             </div>
             <button
               type="button"
               disabled
-              title="準備中: ユーザー招待は別途実装予定 (Supabase Auth admin invite)"
+              title="準備中: Supabase Auth admin invite と連動"
               className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
             >
-              + ユーザーを追加（準備中）
+              + ユーザー招待（準備中）
             </button>
           </div>
         </section>
 
         <section>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="liquid-surface p-6">
-              <div className="text-xs text-ink-500">合計ユーザー数</div>
-              <div className="mt-2 text-3xl font-bold text-ink-900">{total}</div>
-              <div className="mt-1 text-[11px] text-ink-500">アクティブアカウント</div>
-            </div>
-            <div className="liquid-surface p-6">
-              <div className="text-xs text-ink-500">Admin数</div>
-              <div className="mt-2 text-3xl font-bold" style={{ color: "#6366f1" }}>{adminCount}</div>
-              <div className="mt-1 text-[11px] text-ink-500">マスタ編集権限保有</div>
-            </div>
-            <div className="liquid-surface p-6">
-              <div className="text-xs text-ink-500">直近30日アクティブ数</div>
-              <div className="mt-2 text-3xl font-bold" style={{ color: "#10b981" }}>{activeCount}</div>
-              <div className="mt-1 text-[11px] text-ink-500">過去30日以内にログイン</div>
-            </div>
+            <Stat label="合計ユーザー" value={total} sub="アクティブ含む" />
+            <Stat label="Admin" value={adminCount} sub="全社編集権限" tone="#6366f1" />
+            <Stat label="外部ユーザー" value={externalCount} sub="契約企業のみアクセス" tone="#F59E0B" />
           </div>
         </section>
 
+        {/* 社内ユーザー */}
         <section className="liquid-surface p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-ink-900">ユーザー一覧</h2>
-              <div className="text-xs text-ink-500 mt-0.5">{total}名のユーザーが登録されています</div>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <input
-                type="search"
-                placeholder="名前・メールで検索"
-                className="px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 text-ink-700 placeholder:text-ink-500 focus:outline-none focus:border-ink-700 w-56"
-              />
-              <select className="px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 text-ink-700">
-                <option>全ロール</option>
-                <option>Admin</option>
-                <option>CS担当</option>
-                <option>閲覧のみ</option>
-              </select>
-            </div>
+            <h2 className="text-lg font-bold text-ink-900">社内ユーザー</h2>
+            <span className="text-xs text-ink-500">{internalUsers.length}名</span>
           </div>
 
           <div className="mt-5 overflow-hidden rounded-2xl border border-ink-100">
@@ -218,108 +134,217 @@ export default function UsersSettingsPage() {
                   <th className="text-left font-medium px-2 py-3">名前</th>
                   <th className="text-left font-medium px-4 py-3">メール</th>
                   <th className="text-left font-medium px-4 py-3">ロール</th>
-                  <th className="text-right font-medium px-4 py-3">担当社数</th>
-                  <th className="text-left font-medium px-4 py-3">最終ログイン</th>
+                  <th className="text-left font-medium px-4 py-3">担当事業 × スコープ</th>
                   <th className="text-right font-medium px-4 py-3">操作</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => {
-                  const r = roleStyle[u.role];
-                  return (
-                    <tr key={u.id} className="border-t border-ink-100 hover:bg-ink-50/40">
-                      <td className="px-4 py-3">
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                          style={{ background: u.color }}
-                        >
-                          {initials(u.name)}
-                        </div>
-                      </td>
-                      <td className="px-2 py-3 font-medium text-ink-900">{u.name}</td>
-                      <td className="px-4 py-3 text-ink-700">{u.email}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full"
-                          style={{ color: r.color, background: r.bg }}
-                        >
-                          {r.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-ink-700 font-medium tabular-nums">
-                        {u.assignedCount > 0 ? `${u.assignedCount}社` : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-ink-700 tabular-nums">{u.lastLogin}</td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/settings/users/${u.id}`}
-                          className="text-xs text-ink-700 hover:text-ink-900 mr-3"
-                        >
-                          詳細
-                        </Link>
-                        <Link
-                          href={`/settings/users/${u.id}#disable`}
-                          className="text-xs text-rose-600 hover:text-rose-700"
-                        >
-                          無効化
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {internalUsers.map((u) => (
+                  <UserRow
+                    key={u.id}
+                    user={u}
+                    programRoles={programRolesByUser.get(u.id) ?? []}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
         </section>
 
-        <section>
-          <div className="flex items-end justify-between mb-3">
+        {/* 外部ユーザー */}
+        <section className="liquid-surface p-6">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-ink-900">ロール一覧</h2>
-              <div className="text-xs text-ink-500 mt-0.5">3種類のロールに権限が紐づいています</div>
+              <h2 className="text-lg font-bold text-ink-900">外部ユーザー</h2>
+              <div className="text-xs text-ink-500 mt-0.5">
+                契約中企業のみ閲覧/進捗編集可。メール+パスワードでログイン
+              </div>
             </div>
-            <span
-              title="準備中: 権限定義の編集は別途実装予定"
-              className="text-xs text-ink-400 cursor-not-allowed"
-            >
-              権限定義を編集（準備中）
-            </span>
+            <InviteExternalDialog
+              companies={allCompanies.map((c) => ({ id: c.id, name: c.name }))}
+              products={products.map((p) => ({
+                code: p.code,
+                name: p.name,
+                shortName: p.shortName,
+                accent: p.accent
+              }))}
+            />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {roles.map((r) => {
-              const s = roleStyle[r.name];
-              return (
-                <div key={r.name} className="liquid-surface p-6">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                      style={{ color: s.color, background: s.bg }}
-                    >
-                      {s.label}
-                    </span>
+
+          {externalUsers.length === 0 ? (
+            <div className="mt-4 rounded-xl border border-dashed border-ink-200 px-4 py-8 text-center text-sm text-ink-500">
+              外部ユーザーはまだ登録されていません
+            </div>
+          ) : (
+            <ul className="mt-4 divide-y divide-ink-100">
+              {externalUsers.map((u) => (
+                <li key={u.id} className="py-3 flex items-center gap-4">
+                  <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">
+                    {initials(u.name)}
                   </div>
-                  <div className="mt-3 text-sm text-ink-700 leading-relaxed">{r.description}</div>
-                  <ul className="mt-4 space-y-1.5">
-                    {r.capabilities.map((c) => (
-                      <li key={c} className="text-xs text-ink-700 flex items-start gap-2">
-                        <span
-                          className="inline-block w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-                          style={{ background: s.color }}
-                        />
-                        <span>{c}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-ink-900">{u.name}</div>
+                    <div className="text-xs text-ink-500">{u.email}</div>
+                  </div>
+                  <div className="text-xs text-ink-700">
+                    閲覧可能 {accessByUser.get(u.id) ?? 0} 社
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* ロール定義 */}
+        <section>
+          <h2 className="text-lg font-bold text-ink-900 mb-3">ロール定義</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <RoleCard
+              role="admin"
+              description="NEO 全体の編集・ユーザー管理・全社共通マスタの変更が可能"
+              capabilities={["ユーザー追加削除", "全事業のテンプレ編集", "全社マスタ変更", "Manager/Member 表示切替"]}
+            />
+            <RoleCard
+              role="manager"
+              description="担当事業の全体把握・横断分析。マネージャー専用画面が表示される"
+              capabilities={["事業全体の進捗・アラート閲覧", "契約更新サマリー", "担当事業のスコープ権限に従い編集"]}
+            />
+            <RoleCard
+              role="member"
+              description="担当事業内の実務担当。スコープロール（viewer/editor/template_editor）に従う"
+              capabilities={["担当事業の進捗更新", "週次入力", "担当社のカルテ編集"]}
+            />
+            <RoleCard
+              role="external"
+              description="契約中の特定企業のみ閲覧/進捗編集が可能。横断画面は非表示"
+              capabilities={["許可された企業のみ閲覧", "進捗編集", "テンプレ・他社情報は不可"]}
+            />
           </div>
         </section>
 
         <footer className="pt-8 pb-4 text-center text-[11px] text-ink-500">
-          NEO CS v2 — ユーザー管理 / ダミーデータ
+          NEO CS v2 — ユーザー管理
         </footer>
       </main>
     </>
+  );
+}
+
+function UserRow({
+  user,
+  programRoles
+}: {
+  user: AppUser;
+  programRoles: { productCode: string; scopeRole: ProgramScopeRole }[];
+}) {
+  const style = ROLE_STYLE[user.role];
+  return (
+    <tr className="border-t border-ink-100 hover:bg-ink-50/40">
+      <td className="px-4 py-3">
+        <div className="w-9 h-9 rounded-full bg-ink-100 text-ink-700 flex items-center justify-center text-xs font-bold">
+          {initials(user.name)}
+        </div>
+      </td>
+      <td className="px-2 py-3 font-medium text-ink-900">{user.name}</td>
+      <td className="px-4 py-3 text-ink-700">{user.email}</td>
+      <td className="px-4 py-3">
+        <span
+          className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full"
+          style={{ color: style.color, background: style.bg }}
+        >
+          {style.label}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        {user.role === "admin" ? (
+          <span className="text-xs text-ink-500">全事業（暗黙）</span>
+        ) : programRoles.length === 0 ? (
+          <span className="text-xs text-ink-400">未割当</span>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {programRoles.map((pr) => {
+              const product = productByCode[pr.productCode as keyof typeof productByCode];
+              return (
+                <span
+                  key={pr.productCode}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] ${SCOPE_TONE[pr.scopeRole]}`}
+                >
+                  <span className="font-medium">{product?.shortName ?? pr.productCode}</span>
+                  <span>·</span>
+                  <span>{SCOPE_LABEL[pr.scopeRole]}</span>
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </td>
+      <td className="px-4 py-3 text-right">
+        <div className="inline-flex items-center gap-3">
+          <ImpersonateButton userId={user.id} userRole={user.role} userName={user.name} />
+          <Link
+            href={`/settings/users/${user.id}`}
+            className="text-xs text-ink-700 hover:text-ink-900"
+          >
+            編集
+          </Link>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  sub,
+  tone
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+  tone?: string;
+}) {
+  return (
+    <div className="liquid-surface p-6">
+      <div className="text-xs text-ink-500">{label}</div>
+      <div className="mt-2 text-3xl font-bold" style={tone ? { color: tone } : undefined}>
+        {value}
+      </div>
+      {sub && <div className="mt-1 text-[11px] text-ink-500">{sub}</div>}
+    </div>
+  );
+}
+
+function RoleCard({
+  role,
+  description,
+  capabilities
+}: {
+  role: AppUserRole;
+  description: string;
+  capabilities: string[];
+}) {
+  const s = ROLE_STYLE[role];
+  return (
+    <div className="liquid-surface p-6">
+      <span
+        className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+        style={{ color: s.color, background: s.bg }}
+      >
+        {s.label}
+      </span>
+      <div className="mt-3 text-sm text-ink-700 leading-relaxed">{description}</div>
+      <ul className="mt-4 space-y-1.5">
+        {capabilities.map((c) => (
+          <li key={c} className="text-xs text-ink-700 flex items-start gap-2">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
+              style={{ background: s.color }}
+            />
+            <span>{c}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

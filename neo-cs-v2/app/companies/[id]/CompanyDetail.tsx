@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ProductBadge } from "@/components/ProductBadge";
 import { WeeklyReviewPanel } from "./WeeklyReviewPanel";
@@ -9,6 +10,12 @@ import type { CompanyTask } from "@/lib/repository/types";
 import type {
   Company,
   Contact,
+  ContactRole,
+  ContactRoleScope,
+  ContactRoleLevel,
+  ContactFunction,
+  ContactCommunityTier,
+  ContactPersonality,
   MeetingLog
 } from "@/lib/mock/entities";
 // コース表示に対応
@@ -35,6 +42,23 @@ import {
   generateRenewalMilestones,
   renewalMilestoneSpec
 } from "@/lib/mock/cycles";
+import type {
+  CompanyJourney,
+  BusinessJourney,
+  JourneyStageDefinition
+} from "@/lib/repository/types";
+import type { JourneySuggestion } from "@/lib/domain/journey";
+import { JourneyStageBar } from "@/components/JourneyStageBar";
+import { KaruteNoBadge } from "@/components/KaruteNoBadge";
+import { HyogikaiMembershipBadge } from "@/components/HyogikaiMembershipBadge";
+import {
+  getHyogikaiMembership,
+  getHyogikaiMemberSince
+} from "@/lib/domain/hyogikai-membership";
+import {
+  setCompanyJourneyStageAction,
+  setBusinessJourneyStageAction
+} from "./journey-actions";
 import { companyHealthColor } from "@/lib/mock/health";
 import { computeFromContract } from "@/lib/domain/health";
 import { HealthExplain } from "@/components/HealthExplain";
@@ -72,6 +96,19 @@ type HealthColor = "green" | "yellow" | "red";
 
 type Tab = "overview" | "tasks" | "weekly" | "contracts" | "logs" | "onboarding" | "surveys" | "engagement" | "mail";
 
+/**
+ * 進捗系タブ（担当事業の契約がない or 担当外事業のみの企業では非表示にする）
+ * 概要 / 契約・更新 / メール は常に表示（基本情報や閲覧用途）
+ */
+const PROGRESS_TABS: ReadonlySet<Tab> = new Set([
+  "tasks",
+  "weekly",
+  "logs",
+  "onboarding",
+  "surveys",
+  "engagement"
+]);
+
 const tabs: { key: Tab; label: string }[] = [
   { key: "overview", label: "概要" },
   { key: "tasks", label: "業務ToDo" },
@@ -93,6 +130,8 @@ function healthLabel(color: HealthColor) {
 }
 
 export function CompanyDetail({
+  viewerRole,
+  accessibleProductCodes = [],
   company,
   contacts,
   logs,
@@ -104,8 +143,18 @@ export function CompanyDetail({
   journeys,
   tasks = [],
   members = [],
-  engagementByStakeholder = {}
+  engagementByStakeholder = {},
+  companyJourney = null,
+  businessJourneys = [],
+  companyStageDefs = [],
+  businessStageDefs = [],
+  companySuggestion,
+  businessSuggestions = {}
 }: {
+  /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
+  viewerRole?: string;
+  /** 閲覧者が担当する事業 productCode 一覧（admin は全 product） */
+  accessibleProductCodes?: string[];
   company: Company;
   contacts: Contact[];
   logs: MeetingLog[];
@@ -118,8 +167,32 @@ export function CompanyDetail({
   tasks?: CompanyTask[];
   members?: { id: string; name: string }[];
   engagementByStakeholder?: Record<string, StakeholderEngagementMetrics>;
+  companyJourney?: CompanyJourney | null;
+  businessJourneys?: BusinessJourney[];
+  companyStageDefs?: JourneyStageDefinition[];
+  businessStageDefs?: JourneyStageDefinition[];
+  companySuggestion?: JourneySuggestion;
+  businessSuggestions?: Record<string, JourneySuggestion>;
 }) {
-  const [tab, setTab] = useState<Tab>("overview");
+  // 担当事業との重複で進捗系タブを表示するか判定
+  // - admin: 常に表示
+  // - external: 自身の company access があるならこのページに来られている時点で OK だが、
+  //   進捗編集系のみ許可
+  // - manager/member: 企業の契約のうち、担当事業の契約があれば表示
+  const companyProductCodes = Array.from(new Set(allCycles.map((c) => c.product as string)));
+  const hasAssignedContract =
+    viewerRole === "admin" ||
+    viewerRole === "external" ||
+    companyProductCodes.some((pc) => accessibleProductCodes.includes(pc));
+  const visibleTabs = tabs.filter((t) => {
+    if (PROGRESS_TABS.has(t.key) && !hasAssignedContract) return false;
+    return true;
+  });
+
+  const [tab, setTab] = useState<Tab>(visibleTabs[0]?.key ?? "overview");
+  const [contactList, setContactList] = useState<Contact[]>(contacts);
+  const updateContact = (next: Contact) =>
+    setContactList((prev) => prev.map((c) => (c.id === next.id ? next : c)));
   const healthColor: HealthColor = companyHealthColor(company.id);
 
   return (
@@ -148,7 +221,12 @@ export function CompanyDetail({
         />
         <div className="relative flex items-start justify-between gap-6">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs text-ink-500">
+            <div className="flex items-center flex-wrap gap-2 text-xs text-ink-500">
+              <KaruteNoBadge companyId={company.id} karuteNo={company.karuteNo} />
+              <HyogikaiMembershipBadge
+                membership={getHyogikaiMembership(allCycles)}
+                memberSince={getHyogikaiMemberSince(allCycles)}
+              />
               <span>{company.industry}</span>
               {company.group && (
                 <>
@@ -222,7 +300,7 @@ export function CompanyDetail({
 
       {/* タブ */}
       <nav className="flex items-center gap-1 border-b border-ink-100">
-        {tabs.map((t) => {
+        {visibleTabs.map((t) => {
           const active = tab === t.key;
           return (
             <button
@@ -243,7 +321,22 @@ export function CompanyDetail({
 
       {/* タブコンテンツ */}
       {tab === "overview" && (
-        <OverviewTab company={company} contacts={contacts} contracts={contracts} journeys={journeys} stakeholders={stakeholders} engagementByStakeholder={engagementByStakeholder} companyId={company.id} />
+        <OverviewTab
+          company={company}
+          contacts={contactList}
+          onUpdateContact={updateContact}
+          contracts={contracts}
+          journeys={journeys}
+          stakeholders={stakeholders}
+          engagementByStakeholder={engagementByStakeholder}
+          companyId={company.id}
+          companyJourney={companyJourney}
+          businessJourneys={businessJourneys}
+          companyStageDefs={companyStageDefs}
+          businessStageDefs={businessStageDefs}
+          companySuggestion={companySuggestion}
+          businessSuggestions={businessSuggestions}
+        />
       )}
       {tab === "tasks" && (
         <CompanyTasksSection
@@ -274,24 +367,50 @@ export function CompanyDetail({
 function OverviewTab({
   company,
   contacts,
+  onUpdateContact,
   contracts,
   journeys,
   stakeholders,
   engagementByStakeholder,
-  companyId
+  companyId,
+  companyJourney,
+  businessJourneys,
+  companyStageDefs,
+  businessStageDefs,
+  companySuggestion,
+  businessSuggestions
 }: {
   company: Company;
   contacts: Contact[];
+  onUpdateContact: (next: Contact) => void;
   contracts: ActiveContract[];
   journeys: AccountJourney[];
   stakeholders: Stakeholder[];
   engagementByStakeholder: Record<string, StakeholderEngagementMetrics>;
   companyId: string;
+  companyJourney: CompanyJourney | null;
+  businessJourneys: BusinessJourney[];
+  companyStageDefs: JourneyStageDefinition[];
+  businessStageDefs: JourneyStageDefinition[];
+  companySuggestion?: JourneySuggestion;
+  businessSuggestions: Record<string, JourneySuggestion>;
 }) {
   return (
     <section className="space-y-4">
-      <AccountJourneySection journeys={journeys} />
-      <StakeholderSection stakeholders={stakeholders} engagementByStakeholder={engagementByStakeholder} companyId={companyId} />
+      <CompanyJourneySection
+        companyId={companyId}
+        companyJourney={companyJourney}
+        stageDefs={companyStageDefs}
+        suggestion={companySuggestion}
+      />
+      <BusinessJourneyGroupSection
+        companyId={companyId}
+        contracts={contracts}
+        businessJourneys={businessJourneys}
+        stageDefs={businessStageDefs}
+        suggestions={businessSuggestions}
+      />
+      {/* 関係者マップは「企業側の担当者」組織図に統合 */}
       <CustomerJourneySection contracts={contracts} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 左: 企業情報 */}
@@ -334,37 +453,50 @@ function OverviewTab({
       </div>
 
       {/* 右: 担当者 */}
-      <div className="liquid-surface p-5 space-y-3">
+      <div className="liquid-surface p-5 space-y-4">
         <div className="text-sm font-semibold text-ink-700">企業側の担当者</div>
         {contacts.length === 0 && (
           <div className="text-sm text-ink-500">登録された担当者はいません</div>
         )}
-        <div className="space-y-3">
-          {contacts.map((c) => (
-            <div
-              key={c.id}
-              className="rounded-xl border border-ink-100 p-3 bg-white"
-            >
-              <div className="flex items-center gap-2">
-                <div className="text-sm font-semibold text-ink-900">{c.name}</div>
-                {c.isPrimary && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
-                    主担当
-                  </span>
-                )}
-              </div>
-              <div className="text-[11px] text-ink-500 mt-0.5">
-                {c.department} ・ {c.title}
-              </div>
-              <div className="text-xs text-ink-700 mt-1.5">{c.email}</div>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {c.products.map((p) => (
-                  <ProductBadge key={p} code={p} size="sm" />
-                ))}
-              </div>
+        {contacts.length > 0 && (
+          <ContactOrgTree contacts={contacts} onUpdate={onUpdateContact} />
+        )}
+        {contacts.length > 0 && (
+          <details className="group">
+            <summary className="cursor-pointer text-[11px] text-ink-500 hover:text-ink-700 select-none">
+              ▸ 一覧表示（{contacts.length}名）
+            </summary>
+            <div className="mt-3 space-y-3">
+              {contacts.map((c) => (
+                <div
+                  key={c.id}
+                  className="rounded-xl border border-ink-100 p-3 bg-white"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="text-sm font-semibold text-ink-900">{c.name}</div>
+                    {c.isPrimary && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
+                        主担当
+                      </span>
+                    )}
+                    {(c.functions ?? []).map((f) => (
+                      <FunctionBadge key={f} fn={f} />
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-ink-500 mt-0.5">
+                    {c.department} ・ {c.title}
+                  </div>
+                  <div className="text-xs text-ink-700 mt-1.5">{c.email}</div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {c.products.map((p) => (
+                      <ProductBadge key={p} code={p} size="sm" />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </details>
+        )}
       </div>
       </div>
     </section>
@@ -919,6 +1051,127 @@ function AccountJourneySection({ journeys }: { journeys: AccountJourney[] }) {
   );
 }
 
+/* ──────────────── 企業ジャーニー (会社単位・永続) ──────────────── */
+function CompanyJourneySection({
+  companyId,
+  companyJourney,
+  stageDefs,
+  suggestion
+}: {
+  companyId: string;
+  companyJourney: CompanyJourney | null;
+  stageDefs: JourneyStageDefinition[];
+  suggestion?: JourneySuggestion;
+}) {
+  if (stageDefs.length === 0) return null;
+  return (
+    <JourneyStageBar
+      title="企業ジャーニー"
+      subtitle="この企業のNEOへの関わり方 (会社単位・永続)"
+      customizeHref="/settings/journey-stages?type=company"
+      stages={stageDefs}
+      currentStageKey={companyJourney?.currentStageKey ?? null}
+      stageEnteredAt={companyJourney?.stageEnteredAt}
+      suggestion={suggestion}
+      warnOnRegression={true}
+      onChangeStage={async (input) => {
+        const r = await setCompanyJourneyStageAction({
+          companyId,
+          toStageKey: input.toStageKey,
+          acknowledgeRegression: input.acknowledgeRegression,
+          note: input.note
+        });
+        return r;
+      }}
+    />
+  );
+}
+
+/* ──────────────── 事業ジャーニー (商材×期 単位) ──────────────── */
+function BusinessJourneyGroupSection({
+  companyId,
+  contracts,
+  businessJourneys,
+  stageDefs,
+  suggestions
+}: {
+  companyId: string;
+  contracts: ActiveContract[];
+  businessJourneys: BusinessJourney[];
+  stageDefs: JourneyStageDefinition[];
+  suggestions: Record<string, JourneySuggestion>;
+}) {
+  if (contracts.length === 0 || stageDefs.length === 0) return null;
+  return (
+    <div className="liquid-surface p-5">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="text-sm font-semibold text-ink-700">事業ジャーニー</div>
+          <div className="mt-0.5 text-[11px] text-ink-500">
+            事業 (商材×期) ごとの契約更新+アップセルへの進捗
+          </div>
+        </div>
+        <a
+          href="/settings/journey-stages?type=business"
+          className="text-[11px] text-ink-500 hover:text-ink-700 underline-offset-2 hover:underline"
+        >
+          ステージをカスタム
+        </a>
+      </div>
+      <div className="space-y-4">
+        {contracts.map((c) => {
+          const bj = businessJourneys.find((b) => b.contractId === c.id) ?? null;
+          const product = productByCode[c.product];
+          const cycle = cycleLabel(c.product, c.cycleNumber);
+          return (
+            <div
+              key={c.id}
+              className="rounded-xl border border-ink-100 bg-white p-3"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <ProductBadge code={c.product} size="sm" />
+                <span className="text-[12px] font-semibold text-ink-800">
+                  {product.name}
+                </span>
+                <span className="text-[11px] text-ink-500">
+                  {c.courseKey ? courseShortName(c.product, c.courseKey) : "-"}
+                </span>
+                <span className="ml-1 px-1.5 py-0.5 rounded bg-ink-50 text-[10px] text-ink-700 border border-ink-100">
+                  {cycle}
+                </span>
+                {c.endDate && (
+                  <span className="ml-auto text-[10px] text-ink-500">
+                    契約終了 {c.endDate}
+                  </span>
+                )}
+              </div>
+              <JourneyStageBar
+                title=""
+                customizeHref="/settings/journey-stages?type=business"
+                stages={stageDefs}
+                currentStageKey={bj?.currentStageKey ?? null}
+                stageEnteredAt={bj?.stageEnteredAt}
+                suggestion={suggestions[c.id]}
+                warnOnRegression={false}
+                onChangeStage={async (input) => {
+                  const r = await setBusinessJourneyStageAction({
+                    contractId: c.id,
+                    companyId,
+                    toStageKey: input.toStageKey,
+                    acknowledgeRegression: input.acknowledgeRegression,
+                    note: input.note
+                  });
+                  return r;
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ──────────────── ステークホルダー ──────────────── */
 function StakeholderSection({
   stakeholders,
@@ -1137,10 +1390,50 @@ function ChurnModal({
   const [verifiedByCustomer, setVerifiedByCustomer] = useState<boolean>(
     existing?.verifiedByCustomer ?? false
   );
+  // アカデミア解約時のみ「評議会単独契約に切替」オプションを表示
+  const isAcademia = contract.product === "academia";
+  const [switchToHyogikai, setSwitchToHyogikai] = useState<boolean>(false);
+  const [hyogikaiStart, setHyogikaiStart] = useState<string>(churnedAt);
+  const [hyogikaiEnd, setHyogikaiEnd] = useState<string>(() => {
+    const d = new Date(churnedAt);
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [hyogikaiMrr, setHyogikaiMrr] = useState<number>(150_000);
+  const [switchPending, setSwitchPending] = useState<boolean>(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // ⚠️ 実際の Contract.status 更新は別実装。ここでは ChurnRecord のみを保持
+    if (isAcademia && switchToHyogikai) {
+      setSwitchPending(true);
+      setSwitchError(null);
+      try {
+        const { switchAcademiaToHyogikaiAction } = await import(
+          "./hyogikai-switch-actions"
+        );
+        const r = await switchAcademiaToHyogikaiAction({
+          academiaContractId: contract.id,
+          companyId: contract.companyId,
+          newStartDate: hyogikaiStart,
+          newEndDate: hyogikaiEnd,
+          mrr: hyogikaiMrr,
+          ownerName: contract.ownerName,
+          participants: contract.participants
+        });
+        if (!r.ok) {
+          setSwitchError(r.message);
+          setSwitchPending(false);
+          return;
+        }
+      } catch (err) {
+        setSwitchError((err as Error).message);
+        setSwitchPending(false);
+        return;
+      }
+      setSwitchPending(false);
+    }
+    // ⚠️ 通常の解約レコード保存
     onSave({
       contractId: contract.id,
       churnedAt,
@@ -1235,6 +1528,61 @@ function ChurnModal({
               </span>
             </label>
 
+            {isAcademia && (
+              <div className="pt-3 border-t border-ink-100">
+                <label className="inline-flex items-start gap-2 text-body text-ink-700 cursor-pointer mb-2">
+                  <input
+                    type="checkbox"
+                    checked={switchToHyogikai}
+                    onChange={(e) => setSwitchToHyogikai(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded accent-violet-600"
+                  />
+                  <span>
+                    <span className="font-medium">解約後に評議会単独契約へ切替</span>
+                    <span className="text-caption text-ink-500 block">
+                      アカデミア期間中も評議会に参加していたため、会員資格は継続扱い。新規契約として作成します。
+                    </span>
+                  </span>
+                </label>
+                {switchToHyogikai && (
+                  <div className="ml-6 space-y-2 rounded-lg bg-violet-50/50 border border-violet-200 p-3">
+                    <Field label="評議会単独契約 開始日" required>
+                      <input
+                        type="date"
+                        required
+                        value={hyogikaiStart}
+                        onChange={(e) => setHyogikaiStart(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white"
+                      />
+                    </Field>
+                    <Field label="評議会単独契約 終了日" required>
+                      <input
+                        type="date"
+                        required
+                        value={hyogikaiEnd}
+                        onChange={(e) => setHyogikaiEnd(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white"
+                      />
+                    </Field>
+                    <Field label="評議会単独 MRR (円)">
+                      <input
+                        type="number"
+                        min={0}
+                        value={hyogikaiMrr}
+                        onChange={(e) => setHyogikaiMrr(Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm bg-white"
+                      />
+                    </Field>
+                    {switchError && (
+                      <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded p-2">
+                        {switchError}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="pt-3 border-t border-ink-100">
               <div className="text-xs font-semibold text-ink-700 mb-3">次回接触（任意）</div>
               <Field label="次回接触予定日">
@@ -1268,9 +1616,10 @@ function ChurnModal({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:opacity-90"
+              disabled={switchPending}
+              className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:opacity-90 disabled:opacity-50"
             >
-              保存
+              {switchPending ? "切替処理中..." : "保存"}
             </button>
           </div>
         </form>
@@ -1983,5 +2332,523 @@ function MailTab({ companyId }: { companyId: string }) {
         })}
       </ul>
     </section>
+  );
+}
+
+// =====================================================================
+// 担当者の組織図（樹形図）
+// scope（NEO全体 / 各事業）× level（役員/決裁者/責任者/担当者）で配置。
+// 兼務は同一人物が複数 scope/level に出現する形で自然表現する。
+// =====================================================================
+
+const ROLE_LEVEL_META: Record<ContactRoleLevel, { label: string; tone: string }> = {
+  executive: { label: "担当役員", tone: "bg-purple-50 border-purple-200 text-purple-800" },
+  approver:  { label: "決裁者",   tone: "bg-rose-50 border-rose-200 text-rose-800" },
+  lead:      { label: "担当責任者", tone: "bg-amber-50 border-amber-200 text-amber-800" },
+  member:    { label: "担当者",   tone: "bg-sky-50 border-sky-200 text-sky-800" }
+};
+const ROLE_LEVEL_ORDER: ContactRoleLevel[] = ["executive", "approver", "lead", "member"];
+
+const FUNCTION_META: Record<ContactFunction, { label: string; tone: string }> = {
+  contract:   { label: "契約",   tone: "bg-emerald-50 border-emerald-200 text-emerald-700" },
+  pr:         { label: "広報",   tone: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700" },
+  invitation: { label: "招待",   tone: "bg-cyan-50 border-cyan-200 text-cyan-700" },
+  liaison:    { label: "連絡",   tone: "bg-slate-50 border-slate-200 text-slate-700" }
+};
+
+const COMMUNITY_META: Record<ContactCommunityTier, { label: string; tone: string; dot: string }> = {
+  core:    { label: "コア",     tone: "bg-amber-100 text-amber-900 border-amber-300",   dot: "#D97706" },
+  active:  { label: "アクティブ", tone: "bg-sky-100 text-sky-800 border-sky-200",         dot: "#0EA5E9" },
+  casual:  { label: "カジュアル", tone: "bg-emerald-100 text-emerald-800 border-emerald-200", dot: "#10B981" },
+  at_risk: { label: "離脱危機",   tone: "bg-rose-100 text-rose-800 border-rose-200",       dot: "#E11D48" }
+};
+
+const PERSONALITY_META: Record<ContactPersonality, { label: string; tone: string }> = {
+  playful_leader:  { label: "Playfulリーダー", tone: "bg-violet-50 text-violet-800 border-violet-200" },
+  playful_thinker: { label: "Playfulシンカー", tone: "bg-indigo-50 text-indigo-800 border-indigo-200" },
+  narepan:         { label: "ナレパン",        tone: "bg-orange-50 text-orange-800 border-orange-200" },
+  gardon:          { label: "ガードン",        tone: "bg-stone-100 text-stone-800 border-stone-300" }
+};
+
+function FunctionBadge({ fn }: { fn: ContactFunction }) {
+  const m = FUNCTION_META[fn];
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${m.tone}`}>
+      {m.label}
+    </span>
+  );
+}
+
+function scopeLabel(scope: ContactRoleScope): string {
+  if (scope === "overall") return "NEO全体";
+  return productByCode[scope]?.shortName ?? scope;
+}
+
+function scopeAccent(scope: ContactRoleScope): string {
+  if (scope === "overall") return "#475569";
+  return productByCode[scope]?.accent ?? "#475569";
+}
+
+function ContactOrgTree({
+  contacts,
+  onUpdate
+}: {
+  contacts: Contact[];
+  onUpdate: (next: Contact) => void;
+}) {
+  const [editing, setEditing] = useState<Contact | null>(null);
+  // 出現するすべての scope を「overall → 各事業」順で抽出
+  const scopes: ContactRoleScope[] = [];
+  const seen = new Set<ContactRoleScope>();
+  for (const c of contacts) {
+    for (const r of c.roles ?? []) {
+      if (!seen.has(r.scope)) {
+        seen.add(r.scope);
+        scopes.push(r.scope);
+      }
+    }
+  }
+  scopes.sort((a, b) => (a === "overall" ? -1 : b === "overall" ? 1 : 0));
+
+  if (scopes.length === 0) {
+    return (
+      <div className="text-xs text-ink-500">
+        担当ロール未登録です（一覧表示で確認してください）
+      </div>
+    );
+  }
+
+  const contactById = new Map(contacts.map((c) => [c.id, c]));
+
+  return (
+    <div className="space-y-3">
+      {scopes.map((scope) => {
+        // この scope のレベルごとの担当者を集める
+        const byLevel: Record<ContactRoleLevel, Contact[]> = {
+          executive: [], approver: [], lead: [], member: []
+        };
+        for (const c of contacts) {
+          for (const r of c.roles ?? []) {
+            if (r.scope === scope && contactById.has(c.id)) {
+              if (!byLevel[r.level].some((x) => x.id === c.id)) {
+                byLevel[r.level].push(c);
+              }
+            }
+          }
+        }
+        const accent = scopeAccent(scope);
+        return (
+          <div
+            key={scope}
+            className="rounded-xl border bg-white p-3"
+            style={{ borderColor: `${accent}33` }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ background: accent }}
+              />
+              <div className="text-xs font-semibold" style={{ color: accent }}>
+                {scopeLabel(scope)}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {ROLE_LEVEL_ORDER.map((lv) => {
+                const people = byLevel[lv];
+                if (people.length === 0) return null;
+                const meta = ROLE_LEVEL_META[lv];
+                return (
+                  <div key={lv} className="flex items-start gap-2">
+                    <span
+                      className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border ${meta.tone}`}
+                      style={{ minWidth: 60, textAlign: "center" }}
+                    >
+                      {meta.label}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {people.map((c) => (
+                        <div
+                          key={c.id}
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-ink-50 border border-ink-100"
+                          title={`${c.department} ${c.title} / ${c.email}`}
+                        >
+                          {c.community && (
+                            <span
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ background: COMMUNITY_META[c.community].dot }}
+                              title={`コミュニティ関与度: ${COMMUNITY_META[c.community].label}`}
+                            />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEditing(c)}
+                            className="font-medium text-ink-900 hover:underline"
+                            title="クリックで編集"
+                          >
+                            {c.name}
+                          </button>
+                          <span className="text-ink-500">{c.title}</span>
+                          {c.community && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${COMMUNITY_META[c.community].tone}`}>
+                              {COMMUNITY_META[c.community].label}
+                            </span>
+                          )}
+                          {(c.personality ?? []).map((p) => (
+                            <span
+                              key={p}
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full border ${PERSONALITY_META[p].tone}`}
+                            >
+                              {PERSONALITY_META[p].label}
+                            </span>
+                          ))}
+                          {(c.functions ?? []).map((f) => (
+                            <FunctionBadge key={f} fn={f} />
+                          ))}
+                          <Link
+                            href={`/inbox?contact=${encodeURIComponent(c.email)}`}
+                            className="text-[10px] text-ink-500 hover:text-brand-blue underline ml-0.5"
+                            title={`${c.email} とのメールを表示`}
+                          >
+                            ✉
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => setEditing(c)}
+                            className="text-[10px] text-ink-400 hover:text-ink-700 ml-0.5"
+                            title="編集"
+                          >
+                            ✎
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {editing && (
+        <ContactEditDialog
+          contact={editing}
+          availableScopes={scopes}
+          onClose={() => setEditing(null)}
+          onSave={(next) => {
+            onUpdate(next);
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// =====================================================================
+// 担当者の編集ダイアログ
+// 関与度（コア/アクティブ/カジュアル/離脱危機）と性質タグを手動設定。
+// 関与度には自動おすすめを併記し、ワンクリック適用できる。
+// =====================================================================
+
+function ContactEditDialog({
+  contact,
+  availableScopes,
+  onClose,
+  onSave
+}: {
+  contact: Contact;
+  availableScopes: ContactRoleScope[];
+  onClose: () => void;
+  onSave: (next: Contact) => void;
+}) {
+  const [community, setCommunity] = useState<ContactCommunityTier | undefined>(
+    contact.community
+  );
+  const [personality, setPersonality] = useState<ContactPersonality[]>(
+    contact.personality ?? []
+  );
+  const togglePersonality = (p: ContactPersonality) =>
+    setPersonality((prev) =>
+      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
+    );
+  const [roles, setRoles] = useState<ContactRole[]>(contact.roles ?? []);
+  const hasRole = (scope: ContactRoleScope, level: ContactRoleLevel) =>
+    roles.some((r) => r.scope === scope && r.level === level);
+  const toggleRole = (scope: ContactRoleScope, level: ContactRoleLevel) =>
+    setRoles((prev) =>
+      prev.some((r) => r.scope === scope && r.level === level)
+        ? prev.filter((r) => !(r.scope === scope && r.level === level))
+        : [...prev, { scope, level }]
+    );
+  const [functions, setFunctions] = useState<ContactFunction[]>(
+    contact.functions ?? []
+  );
+  const toggleFunction = (f: ContactFunction) =>
+    setFunctions((prev) =>
+      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]
+    );
+  const [email, setEmail] = useState<string>(contact.email);
+  const [tel, setTel] = useState<string>(contact.tel ?? "");
+  const [department, setDepartment] = useState<string>(contact.department);
+  const [title, setTitle] = useState<string>(contact.title);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] bg-ink-900/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white shadow-xl p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-xs text-ink-500">担当者を編集</div>
+            <div className="text-lg font-semibold text-ink-900">{contact.name}</div>
+            <div className="text-[11px] text-ink-500">
+              {contact.department} ・ {contact.title}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-ink-400 hover:text-ink-700 text-lg leading-none"
+            aria-label="閉じる"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* 連絡先 */}
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-ink-700">連絡先</div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-[11px] text-ink-500">
+              メールアドレス
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-0.5 w-full rounded-lg border border-ink-200 px-2 py-1 text-sm"
+              />
+            </label>
+            <label className="block text-[11px] text-ink-500">
+              電話番号
+              <input
+                type="tel"
+                value={tel}
+                onChange={(e) => setTel(e.target.value)}
+                placeholder="090-1234-5678"
+                className="mt-0.5 w-full rounded-lg border border-ink-200 px-2 py-1 text-sm"
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-[11px] text-ink-500">
+              部署
+              <input
+                type="text"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="mt-0.5 w-full rounded-lg border border-ink-200 px-2 py-1 text-sm"
+              />
+            </label>
+            <label className="block text-[11px] text-ink-500">
+              役職
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="mt-0.5 w-full rounded-lg border border-ink-200 px-2 py-1 text-sm"
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* コミュニティ関与度 */}
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-ink-700">
+            コミュニティ関与度
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {(["core", "active", "casual", "at_risk"] as ContactCommunityTier[]).map(
+              (t) => {
+                const active = community === t;
+                const m = COMMUNITY_META[t];
+                return (
+                  <button
+                    type="button"
+                    key={t}
+                    onClick={() => setCommunity(t)}
+                    className={[
+                      "text-xs px-2.5 py-1.5 rounded-lg border text-left",
+                      active ? m.tone + " border-current" : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                    ].join(" ")}
+                  >
+                    <span
+                      className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
+                      style={{ background: m.dot }}
+                    />
+                    {m.label}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+
+        {/* 担当ロール（scope × level） */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-ink-700">担当ロール</div>
+            <div className="text-[10px] text-ink-400">
+              スコープ × 役割でチェック（兼務可）
+            </div>
+          </div>
+          <div className="rounded-lg border border-ink-100 overflow-hidden">
+            <table className="w-full text-[11px]">
+              <thead className="bg-ink-50 text-ink-600">
+                <tr>
+                  <th className="text-left px-2 py-1 font-medium">スコープ</th>
+                  {ROLE_LEVEL_ORDER.map((lv) => (
+                    <th key={lv} className="px-1 py-1 font-medium text-center">
+                      {ROLE_LEVEL_META[lv].label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {availableScopes.map((scope) => (
+                  <tr key={scope} className="border-t border-ink-100">
+                    <td className="px-2 py-1">
+                      <span
+                        className="inline-flex items-center gap-1"
+                        style={{ color: scopeAccent(scope) }}
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: scopeAccent(scope) }}
+                        />
+                        {scopeLabel(scope)}
+                      </span>
+                    </td>
+                    {ROLE_LEVEL_ORDER.map((lv) => (
+                      <td key={lv} className="px-1 py-1 text-center">
+                        <input
+                          type="checkbox"
+                          checked={hasRole(scope, lv)}
+                          onChange={() => toggleRole(scope, lv)}
+                          className="cursor-pointer"
+                          aria-label={`${scopeLabel(scope)} ${ROLE_LEVEL_META[lv].label}`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 機能タグ（契約/広報/招待/連絡） */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-ink-700">機能タグ</div>
+            <div className="text-[10px] text-ink-400">複数選択可</div>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {(["contract", "pr", "invitation", "liaison"] as ContactFunction[]).map(
+              (f) => {
+                const active = functions.includes(f);
+                const m = FUNCTION_META[f];
+                return (
+                  <button
+                    type="button"
+                    key={f}
+                    onClick={() => toggleFunction(f)}
+                    aria-pressed={active}
+                    className={[
+                      "text-xs px-2 py-1.5 rounded-lg border flex items-center justify-center gap-1",
+                      active
+                        ? m.tone + " border-current"
+                        : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                    ].join(" ")}
+                  >
+                    <span className="text-[10px]">{active ? "✓" : "　"}</span>
+                    {m.label}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+
+        {/* 性質タグ（複数選択可） */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-ink-700">性質タグ</div>
+            <div className="text-[10px] text-ink-400">
+              複数選択可（タップで切り替え）
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {(["playful_leader", "playful_thinker", "narepan", "gardon"] as ContactPersonality[]).map(
+              (p) => {
+                const active = personality.includes(p);
+                const m = PERSONALITY_META[p];
+                return (
+                  <button
+                    type="button"
+                    key={p}
+                    onClick={() => togglePersonality(p)}
+                    aria-pressed={active}
+                    className={[
+                      "text-xs px-2.5 py-1.5 rounded-lg border text-left flex items-center gap-1.5",
+                      active ? m.tone + " border-current" : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                    ].join(" ")}
+                  >
+                    <span className="text-[10px]">{active ? "✓" : "　"}</span>
+                    {m.label}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-ink-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 text-sm rounded-lg border border-ink-200 text-ink-700 hover:bg-ink-50"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSave({
+                ...contact,
+                email,
+                tel: tel.trim() ? tel.trim() : undefined,
+                department,
+                title,
+                community,
+                personality: personality.length > 0 ? personality : undefined,
+                roles: roles.length > 0 ? roles : undefined,
+                functions: functions.length > 0 ? functions : undefined
+              })
+            }
+            className="px-4 py-1.5 text-sm rounded-lg bg-ink-900 text-white hover:opacity-90"
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

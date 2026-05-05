@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { allContracts } from "@/lib/mock/onboarding";
 import { yen } from "@/lib/mock/data";
 import {
@@ -38,7 +38,7 @@ export default function ReportsPage() {
 
   return (
     <>
-      <TopNav current="/reports" />
+      <TopNavServer current="/reports" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
         <header className="flex items-baseline justify-between gap-3 flex-wrap">
           <div>

@@ -8,6 +8,7 @@ import type {
 
 // 既存 mock データ companies.ownerName から primary 担当を seed
 import { companies as seedCompanies } from "@/lib/mock/entities";
+import { useGlobalStore } from "./_global-store";
 
 const ownerNameToUserId: Record<string, string> = {
   古野: "u-furuno",
@@ -34,7 +35,9 @@ const seed: Assignment[] = seedCompanies
   })
   .filter((x): x is Assignment => x !== null);
 
-const store: Assignment[] = seed.map((a) => ({ ...a }));
+const store = useGlobalStore<Assignment[]>("__assignmentStore", () =>
+  seed.map((a) => ({ ...a }))
+);
 
 function applyFilter(list: Assignment[], f?: AssignmentFilter): Assignment[] {
   if (!f) return list;

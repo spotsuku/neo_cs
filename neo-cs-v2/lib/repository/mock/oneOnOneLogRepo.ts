@@ -1,7 +1,8 @@
 import { DEFAULT_ORG_ID } from "../types";
 import type { OneOnOneLog, OneOnOneFilter, OneOnOneLogRepo } from "../types";
+import { useGlobalStore } from "./_global-store";
 
-const store: OneOnOneLog[] = [];
+const store = useGlobalStore<OneOnOneLog[]>("__oneOnOneStore", () => []);
 
 function genId(): string {
   return `oo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

@@ -38,6 +38,7 @@ export const renewalMilestoneRepo = repo.renewalMilestones;
 export const vocItemRepo = repo.vocItems;
 export const productCourseRepo = repo.productCourses;
 export const companyTaskRepo = repo.companyTasks;
+export const programRepo = repo.programs;
 // 申し送り l〜q (N+1解消用)
 export const contactRepo = repo.contacts;
 export const meetingLogRepo = repo.meetingLogs;
@@ -45,6 +46,12 @@ export const stakeholderRepo = repo.stakeholders;
 export const accountJourneyRepo = repo.accountJourneys;
 export const onboardingItemRepo = repo.onboardingItems;
 export const successPlanRepo = repo.successPlans;
+export const journeyStageDefinitionRepo = repo.journeyStageDefinitions;
+export const companyJourneyRepo = repo.companyJourneys;
+export const businessJourneyRepo = repo.businessJourneys;
+export const userProgramRoleRepo = repo.userProgramRoles;
+export const userCompanyAccessRepo = repo.userCompanyAccess;
+export const chatRepo = repo.chats;
 
 export type { Repository } from "./types";
 export * from "./types";

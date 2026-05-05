@@ -5,6 +5,7 @@ import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { ProductBadge } from "@/components/ProductBadge";
 import { CompletenessBadge } from "@/components/CompletenessChecklistCard";
+import "@/lib/mock/karute-no-init"; // companies seed に karuteNo を付与 (side-effect)
 import { companies, contacts as allContacts } from "@/lib/mock/entities";
 import { activeContracts, contractOnboardingItems } from "@/lib/mock/onboarding";
 import { stakeholders as allStakeholders } from "@/lib/mock/cycles";
@@ -120,7 +121,15 @@ export default function CompaniesPage() {
   }, [q, health, productFilter, owner, hideDemo]);
 
   const sorted = useMemo(() => {
-    if (sortKey === "default") return filtered;
+    if (sortKey === "default") {
+      // デフォルトはカルテNo. 昇順 (= 契約順)
+      return [...filtered].sort((a, b) => {
+        const ax = a.karuteNo ?? Number.POSITIVE_INFINITY;
+        const bx = b.karuteNo ?? Number.POSITIVE_INFINITY;
+        if (ax !== bx) return ax - bx;
+        return a.id.localeCompare(b.id);
+      });
+    }
     const dir = sortKey === "completeness_asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       const sa = completenessByCompany.get(a.id) ?? 0;
@@ -272,6 +281,7 @@ export default function CompaniesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[11px] text-ink-500 border-b border-ink-100">
+                <th className="px-3 py-3 font-medium whitespace-nowrap">No.</th>
                 <th className="px-5 py-3 font-medium">企業名</th>
                 <th className="px-3 py-3 font-medium">業種</th>
                 <th className="px-3 py-3 font-medium">契約研修</th>
@@ -288,6 +298,11 @@ export default function CompaniesPage() {
                   key={c.id}
                   className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50 transition"
                 >
+                  <td className="px-3 py-3 text-[11px] font-mono text-ink-500 whitespace-nowrap">
+                    {typeof c.karuteNo === "number"
+                      ? String(c.karuteNo).padStart(3, "0")
+                      : "—"}
+                  </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1.5">
                       <Link
@@ -314,36 +329,55 @@ export default function CompaniesPage() {
                   <td className="px-3 py-3 text-ink-700">{c.industry}</td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-1.5">
-                      {c.contracts.map((code) => {
-                        const acc = productByCode[code].accent;
-                        const courseKeys = hasMultipleCourses(code)
-                          ? Array.from(
-                              new Set(
-                                activeContracts
-                                  .filter((ac) => ac.companyId === c.id && ac.product === code)
-                                  .map((ac) => ac.courseKey)
-                              )
-                            )
-                          : [];
-                        return (
-                          <span key={code} className="inline-flex items-center gap-1">
-                            <ProductBadge code={code} size="sm" />
-                            {courseKeys.map((ck) => (
-                              <span
-                                key={ck}
-                                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                                style={{
-                                  color: acc,
-                                  background: `${acc}14`,
-                                  border: `1px solid ${acc}33`
-                                }}
-                              >
-                                {courseShortName(code, ck)}
-                              </span>
-                            ))}
-                          </span>
+                      {(() => {
+                        // アカデミア契約があれば、評議会は「付帯」扱いで重複表示しない。
+                        // 表示用に hyogikai を contracts から除外。
+                        const hasActiveAcademia = activeContracts.some(
+                          (ac) => ac.companyId === c.id && ac.product === "academia"
                         );
-                      })}
+                        const visibleCodes = hasActiveAcademia
+                          ? c.contracts.filter((code) => code !== "hyogikai")
+                          : c.contracts;
+                        return visibleCodes.map((code) => {
+                          const acc = productByCode[code].accent;
+                          const courseKeys = hasMultipleCourses(code)
+                            ? Array.from(
+                                new Set(
+                                  activeContracts
+                                    .filter((ac) => ac.companyId === c.id && ac.product === code)
+                                    .map((ac) => ac.courseKey)
+                                )
+                              )
+                            : [];
+                          return (
+                            <span key={code} className="inline-flex items-center gap-1">
+                              <ProductBadge code={code} size="sm" />
+                              {/* アカデミアには評議会付帯を明示 */}
+                              {code === "academia" && (
+                                <span
+                                  title="アカデミア契約には評議会参加権が付帯します"
+                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200"
+                                >
+                                  +評議会
+                                </span>
+                              )}
+                              {courseKeys.map((ck) => (
+                                <span
+                                  key={ck}
+                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                                  style={{
+                                    color: acc,
+                                    background: `${acc}14`,
+                                    border: `1px solid ${acc}33`
+                                  }}
+                                >
+                                  {courseShortName(code, ck)}
+                                </span>
+                              ))}
+                            </span>
+                          );
+                        });
+                      })()}
                     </div>
                   </td>
                   <td className="px-3 py-3">

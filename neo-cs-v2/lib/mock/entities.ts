@@ -5,6 +5,12 @@ import { extraCompanies } from "./bulk-data";
 
 export type Company = {
   id: string;
+  /**
+   * カルテ No.: 組織内で一意な整数。最初の契約日昇順で割り振る運用。
+   * ユーザが手動編集可能 (重複は repo / DB unique 制約で防ぐ)。
+   * 0021_karute_no.sql で companies に追加
+   */
+  karuteNo?: number;
   name: string;
   kana: string;
   industry: string;
@@ -24,150 +30,150 @@ export type Company = {
   isDemo?: boolean;
 };
 
+// ─────────────────────────────────────────────
+// 企業 seed (再整理版)
+//
+// 構成:
+//   - アカデミア リーダー育成 active (18社, 3期目): A-LEADER
+//   - アカデミア PJT共創 active   (8社,  3期目): A-PJT
+//   - アカデミア 1期解約         (3社):        A-CHURN
+//   - アカデミア→評議会移行       (1社):        A-MIGRATE
+//   - 評議会単独 active          (9社, 3期目): H-ONLY
+//   - AI研修 (4回×3社=12社):                 K-{R}-{i}
+//   - コミュマネ 第1回 (3社):                C
+//
+// ※ アカデミアには評議会参加権が付帯するため hyogikai は contracts 配列に
+//   含めない (UI 側で「+評議会」付帯バッジを出す)
+// ─────────────────────────────────────────────
+type SeedRow = {
+  id: string;
+  name: string;
+  kana: string;
+  industry: string;
+  address: string;
+  group?: string;
+  ownerName: string;
+  contracts: ProductCode[];
+  mrr: number;
+  lastTouchDays: number;
+  memo?: string;
+};
+
+// ※ 以下の社名はすべて架空。実在する企業・団体とは関係ありません。
+//   id (c-xxx) のみ既存コードとの互換のため維持。
+const aLeaderRows: SeedRow[] = [
+  { id: "c-aeon",       name: "アルファ商事株式会社",       kana: "あるふぁしょうじ",        industry: "小売",   address: "デモ市第1区",     group: "アルファグループ", ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 18 },
+  { id: "c-nishitetsu", name: "ベータ鉄道株式会社",          kana: "べーたてつどう",          industry: "鉄道",   address: "デモ市第1区",     ownerName: "三木", contracts: ["academia"], mrr: 300_000, lastTouchDays: 12 },
+  { id: "c-jrq",        name: "ガンマ旅客鉄道株式会社",      kana: "がんまりょかく",          industry: "鉄道",   address: "デモ市第1区",     ownerName: "三木", contracts: ["academia"], mrr: 300_000, lastTouchDays: 21 },
+  { id: "c-ffg",        name: "デルタ・フィナンシャルグループ", kana: "でるたふぃなんしゃる", industry: "金融",   address: "デモ市第2区",     ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 5 },
+  { id: "c-fukugin",    name: "イプシロン銀行株式会社",      kana: "いぷしろんぎんこう",      industry: "金融",   address: "デモ市第2区",     group: "デルタFG", ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 8 },
+  { id: "c-toto",       name: "ゼータ住設株式会社",          kana: "ぜーたじゅうせつ",        industry: "住宅設備", address: "デモ第二都市A区",  ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 3 },
+  { id: "c-yamae",      name: "イータ卸売ホールディングス",  kana: "いーたおろし",            industry: "卸売",   address: "デモ市第1区",     ownerName: "松田", contracts: ["academia"], mrr: 300_000, lastTouchDays: 14 },
+  { id: "c-kyuden",     name: "シータ電力株式会社",          kana: "しーたでんりょく",        industry: "エネルギー", address: "デモ市第2区",   ownerName: "三木", contracts: ["academia"], mrr: 300_000, lastTouchDays: 6 },
+  { id: "c-yasukawa",   name: "イオタ精機株式会社",          kana: "いおたせいき",            industry: "製造",   address: "デモ第二都市B区",  ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 4 },
+  { id: "c-toyota9",    name: "カッパオートモーション株式会社", kana: "かっぱおーとも",       industry: "製造",   address: "デモ第三市",       ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 3 },
+  { id: "c-nissan9",    name: "ラムダドライブテック株式会社",kana: "らむだどらいぶ",         industry: "製造",   address: "デモ第二都市A区",  ownerName: "三木", contracts: ["academia"], mrr: 300_000, lastTouchDays: 9 },
+  { id: "c-saibugas",   name: "ミュー都市ガスHD",            kana: "みゅーとしがす",          industry: "エネルギー", address: "デモ市第1区",   ownerName: "松田", contracts: ["academia"], mrr: 300_000, lastTouchDays: 7 },
+  { id: "c-japanet",    name: "ニュー通販ホールディングス",  kana: "にゅーつうはん",          industry: "通販",   address: "デモ西県第1市",    ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 7 },
+  { id: "c-trial",      name: "クシー流通HD",                kana: "くしーりゅうつう",        industry: "小売",   address: "デモ市第3区",     ownerName: "松田", contracts: ["academia"], mrr: 300_000, lastTouchDays: 4 },
+  { id: "c-cosmos",     name: "オミクロン薬品株式会社",      kana: "おみくろんやくひん",      industry: "小売",   address: "デモ市第1区",     ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 16 },
+  { id: "c-mitsuimatsu",name: "パイ資源ホールディングス",   kana: "ぱいしげん",              industry: "エネルギー", address: "デモ市第2区",  ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 8 },
+  { id: "c-cocacola",   name: "ロー飲料株式会社",            kana: "ろーいんりょう",          industry: "食品",   address: "デモ市第3区",     ownerName: "三木", contracts: ["academia"], mrr: 300_000, lastTouchDays: 6 },
+  { id: "c-shinnippon", name: "シグマ製鉄株式会社",          kana: "しぐませいてつ",          industry: "製造",   address: "デモ第二都市C区",  ownerName: "松田", contracts: ["academia"], mrr: 300_000, lastTouchDays: 17 }
+];
+
+const aPjtRows: SeedRow[] = [
+  { id: "c-pietro",     name: "タウ食品株式会社",            kana: "たうしょくひん",          industry: "食品",   address: "デモ市第2区",     ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 9 },
+  { id: "c-fukuya",     name: "ウプシロンフードラボ",        kana: "うぷしろんふーど",        industry: "食品",   address: "デモ市第1区",     ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 5 },
+  { id: "c-kuhara",     name: "ファイ商事株式会社",          kana: "ふぁいしょうじ",          industry: "食品",   address: "デモ郡A町",        ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 10 },
+  { id: "c-fukuokashi", name: "サンプル中央市役所",          kana: "さんぷるちゅうおう",      industry: "自治体", address: "デモ市第2区",     ownerName: "古野", contracts: ["academia"], mrr: 300_000, lastTouchDays: 11 },
+  { id: "c-rkb",        name: "カイ放送株式会社",            kana: "かいほうそう",            industry: "メディア", address: "デモ市第4区",   ownerName: "三木", contracts: ["academia"], mrr: 300_000, lastTouchDays: 4 },
+  { id: "c-nbc",        name: "プサイ新聞社",                kana: "ぷさいしんぶん",          industry: "メディア", address: "デモ市第2区",   ownerName: "三木", contracts: ["academia"], mrr: 300_000, lastTouchDays: 8 },
+  { id: "c-airport",    name: "オメガ国際空港株式会社",      kana: "おめがくうこう",          industry: "運輸",   address: "デモ市第1区",     ownerName: "松田", contracts: ["academia"], mrr: 300_000, lastTouchDays: 13 },
+  { id: "c-asakura",    name: "サンプル東部商工会議所",      kana: "さんぷるとうぶ",          industry: "自治体", address: "デモ東市",         ownerName: "松田", contracts: ["academia"], mrr: 300_000, lastTouchDays: 22 }
+];
+
+const aChurnRows: SeedRow[] = [
+  { id: "c-ippudo",     name: "ファストヌードル株式会社",    kana: "ふぁすとぬーどる",        industry: "外食",   address: "デモ市第1区",     ownerName: "三木", contracts: [], mrr: 0, lastTouchDays: 180, memo: "1期で解約・以降未接触" },
+  { id: "c-suke",       name: "ハートフードサービス",        kana: "はーとふーど",            industry: "外食",   address: "デモ第二都市A区",  ownerName: "松田", contracts: [], mrr: 0, lastTouchDays: 220, memo: "1期で解約" },
+  { id: "c-mrmax",      name: "メガアウトレット株式会社",    kana: "めがあうとれっと",        industry: "小売",   address: "デモ市第3区",     ownerName: "古野", contracts: [], mrr: 0, lastTouchDays: 200, memo: "1期で解約" }
+];
+
+const aMigrateRows: SeedRow[] = [
+  { id: "c-daimaru",    name: "クラシックデパート株式会社",  kana: "くらしっくでぱーと",      industry: "小売",   address: "デモ市第2区",     ownerName: "三木", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 18, memo: "アカデミア1期で解約後、評議会単独に移行" }
+];
+
+const hOnlyRows: SeedRow[] = [
+  { id: "c-nccb",       name: "グランドシティ銀行株式会社",  kana: "ぐらんどしてぃ",          industry: "金融",   address: "デモ市第1区",     ownerName: "三木", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 6 },
+  { id: "c-higo",       name: "レイクサイド銀行株式会社",    kana: "れいくさいど",            industry: "金融",   address: "デモ南県第1市",    ownerName: "三木", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 10 },
+  { id: "c-kagoshima",  name: "サザンシティ銀行株式会社",    kana: "さざんしてぃ",            industry: "金融",   address: "デモ南県第2市",    ownerName: "三木", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 8 },
+  { id: "c-oita",       name: "クロスバレー銀行株式会社",    kana: "くろすばれー",            industry: "金融",   address: "デモ東県第1市",    ownerName: "古野", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 14 },
+  { id: "c-miyazaki",   name: "サンライズ銀行株式会社",      kana: "さんらいず",              industry: "金融",   address: "デモ南県第3市",    ownerName: "松田", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 11 },
+  { id: "c-kitaq",      name: "サンプル北部市役所",          kana: "さんぷるほくぶ",          industry: "自治体", address: "デモ第二都市A区",  ownerName: "古野", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 9 },
+  { id: "c-fukushoko",  name: "サンプル中央商工会議所",      kana: "さんぷるちゅうおう",      industry: "自治体", address: "デモ市第1区",     ownerName: "三木", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 15 },
+  { id: "c-saibu",      name: "ガスフロー都市開発株式会社",  kana: "がすふろー",              industry: "エネルギー", address: "デモ市第1区",   ownerName: "松田", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 12 },
+  { id: "c-bunka9",     name: "ゴールドメディア放送",        kana: "ごーるどめでぃあ",        industry: "メディア", address: "デモ市第2区",   ownerName: "三木", contracts: ["hyogikai"], mrr: 150_000, lastTouchDays: 6 }
+];
+
+const kRows: SeedRow[] = [
+  // 第4回 (current)
+  { id: "c-levias",     name: "テックブリッジ株式会社",      kana: "てっくぶりっじ",          industry: "IT",     address: "デモ市第2区",     ownerName: "古野", contracts: ["aiken"], mrr: 0, lastTouchDays: 2 },
+  { id: "c-aikido",     name: "クラウドネクサス株式会社",    kana: "くらうどねくさす",        industry: "IT",     address: "デモ市第1区",     ownerName: "古野", contracts: ["aiken"], mrr: 0, lastTouchDays: 5 },
+  { id: "c-zenrin",     name: "マッププレックス株式会社",    kana: "まっぷぷれっくす",        industry: "IT",     address: "デモ第二都市A区",  ownerName: "松田", contracts: ["aiken"], mrr: 0, lastTouchDays: 7 },
+  // 第3回 (renewed)
+  { id: "c-kyudenko",   name: "エレクトリックビルダーズ",    kana: "えれくとりっくびるだーず", industry: "建設・電気", address: "デモ市第5区", ownerName: "松田", contracts: [], mrr: 0, lastTouchDays: 30 },
+  { id: "c-astem",      name: "ヘルスサプライ株式会社",      kana: "へるすさぷらい",          industry: "卸売",   address: "デモ東県第1市",    ownerName: "松田", contracts: [], mrr: 0, lastTouchDays: 45 },
+  { id: "c-daihatsu",   name: "リトルモーターズ株式会社",    kana: "りとるもーたーず",        industry: "製造",   address: "デモ東県第2市",    ownerName: "松田", contracts: [], mrr: 0, lastTouchDays: 50 },
+  // 第2回 (renewed)
+  { id: "c-hawks",      name: "ファイティングホークス株式会社", kana: "ふぁいてぃんぐ",       industry: "スポーツ", address: "デモ市第2区",   ownerName: "古野", contracts: [], mrr: 0, lastTouchDays: 90 },
+  { id: "c-avispa",     name: "シティウェーブFC株式会社",    kana: "してぃうぇーぶ",          industry: "スポーツ", address: "デモ市第3区",   ownerName: "三木", contracts: [], mrr: 0, lastTouchDays: 120 },
+  { id: "c-gu",         name: "ファッションラボHD",          kana: "ふぁっしょんらぼ",        industry: "小売",   address: "デモ市第1区",     ownerName: "松田", contracts: [], mrr: 0, lastTouchDays: 100 },
+  // 第1回 (renewed)
+  { id: "c-saibu-st",   name: "シティストア株式会社",        kana: "してぃすとあ",            industry: "小売",   address: "デモ市第1区",     ownerName: "古野", contracts: [], mrr: 0, lastTouchDays: 200 },
+  { id: "c-hakata-d",   name: "ヘリテージデパート株式会社",  kana: "へりてーじでぱーと",      industry: "小売",   address: "デモ市第1区",     ownerName: "三木", contracts: [], mrr: 0, lastTouchDays: 250 },
+  { id: "c-kyuko",      name: "リジョナル交通ホールディングス", kana: "りじょなるこうつう",   industry: "運輸",   address: "デモ南県第1市",    ownerName: "松田", contracts: [], mrr: 0, lastTouchDays: 300 }
+];
+
+const cRows: SeedRow[] = [
+  { id: "c-fukugin-mati", name: "リバーサイドネットワーク",  kana: "りばーさいど",            industry: "自治体", address: "デモ市第1区",     ownerName: "古野", contracts: ["commu"], mrr: 120_000, lastTouchDays: 4 },
+  { id: "c-kitaq-shoko",  name: "ノースサイド商工会議所",    kana: "のーすさいど",            industry: "自治体", address: "デモ第二都市A区",  ownerName: "三木", contracts: ["commu"], mrr: 120_000, lastTouchDays: 7 },
+  { id: "c-omuta",        name: "ハーバーシティまちづくり協議会", kana: "はーばーしてぃ",     industry: "自治体", address: "デモ西都市",       ownerName: "松田", contracts: ["commu"], mrr: 120_000, lastTouchDays: 9 }
+];
+
 const baseCompanies: Company[] = [
-  {
-    id: "c-aeon",
-    name: "イオン九州株式会社",
-    kana: "いおんきゅうしゅう",
-    industry: "小売",
-    address: "福岡市博多区",
-    group: "イオンFG",
-    ownerName: "古野",
-    contracts: ["academia", "aiken", "hyogikai"],
-    mrr: 450_000,
-    lastTouchDays: 18,
-    memo: "契約終了60日前・更新未確定"
-  },
-  {
-    id: "c-nishitetsu",
-    name: "西日本鉄道株式会社",
-    kana: "にしにっぽんてつどう",
-    industry: "鉄道",
-    address: "福岡市博多区",
-    ownerName: "三木",
-    contracts: ["hyogikai", "academia"],
-    mrr: 450_000,
-    lastTouchDays: 35,
-    memo: "直近2回の定例が欠席"
-  },
-  {
-    id: "c-ffg",
-    name: "ふくおかフィナンシャルグループ",
-    kana: "ふくおかふぃなんしゃるぐるーぷ",
-    industry: "金融",
-    address: "福岡市中央区",
-    ownerName: "古野",
-    contracts: ["commu", "academia"],
-    mrr: 420_000,
-    lastTouchDays: 5,
-    memo: "更新見送り検討中と発言"
-  },
-  {
-    id: "c-kyudenko",
-    name: "株式会社九電工",
-    kana: "きゅうでんこう",
-    industry: "建設・電気",
-    address: "福岡市南区",
-    ownerName: "松田",
-    contracts: ["commu", "aiken"],
-    mrr: 120_000,
-    lastTouchDays: 12,
-    memo: "NPSが前回比 -15"
-  },
-  {
-    id: "c-jrq",
-    name: "九州旅客鉄道株式会社",
-    kana: "きゅうしゅうりょかくてつどう",
-    industry: "鉄道",
-    address: "福岡市博多区",
-    ownerName: "三木",
-    contracts: ["academia", "hyogikai"],
-    mrr: 450_000,
-    lastTouchDays: 21
-  },
-  {
-    id: "c-fukugin",
-    name: "株式会社福岡銀行",
-    kana: "ふくおかぎんこう",
-    industry: "金融",
-    address: "福岡市中央区",
-    group: "ふくおかFG",
-    ownerName: "古野",
-    contracts: ["commu", "academia"],
-    mrr: 420_000,
-    lastTouchDays: 8
-  },
-  {
-    id: "c-yamae",
-    name: "ヤマエグループホールディングス",
-    kana: "やまえぐるーぷ",
-    industry: "卸売",
-    address: "福岡市博多区",
-    ownerName: "松田",
-    contracts: ["academia"],
-    mrr: 300_000,
-    lastTouchDays: 14
-  },
-  {
-    id: "c-toto",
-    name: "TOTO株式会社",
-    kana: "とうと",
-    industry: "住宅設備",
-    address: "北九州市小倉北区",
-    ownerName: "古野",
-    contracts: ["academia", "aiken"],
-    mrr: 300_000,
-    lastTouchDays: 3
-  },
-  {
-    id: "c-nccb",
-    name: "株式会社西日本シティ銀行",
-    kana: "にしにっぽんしてぃぎんこう",
-    industry: "金融",
-    address: "福岡市博多区",
-    ownerName: "三木",
-    contracts: ["hyogikai", "commu"],
-    mrr: 270_000,
-    lastTouchDays: 6
-  },
-  {
-    id: "c-saibugas",
-    name: "西部ガスホールディングス株式会社",
-    kana: "さいぶがす",
-    industry: "エネルギー",
-    address: "福岡市博多区",
-    ownerName: "松田",
-    contracts: ["academia"],
-    mrr: 300_000,
-    lastTouchDays: 9
-  },
-  {
-    id: "c-fukuokashi",
-    name: "福岡市",
-    kana: "ふくおかし",
-    industry: "自治体",
-    address: "福岡市中央区",
-    ownerName: "古野",
-    contracts: ["hyogikai"],
-    mrr: 150_000,
-    lastTouchDays: 11
-  },
-  {
-    id: "c-levias",
-    name: "株式会社レヴィアス",
-    kana: "れゔぃあす",
-    industry: "IT",
-    address: "福岡市中央区",
-    ownerName: "古野",
-    contracts: ["aiken", "commu"],
-    mrr: 120_000,
-    lastTouchDays: 2
-  }
+  ...aLeaderRows,
+  ...aPjtRows,
+  ...aChurnRows,
+  ...aMigrateRows,
+  ...hOnlyRows,
+  ...kRows,
+  ...cRows
 ];
 
 export const companies: Company[] = [...baseCompanies, ...extraCompanies];
 
 // 企業担当者（企業側の担当）
+// 担当ロール: scope（NEO全体 or 事業単位）× level（役員/決裁者/責任者/担当者）
+// 兼務は roles 配列に複数エントリを持たせることで表現する
+export type ContactRoleScope = "overall" | ProductCode;
+export type ContactRoleLevel = "executive" | "approver" | "lead" | "member";
+export type ContactRole = {
+  scope: ContactRoleScope;
+  level: ContactRoleLevel;
+};
+// 機能別連絡窓口タグ（契約/広報/招待/各事業連絡）
+export type ContactFunction = "contract" | "pr" | "invitation" | "liaison";
+
+// コミュニティ関与度
+export type ContactCommunityTier = "core" | "active" | "casual" | "at_risk";
+
+// 性質タグ
+export type ContactPersonality =
+  | "playful_leader"
+  | "playful_thinker"
+  | "narepan"
+  | "gardon";
+
 export type Contact = {
   id: string;
   companyId: string;
@@ -178,12 +184,72 @@ export type Contact = {
   tel?: string;
   isPrimary: boolean;
   products: ProductCode[];
+  roles?: ContactRole[];
+  functions?: ContactFunction[];
+  community?: ContactCommunityTier;
+  personality?: ContactPersonality[];
 };
 
 export const contacts: Contact[] = [
-  { id: "p-a1", companyId: "c-aeon", name: "田中 太郎", department: "人事部", title: "部長", email: "tanaka@aeon-kyushu.jp", isPrimary: true, products: ["academia", "aiken", "hyogikai"] },
-  { id: "p-a2", companyId: "c-aeon", name: "佐藤 花子", department: "経営企画", title: "課長", email: "sato@aeon-kyushu.jp", isPrimary: false, products: ["academia"] },
-  { id: "p-a3", companyId: "c-aeon", name: "山田 次郎", department: "役員", title: "副社長", email: "yamada@aeon-kyushu.jp", isPrimary: false, products: ["hyogikai"] }
+  {
+    id: "p-a1", companyId: "c-aeon", name: "田中 太郎", department: "人事部", title: "部長",
+    email: "tanaka@aeon-kyushu.jp", tel: "092-123-4567", isPrimary: true, products: ["academia", "aiken", "hyogikai"],
+    roles: [
+      { scope: "overall", level: "lead" },
+      { scope: "academia", level: "lead" },
+      { scope: "aiken", level: "lead" }
+    ],
+    functions: ["contract", "liaison"],
+    community: "core",
+    personality: ["playful_leader", "narepan"]
+  },
+  {
+    id: "p-a2", companyId: "c-aeon", name: "佐藤 花子", department: "経営企画", title: "課長",
+    email: "sato@aeon-kyushu.jp", tel: "092-123-4568", isPrimary: false, products: ["academia"],
+    roles: [
+      { scope: "overall", level: "member" },
+      { scope: "academia", level: "member" }
+    ],
+    functions: ["invitation"],
+    community: "active",
+    personality: ["playful_thinker"]
+  },
+  {
+    id: "p-a3", companyId: "c-aeon", name: "山田 次郎", department: "役員", title: "副社長",
+    email: "yamada@aeon-kyushu.jp", tel: "092-123-4500", isPrimary: false, products: ["hyogikai"],
+    roles: [
+      { scope: "overall", level: "executive" },
+      { scope: "overall", level: "approver" },
+      { scope: "hyogikai", level: "executive" },
+      { scope: "hyogikai", level: "approver" }
+    ],
+    functions: ["pr"],
+    community: "casual",
+    personality: ["gardon"]
+  },
+  {
+    id: "p-a4", companyId: "c-aeon", name: "鈴木 一郎", department: "経営企画", title: "部長",
+    email: "suzuki@aeon-kyushu.jp", tel: "092-123-4570", isPrimary: false, products: ["academia", "aiken"],
+    roles: [
+      { scope: "academia", level: "approver" },
+      { scope: "aiken", level: "approver" },
+      { scope: "aiken", level: "lead" }
+    ],
+    functions: ["contract"],
+    community: "active",
+    personality: ["narepan", "playful_thinker"]
+  },
+  {
+    id: "p-a5", companyId: "c-aeon", name: "伊藤 美咲", department: "広報部", title: "主任",
+    email: "ito@aeon-kyushu.jp", tel: "090-9876-5432", isPrimary: false, products: ["hyogikai"],
+    roles: [
+      { scope: "hyogikai", level: "lead" },
+      { scope: "hyogikai", level: "member" }
+    ],
+    functions: ["pr", "invitation"],
+    community: "at_risk",
+    personality: ["playful_thinker", "playful_leader"]
+  }
 ];
 
 // 面談ログ（全研修混在・タグ付き）

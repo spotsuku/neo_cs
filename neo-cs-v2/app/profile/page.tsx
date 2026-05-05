@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 
 const teams = ["Team Alpha", "Team Bravo", "Team Charlie", "Team Delta"];
 const timezones = ["Asia/Tokyo", "Asia/Seoul", "America/Los_Angeles", "Europe/London"];
@@ -9,7 +9,7 @@ const languages = ["日本語", "English"];
 export default function ProfilePage() {
   return (
     <>
-      <TopNav current="/" />
+      <TopNavServer current="/" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
         <section className="flex items-end justify-between gap-4">
           <div>

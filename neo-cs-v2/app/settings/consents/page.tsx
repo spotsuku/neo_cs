@@ -1,4 +1,4 @@
-import { TopNav } from '@/components/TopNav';
+import { TopNavServer } from '@/components/TopNavServer';
 import { CONSENT_ITEMS, CURRENT_POLICY_VERSION } from '@/lib/consents/registry';
 import { ConsentRow } from './ConsentRow';
 
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default function ConsentsPage() {
   return (
     <>
-      <TopNav current="/settings" />
+      <TopNavServer current="/settings" />
       <main className="mx-auto max-w-[960px] px-6 py-8 space-y-6">
         <header>
           <div className="text-xs text-ink-500 font-medium">/ 設定 / 利用同意・データ取扱い</div>

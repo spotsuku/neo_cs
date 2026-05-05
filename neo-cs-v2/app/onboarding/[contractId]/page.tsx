@@ -1,18 +1,19 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { ProductBadge } from "@/components/ProductBadge";
 // コース表示に対応
 import { productByCode, yen, hasMultipleCourses, courseName } from "@/lib/mock/data";
 import { companies } from "@/lib/mock/entities";
 import {
   activeContracts,
-  contractOnboardingItems,
   productOnboardingTemplates,
-  contractProgress,
   daysUntilStart
 } from "@/lib/mock/onboarding";
+import { onboardingItemRepo, userRepo } from "@/lib/repository";
 import { ChecklistView } from "./ChecklistView";
+
+export const dynamic = "force-dynamic";
 
 export default async function ContractOnboardingPage({
   params
@@ -26,16 +27,36 @@ export default async function ContractOnboardingPage({
   const company = companies.find((c) => c.id === contract.companyId);
   const product = productByCode[contract.product];
   const template = productOnboardingTemplates[contract.product];
-  const items = contractOnboardingItems.filter(
-    (i) => i.contractId === contract.id
-  );
-  const prog = contractProgress(contract.id);
+  const [items, users] = await Promise.all([
+    onboardingItemRepo.listByContractIds([contract.id]),
+    userRepo.list({ activeOnly: true })
+  ]);
+  // 進捗は items から再計算 (期限切れ判定もこちらで)
+  const today = new Date().toISOString().slice(0, 10);
+  const prog = (() => {
+    let done = 0;
+    let overdue = 0;
+    let total = 0;
+    for (const i of items) {
+      if (i.status === "not_applicable") continue;
+      total++;
+      if (i.status === "done") done++;
+      if (
+        (i.status === "todo" || i.status === "doing" || i.status === "overdue") &&
+        i.dueDate &&
+        i.dueDate < today
+      ) {
+        overdue++;
+      }
+    }
+    return { done, overdue, total };
+  })();
   const days = daysUntilStart(contract.startDate);
   const overdueDays = days < 0;
 
   return (
     <>
-      <TopNav current="/onboarding" />
+      <TopNavServer current="/onboarding" />
       <main className="mx-auto max-w-[1100px] px-6 py-8 space-y-6">
         {/* パンくず */}
         <div className="text-xs text-ink-500">
@@ -170,9 +191,12 @@ export default async function ContractOnboardingPage({
 
         {/* チェックリスト（カテゴリごと） */}
         <ChecklistView
+          contractId={contract.id}
           template={template}
           items={items}
           accent={product.accent}
+          users={users.map((u) => ({ id: u.id, name: u.name }))}
+          today={today}
         />
 
         <footer className="pt-8 pb-4 text-center text-[11px] text-ink-500">

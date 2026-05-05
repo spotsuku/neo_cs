@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 
 type Rule = {
   id: string;
@@ -82,7 +82,7 @@ const slackChannels = [
 export default function NotificationsSettingsPage() {
   return (
     <>
-      <TopNav current="/settings" />
+      <TopNavServer current="/settings" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
           ⚠ このページは UI モックです。Slack/メール通知ルールの永続化はまだ実装されていません（準備中）。

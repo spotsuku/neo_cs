@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 import { KpiCard } from "@/components/KpiCard";
 import { ProductBadge } from "@/components/ProductBadge";
 import { MrrSparkline } from "@/components/MrrSparkline";
@@ -51,7 +51,7 @@ export default async function Page() {
   }).length;
   return (
     <>
-      <TopNav current="/" />
+      <TopNavServer current="/" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-10">
         {/* ヘッダー */}
         <section className="flex items-end justify-between">

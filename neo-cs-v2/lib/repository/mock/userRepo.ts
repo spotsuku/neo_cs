@@ -28,6 +28,15 @@ const seed: AppUser[] = [
     role: "member",
     isActive: true,
     createdAt: "2024-04-01T00:00:00Z"
+  },
+  {
+    id: "u-ext-demo",
+    organizationId: DEFAULT_ORG_ID,
+    email: "external-demo@example.com",
+    name: "外部 太郎",
+    role: "external",
+    isActive: true,
+    createdAt: "2026-04-01T00:00:00Z"
   }
 ];
 
@@ -49,7 +58,18 @@ export const mockUserRepo: UserRepo = {
     return u ? { ...u } : null;
   },
   async getCurrent() {
-    const email = process.env.MOCK_CURRENT_USER_EMAIL ?? "k_furuno@neoacademia.jp";
+    // dev/E2E のみ: cookie `mock_user_email` で actor を切替可能（next/headers 経由）
+    let email = process.env.MOCK_CURRENT_USER_EMAIL ?? "k_furuno@neoacademia.jp";
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        const { cookies } = await import("next/headers");
+        const c = await cookies();
+        const override = c.get("mock_user_email")?.value;
+        if (override) email = override;
+      } catch {
+        // next/headers が無いコンテキスト（テスト等）では無視
+      }
+    }
     const u = store.find((x) => x.email.toLowerCase() === email.toLowerCase());
     return u ? { ...u } : null;
   },

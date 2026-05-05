@@ -21,6 +21,13 @@ import { mockOnboardingItemRepo } from "./onboardingItemRepo";
 import { mockSuccessPlanRepo } from "./successPlanRepo";
 import { mockProductCourseRepo } from "./productCourseRepo";
 import { mockCompanyTaskRepo } from "./companyTaskRepo";
+import { mockProgramRepo } from "./programRepo";
+import { mockJourneyStageDefinitionRepo } from "./journeyStageDefinitionRepo";
+import { mockCompanyJourneyRepo } from "./companyJourneyRepo";
+import { mockBusinessJourneyRepo } from "./businessJourneyRepo";
+import { mockUserProgramRoleRepo } from "./userProgramRoleRepo";
+import { mockUserCompanyAccessRepo } from "./userCompanyAccessRepo";
+import { mockChatRepo } from "./chatRepo";
 
 export const mockRepository: Repository = {
   companies: mockCompanyRepo,
@@ -44,5 +51,12 @@ export const mockRepository: Repository = {
   onboardingItems: mockOnboardingItemRepo,
   successPlans: mockSuccessPlanRepo,
   productCourses: mockProductCourseRepo,
-  companyTasks: mockCompanyTaskRepo
+  companyTasks: mockCompanyTaskRepo,
+  programs: mockProgramRepo,
+  journeyStageDefinitions: mockJourneyStageDefinitionRepo,
+  companyJourneys: mockCompanyJourneyRepo,
+  businessJourneys: mockBusinessJourneyRepo,
+  userProgramRoles: mockUserProgramRoleRepo,
+  userCompanyAccess: mockUserCompanyAccessRepo,
+  chats: mockChatRepo
 };

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNavServer } from "@/components/TopNavServer";
 
 type SyncLog = {
   time: string;
@@ -89,7 +89,7 @@ const Toggle = ({ on }: { on: boolean }) => (
 export default function GmailSettingsPage() {
   return (
     <>
-      <TopNav current="/settings" />
+      <TopNavServer current="/settings" />
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
         {/* ヘッダー */}
         <section>
