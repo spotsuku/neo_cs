@@ -44,6 +44,38 @@ export async function createCompanyTask(input: CreateTaskInput): Promise<void> {
   revalidatePath("/");
 }
 
+// Notion風テーブルからのインライン編集用パッチ更新。
+// 任意フィールドのみ受け取り、status の遷移は専用関数に委譲する。
+export type UpdateTaskFieldsInput = {
+  id: string;
+  companyId: string;
+  patch: {
+    title?: string;
+    priority?: CompanyTaskPriority;
+    category?: CompanyTaskCategory;
+    dueDate?: string | null;
+    assignedTo?: string | null;
+  };
+};
+
+export async function updateCompanyTaskFields(
+  input: UpdateTaskFieldsInput
+): Promise<void> {
+  const repo = getRepo();
+  const { id, companyId, patch } = input;
+  const cleaned: Record<string, unknown> = {};
+  if (patch.title !== undefined) cleaned.title = patch.title.trim();
+  if (patch.priority !== undefined) cleaned.priority = patch.priority;
+  if (patch.category !== undefined) cleaned.category = patch.category;
+  if (patch.dueDate !== undefined) cleaned.dueDate = patch.dueDate ?? undefined;
+  if (patch.assignedTo !== undefined)
+    cleaned.assignedTo = patch.assignedTo ?? undefined;
+  await repo.companyTasks.update(id, cleaned as never);
+  revalidatePath(`/companies/${companyId}`);
+  revalidatePath("/tasks");
+  revalidatePath("/");
+}
+
 export async function setCompanyTaskStatus(
   id: string,
   status: CompanyTaskStatus,
