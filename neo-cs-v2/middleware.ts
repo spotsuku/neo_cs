@@ -180,11 +180,69 @@ export async function middleware(req: NextRequest) {
   const sbAdmin = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
-  const { data: row } = await sbAdmin
-    .from("app_users")
-    .select("id, role, organization_id, is_active")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+  let row = (
+    await sbAdmin
+      .from("app_users")
+      .select("id, role, organization_id, is_active")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+  ).data as { id: string; role: string; organization_id: string | null; is_active: boolean } | null;
+
+  // auth_user_id でヒットしない場合: email マッチで後付けリンク
+  if (!row && user.email) {
+    const { data: byEmail } = await sbAdmin
+      .from("app_users")
+      .select("id, role, organization_id, is_active")
+      .eq("email", user.email.toLowerCase())
+      .maybeSingle();
+    if (byEmail) {
+      const e = byEmail as {
+        id: string;
+        role: string;
+        organization_id: string | null;
+        is_active: boolean;
+      };
+      await sbAdmin
+        .from("app_users")
+        .update({ auth_user_id: user.id, is_active: true })
+        .eq("id", e.id);
+      row = { ...e, is_active: true };
+    }
+  }
+
+  // それでも無く INITIAL_ADMIN_EMAIL と一致 → admin で自動登録 (初回ログイン)
+  if (!row && user.email) {
+    const initialAdmin = process.env.INITIAL_ADMIN_EMAIL?.toLowerCase();
+    if (initialAdmin && user.email.toLowerCase() === initialAdmin) {
+      const { data: orgRow } = await sbAdmin
+        .from("organizations")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      const organizationId =
+        (orgRow as { id: string } | null)?.id ?? "00000000-0000-0000-0000-000000000001";
+      const { data: created } = await sbAdmin
+        .from("app_users")
+        .insert({
+          auth_user_id: user.id,
+          email: user.email,
+          name: user.user_metadata?.name ?? user.email,
+          role: "admin",
+          is_active: true,
+          organization_id: organizationId
+        })
+        .select("id, role, organization_id, is_active")
+        .single();
+      if (created) {
+        row = created as {
+          id: string;
+          role: string;
+          organization_id: string | null;
+          is_active: boolean;
+        };
+      }
+    }
+  }
 
   if (!row || row.is_active === false) {
     return signOutAndRedirect(req, "user_disabled");
