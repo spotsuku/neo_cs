@@ -3,17 +3,18 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
-import { CompletenessBadge } from "@/components/CompletenessChecklistCard";
-import "@/lib/mock/karute-no-init"; // companies seed に karuteNo を付与 (side-effect)
-import { companies, onboardingTasks } from "@/lib/mock/entities";
-import { activeContracts, contractOnboardingItems } from "@/lib/mock/onboarding";
-import { companyHealthColor } from "@/lib/mock/health";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness";
 import type { CompanyWeather } from "@/lib/domain/weather";
 import { WeatherIcon } from "@/components/WeatherIcon";
-import { seedCompanyJourneys, DEFAULT_COMPANY_STAGES } from "@/lib/mock/journeys";
+import { DEFAULT_COMPANY_STAGES } from "@/lib/mock/journeys";
 // コース表示に対応
 import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/mock/data";
+import type {
+  Company,
+  Contract,
+  CompanyJourney,
+  ContractOnboardingItem
+} from "@/lib/repository/types";
 
 // 一覧の基準日 (mock 環境)。activeContracts の TODAY と揃える
 const TODAY = "2026-04-24";
@@ -110,12 +111,41 @@ function HealthDot({ color }: { color: "green" | "yellow" | "red" }) {
   );
 }
 
-export default function CompaniesView({
-  weatherOverrides: weatherOverrideEntries
-}: {
+type CompaniesViewProps = {
+  /** server で取得した企業一覧 (contracts: ProductCode[] は active 契約から派生済み) */
+  initialCompanies: Company[];
+  /** server で取得した active 契約一覧 */
+  initialContracts: Contract[];
+  /** server で取得した企業ジャーニー一覧 */
+  initialJourneys: CompanyJourney[];
+  /** server で取得した active 契約の オンボ項目一覧 */
+  initialOnboardingItems: ContractOnboardingItem[];
+  /** 企業ごとの health 色 (active 契約の最悪値で集約済み) */
+  healthByCompany: Record<string, "green" | "yellow" | "red">;
+  /** 企業ごとの 未対応タスク件数 (companyTaskRepo openOnly) */
+  openTaskCountByCompany: Record<string, number>;
   /** server で取得した {companyId: weather} の一覧 */
   weatherOverrides: { companyId: string; weather: CompanyWeather }[];
-}) {
+};
+
+export default function CompaniesView({
+  initialCompanies,
+  initialContracts,
+  initialJourneys,
+  initialOnboardingItems,
+  healthByCompany,
+  openTaskCountByCompany: openTaskCountByCompanyEntries,
+  weatherOverrides: weatherOverrideEntries
+}: CompaniesViewProps) {
+  // server から渡された配列を内部参照名にエイリアス
+  const companies = initialCompanies;
+  const activeContracts = initialContracts;
+  const seedCompanyJourneys = initialJourneys;
+  const contractOnboardingItems = initialOnboardingItems;
+
+  // health 色は server 側で算出済みの map を関数ラッパでアクセス
+  const companyHealthColor = (companyId: string): "green" | "yellow" | "red" =>
+    healthByCompany[companyId] ?? "green";
   const [q, setQ] = useState("");
   const [health, setHealth] = useState<HealthFilter>("all");
   const [productFilter, setProductFilter] = useState<ProductCode[]>([]);
@@ -178,13 +208,13 @@ export default function CompaniesView({
       map.set(c.id, r.score);
     });
     return map;
-  }, []);
+  }, [companies, activeContracts, contractOnboardingItems]);
 
   const owners = useMemo(() => {
     const set = new Set<string>();
     companies.forEach((c) => set.add(c.ownerName));
     return Array.from(set);
-  }, []);
+  }, [companies]);
 
   // 企業ジャーニーの現在ステージ名を companyId → 表示用テキストで Map 化
   const journeyByCompany = useMemo(() => {
@@ -202,7 +232,7 @@ export default function CompaniesView({
       }
     });
     return map;
-  }, []);
+  }, [seedCompanyJourneys]);
 
   // 累計売上 (active + renewed の revenue 合計)
   const totalRevenueByCompany = useMemo(() => {
@@ -212,7 +242,7 @@ export default function CompaniesView({
       map.set(c.companyId, (map.get(c.companyId) ?? 0) + c.revenue);
     });
     return map;
-  }, []);
+  }, [activeContracts]);
 
   // 更新まで日数 (アクティブ契約のうち最も近い endDate)
   const renewalDaysByCompany = useMemo(() => {
@@ -228,17 +258,12 @@ export default function CompaniesView({
       if (prev === undefined || days < prev) map.set(c.companyId, days);
     });
     return map;
-  }, []);
+  }, [activeContracts]);
 
-  // 未対応タスク数 (todo + doing + overdue)
+  // 未対応タスク数 (server で companyTaskRepo openOnly を集計済み)
   const openTaskCountByCompany = useMemo(() => {
-    const map = new Map<string, number>();
-    onboardingTasks.forEach((t) => {
-      if (t.status === "done") return;
-      map.set(t.companyId, (map.get(t.companyId) ?? 0) + 1);
-    });
-    return map;
-  }, []);
+    return new Map(Object.entries(openTaskCountByCompanyEntries));
+  }, [openTaskCountByCompanyEntries]);
 
   const toggleProduct = (code: ProductCode) => {
     setProductFilter((prev) =>
@@ -299,6 +324,8 @@ export default function CompaniesView({
       return true;
     });
   }, [
+    companies,
+    healthByCompany,
     q,
     health,
     productFilter,
