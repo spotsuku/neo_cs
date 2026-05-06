@@ -14,6 +14,26 @@
 --     する trigger 内で許容される (チェックは新規 INSERT 時のみ強制)
 -- ============================================================
 
+-- 0) 既存データの整合化
+--    seed に academia と hyogikai の同時 active が含まれているため、
+--    unique index を張る前にバンドル方針 (academia が hyogikai 参加権を内包) に
+--    従って、academia と同時に active な hyogikai は churned に倒す。
+--    本番に実データがあるDBで実行されるケースを考慮し、is_demo=true のものに
+--    限定 (本番データを誤って churned にしない安全策)。
+update contracts c
+   set status = 'churned',
+       updated_at = now()
+  from contracts a
+  join companies co on co.id = a.company_id
+ where c.organization_id = a.organization_id
+   and c.company_id      = a.company_id
+   and a.product_code    = 'academia'
+   and c.product_code    = 'hyogikai'
+   and a.status          in ('handoff', 'onboarding', 'active', 'renewal_window')
+   and c.status          in ('handoff', 'onboarding', 'active', 'renewal_window')
+   and co.is_demo        = true
+   and c.id              <> a.id;
+
 -- 1) アクティブ判定ビュー (再利用しやすくするため)
 create or replace view contracts_active_v as
   select * from contracts
