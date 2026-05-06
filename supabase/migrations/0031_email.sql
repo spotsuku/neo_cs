@@ -15,7 +15,7 @@
 -- ─────────────────────────────────────────────
 -- 1. email_threads
 -- ─────────────────────────────────────────────
-create table email_threads (
+create table if not exists email_threads (
   id                  text primary key,
   organization_id     uuid not null references organizations(id),
   company_id          text references companies(id) on delete set null,
@@ -31,19 +31,20 @@ create table email_threads (
   updated_at          timestamptz not null default now()
 );
 
+drop trigger if exists email_threads_updated_at on email_threads;
 create trigger email_threads_updated_at
   before update on email_threads
   for each row execute function set_updated_at();
 
-create index email_threads_org_idx        on email_threads(organization_id);
-create index email_threads_company_idx    on email_threads(organization_id, company_id);
-create index email_threads_status_idx     on email_threads(organization_id, status);
-create index email_threads_assignee_idx   on email_threads(organization_id, assignee_user_id);
+create index if not exists email_threads_org_idx        on email_threads(organization_id);
+create index if not exists email_threads_company_idx    on email_threads(organization_id, company_id);
+create index if not exists email_threads_status_idx     on email_threads(organization_id, status);
+create index if not exists email_threads_assignee_idx   on email_threads(organization_id, assignee_user_id);
 
 -- ─────────────────────────────────────────────
 -- 2. email_messages
 -- ─────────────────────────────────────────────
-create table email_messages (
+create table if not exists email_messages (
   id                text primary key,
   thread_id         text not null references email_threads(id) on delete cascade,
   direction         text not null check (direction in ('inbound','outbound')),
@@ -55,13 +56,13 @@ create table email_messages (
   created_at        timestamptz not null default now()
 );
 
-create index email_messages_thread_idx
+create index if not exists email_messages_thread_idx
   on email_messages(thread_id, sent_at);
 
 -- ─────────────────────────────────────────────
 -- 3. ai_extractions
 -- ─────────────────────────────────────────────
-create table ai_extractions (
+create table if not exists ai_extractions (
   id                text primary key,
   organization_id   uuid not null references organizations(id),
   source_type       text not null check (source_type in ('email','meeting_log','survey')),
@@ -84,11 +85,11 @@ create table ai_extractions (
   created_at        timestamptz not null default now()
 );
 
-create index ai_extractions_org_idx
+create index if not exists ai_extractions_org_idx
   on ai_extractions(organization_id, created_at desc);
-create index ai_extractions_company_idx
+create index if not exists ai_extractions_company_idx
   on ai_extractions(organization_id, company_id, created_at desc);
-create index ai_extractions_source_idx
+create index if not exists ai_extractions_source_idx
   on ai_extractions(source_type, source_id);
 
 -- ============================================================
