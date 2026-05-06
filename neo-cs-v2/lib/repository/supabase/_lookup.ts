@@ -380,13 +380,48 @@ export const supabaseOnboardingItemRepo: OnboardingItemRepo = {
       completedAt: r.completed_at ?? undefined
     } satisfies ContractOnboardingItem));
   },
-  async update(_id, _patch) {
-    // supabase 実装は migration 0021 (or later) で onboarding_tasks に
-    // assignee_user_id / note / not_applicable status を追加してから対応予定。
-    // 現状は mock 専用機能。
-    throw new Error(
-      "onboardingItems.update is not yet implemented for the supabase driver"
-    );
+  async update(id, patch) {
+    const sb = getServiceClient();
+    const row: Record<string, unknown> = {};
+    if (patch.status !== undefined) {
+      // DB CHECK は ('todo','doing','done','overdue')。'not_applicable' は
+      // 未対応 (列拡張は別マイグレで対応予定) のため一旦 'todo' に倒す。
+      row.status = patch.status === "not_applicable" ? "todo" : patch.status;
+    }
+    if (patch.dueDate !== undefined) row.due_date = patch.dueDate;
+    if (patch.assignee !== undefined) row.assignee_user_id = patch.assignee;
+    // note は DB に列が無いため未対応 (別マイグレで列追加後に対応)。
+    if (patch.status === "done") row.completed_at = new Date().toISOString();
+    const { data, error } = await sb
+      .from("onboarding_tasks")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(`onboarding_tasks.update: ${error.message}`);
+    const r = data as ContractOnboardingItem & {
+      template_item_id?: string | null;
+      phase_key?: string | null;
+      assignee_user_id?: string | null;
+      due_date?: string | null;
+      completed_at?: string | null;
+      contract_id: string;
+    };
+    return {
+      id: r.id,
+      organizationId: DEFAULT_ORG_ID,
+      contractId: r.contract_id,
+      // 詳細表示で必要な追加列は listByContractIds 側で組み立てる構造。
+      // update 直後の戻りは最小限フィールドだけで済む (UI は revalidate で再取得)。
+      categoryKey: "",
+      itemKey: "",
+      name: r.name,
+      dueDate: r.due_date ?? "",
+      assignee: r.assignee_user_id ?? "",
+      status: r.status as ContractOnboardingItem["status"],
+      required: true,
+      completedAt: r.completed_at ?? undefined
+    };
   }
 };
 

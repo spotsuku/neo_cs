@@ -158,11 +158,12 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
     return d;
   };
 
-  // 表示データ
+  // 表示データ: ユーザのドラフト > DB の確定レビュー > 当週なら空ドラフト
   const displayData =
+    draft ??
     selectedReview ??
     (isCurrentWeek
-      ? draft ?? {
+      ? {
           actions: (prevReview?.nextActions ?? []).map((n, i) => ({
             id: `carry-${i}`,
             text: n.text,

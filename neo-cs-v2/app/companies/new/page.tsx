@@ -549,7 +549,7 @@ export default function NewCompanyWizardPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saveState === "saving"}
+                disabled={saveState === "saving" || saveState === "saved"}
                 className="px-5 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid disabled:opacity-50"
               >
                 {saveState === "saving" ? "保存中..." : "保存して企業を作成"}

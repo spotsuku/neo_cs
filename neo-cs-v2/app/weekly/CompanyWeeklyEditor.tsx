@@ -110,9 +110,12 @@ export function CompanyWeeklyEditor({
     return d;
   };
 
+  // 表示優先度: ユーザのドラフト > DB の確定レビュー > 当週なら空ドラフト
+  // (drag が selectedReview の後ろだと、入力中に画面が DB 値に戻ってしまう)
   const displayData: WeeklyDraft | WeeklyReview | null =
+    draft ??
     selectedReview ??
-    (isCurrentWeek ? draft ?? buildInitialDraft(prevReview) : null);
+    (isCurrentWeek ? buildInitialDraft(prevReview) : null);
 
   const selectedRange = getWeekRange(weekStart);
 
