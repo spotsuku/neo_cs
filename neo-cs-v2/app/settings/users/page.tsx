@@ -16,6 +16,7 @@ import {
   companyRepo
 } from "@/lib/repository/server";
 import { InviteExternalDialog } from "./InviteExternalDialog";
+import { InviteInternalDialog } from "./InviteInternalDialog";
 import { ImpersonateButton } from "./ImpersonateButton";
 import type {
   AppUser,
@@ -100,14 +101,7 @@ export default async function UsersSettingsPage() {
                 グローバルロールと事業×スコープロールを管理（Admin のみ）
               </div>
             </div>
-            <button
-              type="button"
-              disabled
-              title="準備中: Supabase Auth admin invite と連動"
-              className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
-            >
-              + ユーザー招待（準備中）
-            </button>
+            <InviteInternalDialog />
           </div>
         </section>
 

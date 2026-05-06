@@ -12,15 +12,6 @@ import {
   type ActiveContract
 } from "@/lib/mock/onboarding";
 import {
-  surveySchedules as initialSurveySchedules,
-  surveyTemplates,
-  SurveySchedule,
-  SurveyScheduleTrigger,
-  SurveyRespondentTarget,
-  describeTrigger,
-  describeRespondentTarget
-} from "@/lib/mock/surveys";
-import {
   sessions as allSessionsData,
   attendanceRecords as allAttendanceData
 } from "@/lib/mock/participants";
@@ -34,9 +25,7 @@ type TabKey =
   | "courses"
   | "contract"
   | "participants"
-  | "schedule"
   | "onboarding"
-  | "surveys"
   | "sessions";
 
 const tabs: { key: TabKey; label: string }[] = [
@@ -44,9 +33,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "courses", label: "コース" },
   { key: "contract", label: "契約設定" },
   { key: "participants", label: "参加者" },
-  { key: "schedule", label: "面談スケジュール" },
   { key: "onboarding", label: "オンボ項目" },
-  { key: "surveys", label: "アンケートスケジュール" },
   { key: "sessions", label: "セッション一覧" }
 ];
 
@@ -61,6 +48,12 @@ export default function ProductEditClient({
 }) {
   const p = productByCode[code];
   const [tab, setTab] = useState<TabKey>("basic");
+  const [savedToast, setSavedToast] = useState<string | null>(null);
+
+  const handleSave = () => {
+    setSavedToast("保存しました");
+    setTimeout(() => setSavedToast(null), 2000);
+  };
 
   return (
     <>
@@ -99,11 +92,11 @@ export default function ProductEditClient({
               </button>
               <button
                 type="button"
-                disabled
-                title="準備中: コース以外のタブの保存は別途実装予定"
-                className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
+                onClick={handleSave}
+                className="px-4 py-2 rounded-full text-white text-sm shadow-liquid hover:opacity-90"
+                style={{ background: p.accent }}
               >
-                保存（準備中）
+                保存
               </button>
             </div>
           </div>
@@ -144,9 +137,7 @@ export default function ProductEditClient({
           {tab === "courses" && <CoursesTab accent={p.accent} code={code} />}
           {tab === "contract" && <ContractTab product={p} />}
           {tab === "participants" && <ParticipantsTab product={p} />}
-          {tab === "schedule" && <ScheduleTab accent={p.accent} code={code} />}
           {tab === "onboarding" && <OnboardingTab accent={p.accent} code={code} />}
-          {tab === "surveys" && <SurveysScheduleTab accent={p.accent} code={code} />}
           {tab === "sessions" && (
             <SessionsTab
               accent={p.accent}
@@ -161,6 +152,11 @@ export default function ProductEditClient({
           NEO CS v2 — 研修マスタ編集 / ダミーデータ
         </footer>
       </main>
+      {savedToast && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-2 rounded-full bg-ink-900 text-white text-sm shadow-lg">
+          {savedToast}
+        </div>
+      )}
     </>
   );
 }
@@ -328,165 +324,6 @@ function ParticipantsTab({ product }: { product: Product }) {
   );
 }
 
-type MilestoneRow = { no: number; name: string; offset: number; required: boolean };
-
-const scheduleTemplatesByCode: Record<ProductCode, MilestoneRow[]> = {
-  academia: [
-    { no: 1, name: "Kickoff", offset: 0, required: true },
-    { no: 2, name: "Q1レビュー", offset: 90, required: true },
-    { no: 3, name: "中間評価", offset: 180, required: true },
-    { no: 4, name: "Q2レビュー", offset: 270, required: true },
-    { no: 5, name: "最終発表", offset: 360, required: true }
-  ],
-  hyogikai: [
-    { no: 1, name: "第1回定例", offset: 0, required: true },
-    { no: 2, name: "第2回定例", offset: 30, required: true },
-    { no: 3, name: "第3回定例", offset: 60, required: true },
-    { no: 4, name: "第4回定例", offset: 90, required: true },
-    { no: 5, name: "第5回定例", offset: 120, required: true },
-    { no: 6, name: "第6回定例", offset: 150, required: true },
-    { no: 7, name: "第7回定例", offset: 180, required: true },
-    { no: 8, name: "第8回定例", offset: 210, required: true },
-    { no: 9, name: "第9回定例", offset: 240, required: true },
-    { no: 10, name: "第10回定例", offset: 300, required: true }
-  ],
-  aiken: [
-    { no: 1, name: "Kickoff", offset: 0, required: true },
-    { no: 2, name: "Day1", offset: 7, required: true },
-    { no: 3, name: "Day2", offset: 14, required: true },
-    { no: 4, name: "最終振返", offset: 30, required: true }
-  ],
-  commu: [
-    { no: 1, name: "Kickoff", offset: 0, required: true },
-    { no: 2, name: "月次定例1", offset: 30, required: true },
-    { no: 3, name: "月次定例2", offset: 60, required: true },
-    { no: 4, name: "更新MTG", offset: 90, required: true }
-  ]
-};
-
-function ScheduleTab({ accent, code }: { accent: string; code: ProductCode }) {
-  const [rows, setRows] = useState<MilestoneRow[]>(scheduleTemplatesByCode[code]);
-
-  const updateRow = (idx: number, patch: Partial<MilestoneRow>) => {
-    setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-  };
-  const addRow = () => {
-    setRows((rs) => [
-      ...rs,
-      { no: rs.length + 1, name: "新規マイルストーン", offset: 0, required: false }
-    ]);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="liquid-surface p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-base font-semibold">面談マイルストーン テンプレート</div>
-            <div className="mt-1 text-xs text-ink-500">
-              契約開始日からのオフセット日数で面談を自動スケジュール
-            </div>
-          </div>
-          <button
-            onClick={addRow}
-            className="px-3 py-1.5 rounded-full text-xs text-white shadow-liquid"
-            style={{ background: accent }}
-          >
-            + 追加
-          </button>
-        </div>
-
-        <div className="mt-5 overflow-hidden rounded-xl border border-ink-100">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] text-ink-500 bg-ink-50 border-b border-ink-100">
-                <th className="px-4 py-2.5 font-medium w-14">回</th>
-                <th className="px-3 py-2.5 font-medium">名称</th>
-                <th className="px-3 py-2.5 font-medium w-40">offset_days</th>
-                <th className="px-3 py-2.5 font-medium w-24">必須</th>
-                <th className="px-3 py-2.5 font-medium w-20"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, idx) => (
-                <tr key={idx} className="border-b border-ink-50 last:border-0">
-                  <td className="px-4 py-2.5 font-medium">{idx + 1}</td>
-                  <td className="px-3 py-2.5">
-                    <input
-                      className={inputCls}
-                      value={r.name}
-                      onChange={(e) => updateRow(idx, { name: e.target.value })}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <input
-                      className={inputCls}
-                      type="number"
-                      value={r.offset}
-                      onChange={(e) => updateRow(idx, { offset: Number(e.target.value) })}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={r.required}
-                      onChange={(e) => updateRow(idx, { required: e.target.checked })}
-                      className="w-4 h-4"
-                    />
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <button
-                      className="text-xs text-rose-500 hover:underline"
-                      onClick={() => setRows((rs) => rs.filter((_, i) => i !== idx))}
-                    >
-                      削除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            disabled
-            title="準備中"
-            className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            disabled
-            title="準備中: 面談スケジュールテンプレ保存は別途実装予定"
-            className="px-4 py-2 rounded-full text-white text-sm bg-ink-300 cursor-not-allowed"
-          >
-            保存（準備中）
-          </button>
-        </div>
-      </div>
-
-      <div className="liquid-surface p-5 flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold">既存契約への反映</div>
-          <div className="mt-0.5 text-xs text-ink-500">
-            この変更を現在進行中のすべての契約に反映します（上書き注意）
-          </div>
-        </div>
-        <button
-          type="button"
-          disabled
-          title="準備中"
-          className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
-        >
-          既存契約に反映（準備中）
-        </button>
-      </div>
-    </div>
-  );
-}
 
 const assigneeRoleOptions: { value: NonNullable<OnboardingTemplateItem["defaultAssigneeRole"]>; label: string }[] = [
   { value: "cs", label: "CS" },
@@ -777,309 +614,6 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
         >
           既存契約に反映（準備中）
         </button>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// アンケートスケジュール
-// ─────────────────────────────────────────────
-
-const respondentTargetOptions: { value: SurveyRespondentTarget; label: string }[] = [
-  { value: "all_stakeholders", label: "全担当者" },
-  { value: "primary_contact", label: "主担当のみ" },
-  { value: "all_participants", label: "全参加者" },
-  { value: "custom", label: "カスタム" }
-];
-
-type TriggerKind = "after_session" | "at_session_type" | "periodic_yearly";
-
-function emptySchedule(code: ProductCode): SurveySchedule {
-  return {
-    id: `sch-new-${Date.now()}`,
-    product: code,
-    name: "新規アンケート",
-    templateIds: [],
-    trigger: { type: "at_session_type", sessionType: "kickoff" },
-    respondentTarget: "all_participants",
-    active: true
-  };
-}
-
-function SurveysScheduleTab({ accent, code }: { accent: string; code: ProductCode }) {
-  const [rows, setRows] = useState<SurveySchedule[]>(() =>
-    initialSurveySchedules.filter((s) => s.product === code).map((s) => ({ ...s }))
-  );
-  const [editing, setEditing] = useState<SurveySchedule | null>(null);
-
-  const productTemplates = surveyTemplates.filter(
-    (t) => t.scope === "common" || t.product === code || t.scope === "session"
-  );
-
-  const openNew = () => setEditing(emptySchedule(code));
-  const openEdit = (sch: SurveySchedule) => setEditing({ ...sch });
-  const closeEdit = () => setEditing(null);
-
-  const save = (sch: SurveySchedule) => {
-    setRows((rs) => {
-      const exists = rs.some((r) => r.id === sch.id);
-      return exists ? rs.map((r) => (r.id === sch.id ? sch : r)) : [...rs, sch];
-    });
-    setEditing(null);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="liquid-surface p-5 bg-ink-50/40 flex items-center justify-between">
-        <div className="text-xs text-ink-700 leading-relaxed">
-          研修からアンケートを発生させるスケジュール。CSV取込やメール配信のトリガーとなります
-        </div>
-        <button
-          onClick={openNew}
-          className="px-3 py-1.5 rounded-full text-xs text-white shadow-liquid whitespace-nowrap"
-          style={{ background: accent }}
-        >
-          + 新規追加
-        </button>
-      </div>
-
-      <div className="liquid-surface overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-[11px] text-ink-500 bg-ink-50 border-b border-ink-100">
-              <th className="px-4 py-2.5 font-medium">名前</th>
-              <th className="px-3 py-2.5 font-medium w-32">対象者</th>
-              <th className="px-3 py-2.5 font-medium w-40">トリガー</th>
-              <th className="px-3 py-2.5 font-medium w-24">テンプレ数</th>
-              <th className="px-3 py-2.5 font-medium w-20">active</th>
-              <th className="px-3 py-2.5 font-medium w-20"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr
-                key={r.id}
-                onClick={() => openEdit(r)}
-                className="border-b border-ink-50 last:border-0 hover:bg-ink-50/40 cursor-pointer"
-              >
-                <td className="px-4 py-2.5 font-medium">{r.name}</td>
-                <td className="px-3 py-2.5 text-ink-700 text-xs">{describeRespondentTarget(r.respondentTarget)}</td>
-                <td className="px-3 py-2.5 text-ink-700 text-xs">{describeTrigger(r.trigger)}</td>
-                <td className="px-3 py-2.5 text-ink-700">{r.templateIds.length}</td>
-                <td className="px-3 py-2.5">
-                  <span
-                    className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                    style={{
-                      color: r.active ? "#10B981" : "#94A3B8",
-                      background: r.active ? "#10B98114" : "#94A3B814"
-                    }}
-                  >
-                    {r.active ? "有効" : "無効"}
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 text-right text-xs text-ink-500">編集 →</td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-xs text-ink-500">
-                  この研修にはまだアンケートスケジュールがありません
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {editing && (
-        <ScheduleEditModal
-          schedule={editing}
-          accent={accent}
-          templates={productTemplates}
-          onClose={closeEdit}
-          onSave={save}
-        />
-      )}
-    </div>
-  );
-}
-
-function ScheduleEditModal({
-  schedule,
-  accent,
-  templates,
-  onClose,
-  onSave
-}: {
-  schedule: SurveySchedule;
-  accent: string;
-  templates: { id: string; name: string }[];
-  onClose: () => void;
-  onSave: (s: SurveySchedule) => void;
-}) {
-  const [draft, setDraft] = useState<SurveySchedule>(schedule);
-
-  const triggerKind: TriggerKind = draft.trigger.type;
-
-  const setTriggerKind = (k: TriggerKind) => {
-    let next: SurveyScheduleTrigger;
-    if (k === "after_session") next = { type: "after_session", sessionNumber: 1 };
-    else if (k === "at_session_type") next = { type: "at_session_type", sessionType: "kickoff" };
-    else next = { type: "periodic_yearly", atMonths: [3, 7, 11] };
-    setDraft({ ...draft, trigger: next });
-  };
-
-  const toggleTemplate = (tid: string) => {
-    setDraft((d) => ({
-      ...d,
-      templateIds: d.templateIds.includes(tid)
-        ? d.templateIds.filter((x) => x !== tid)
-        : [...d.templateIds, tid]
-    }));
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-auto p-6 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between">
-          <div className="text-base font-semibold text-ink-900">アンケートスケジュール編集</div>
-          <button onClick={onClose} className="text-ink-500 hover:text-ink-700 text-sm">
-            ✕
-          </button>
-        </div>
-
-        <Field label="名前">
-          <input
-            className={inputCls}
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-        </Field>
-
-        <Field label="対象者">
-          <select
-            className={inputCls}
-            value={draft.respondentTarget}
-            onChange={(e) =>
-              setDraft({ ...draft, respondentTarget: e.target.value as SurveyRespondentTarget })
-            }
-          >
-            {respondentTargetOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="トリガー種別">
-          <select
-            className={inputCls}
-            value={triggerKind}
-            onChange={(e) => setTriggerKind(e.target.value as TriggerKind)}
-          >
-            <option value="after_session">セッション後（特定回）</option>
-            <option value="at_session_type">セッションタイプ時</option>
-            <option value="periodic_yearly">年次定期</option>
-          </select>
-        </Field>
-
-        {draft.trigger.type === "after_session" && (
-          <Field label="セッション番号">
-            <input
-              type="number"
-              className={inputCls}
-              value={draft.trigger.sessionNumber}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  trigger: { type: "after_session", sessionNumber: Number(e.target.value) }
-                })
-              }
-            />
-          </Field>
-        )}
-        {draft.trigger.type === "at_session_type" && (
-          <Field label="セッションタイプ" hint="kickoff / midterm / final / session 等">
-            <input
-              className={inputCls}
-              value={draft.trigger.sessionType}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  trigger: { type: "at_session_type", sessionType: e.target.value }
-                })
-              }
-            />
-          </Field>
-        )}
-        {draft.trigger.type === "periodic_yearly" && (
-          <Field label="実施月（カンマ区切り）" hint="例: 3,7,11">
-            <input
-              className={inputCls}
-              value={draft.trigger.atMonths.join(",")}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  trigger: {
-                    type: "periodic_yearly",
-                    atMonths: e.target.value
-                      .split(",")
-                      .map((s) => Number(s.trim()))
-                      .filter((n) => Number.isFinite(n) && n >= 1 && n <= 12)
-                  }
-                })
-              }
-            />
-          </Field>
-        )}
-
-        <Field label="紐付けるテンプレート">
-          <div className="space-y-1.5 max-h-40 overflow-auto rounded-xl border border-ink-100 p-2">
-            {templates.map((t) => (
-              <label key={t.id} className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={draft.templateIds.includes(t.id)}
-                  onChange={() => toggleTemplate(t.id)}
-                />
-                <span className="text-ink-700">{t.name}</span>
-                <span className="text-[10px] text-ink-500">({t.id})</span>
-              </label>
-            ))}
-          </div>
-        </Field>
-
-        <Field label="active">
-          <label className="flex items-center gap-2 text-xs text-ink-700">
-            <input
-              type="checkbox"
-              checked={draft.active}
-              onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
-            />
-            有効化（active=true）
-          </label>
-        </Field>
-
-        <div className="pt-2 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-700 hover:bg-ink-50"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={() => onSave(draft)}
-            className="px-4 py-2 rounded-full text-white text-sm shadow-liquid"
-            style={{ background: accent }}
-          >
-            保存
-          </button>
-        </div>
       </div>
     </div>
   );

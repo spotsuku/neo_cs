@@ -107,6 +107,53 @@ export async function revokeCompanyAccess(userId: string, companyId: string) {
 }
 
 // ─────────────────────────────────────────────
+// 社内ユーザー招待 (Google 認証)
+//
+// app_users にメール + ロールで事前登録する。auth_user_id は未設定のまま。
+// 当該ユーザーが Google でログインすると、middleware と userRepo.getCurrent() が
+// email マッチで既存 app_users 行を見つけ、auth_user_id を後付けリンクする。
+// このため Supabase Auth admin invite メールは送信しない（Google 側の SSO で
+// 完結するため不要）。事前登録されていないメールでログインした場合は middleware
+// が "user_disabled" 扱いで /login にリダイレクトする。
+// ─────────────────────────────────────────────
+export async function inviteInternalUser(input: {
+  email: string;
+  name: string;
+  role: AppUserRole;
+}): Promise<{ userId: string }> {
+  const ctx = await assertAdmin();
+  const email = input.email.trim().toLowerCase();
+  const name = input.name.trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("メールアドレスの形式が不正です");
+  }
+  if (!name) {
+    throw new Error("表示名を入力してください");
+  }
+  if (input.role === "external") {
+    throw new Error("外部ユーザーは『外部ユーザー招待』から登録してください");
+  }
+
+  const existing = await userRepo.getByEmail(email);
+  if (existing) {
+    throw new Error(`既に登録済みのメールアドレスです: ${email}`);
+  }
+
+  let createdId = "";
+  await withActorFromHeaders(async () => {
+    const created = await userRepo.create({
+      email,
+      name,
+      role: input.role,
+      organizationId: ctx.actor?.organizationId ?? DEFAULT_ORG_ID
+    });
+    createdId = created.id;
+  });
+  revalidatePath("/settings/users");
+  return { userId: createdId };
+}
+
+// ─────────────────────────────────────────────
 // external ユーザー招待
 //
 // mock 環境では app_users にレコード作成 + initial company access を付与。

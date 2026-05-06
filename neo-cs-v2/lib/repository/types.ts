@@ -424,12 +424,25 @@ export interface WeeklyReviewRepo {
   setLocked(id: string, locked: boolean): Promise<void>;
 }
 
+export type UserCreateInput = {
+  email: string;
+  name: string;
+  role: AppUserRole;
+  organizationId?: string;
+};
+
 export interface UserRepo {
   list(opts?: { organizationId?: string; activeOnly?: boolean }): Promise<AppUser[]>;
   getById(id: string): Promise<AppUser | null>;
   getByEmail(email: string): Promise<AppUser | null>;
   /** 現在のセッションユーザ。Server Components / Route Handler 内で使用 */
   getCurrent(): Promise<AppUser | null>;
+  /**
+   * 事前登録された app_users 行を作成する (auth_user_id は null)。
+   * Google 認証で同じ email でログインしたとき、middleware / getCurrent が
+   * auth_user_id を後付けリンクして「同じユーザー」として扱う。
+   */
+  create(input: UserCreateInput): Promise<AppUser>;
   setRole(id: string, role: AppUserRole): Promise<void>;
   setActive(id: string, isActive: boolean): Promise<void>;
 }

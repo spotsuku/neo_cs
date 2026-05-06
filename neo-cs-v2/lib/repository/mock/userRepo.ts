@@ -73,6 +73,23 @@ export const mockUserRepo: UserRepo = {
     const u = store.find((x) => x.email.toLowerCase() === email.toLowerCase());
     return u ? { ...u } : null;
   },
+  async create(input) {
+    const email = input.email.trim().toLowerCase();
+    if (store.some((u) => u.email.toLowerCase() === email)) {
+      throw new Error(`既に登録済みのメールアドレスです: ${input.email}`);
+    }
+    const created: AppUser = {
+      id: `u-${Math.random().toString(36).slice(2, 10)}`,
+      organizationId: input.organizationId ?? DEFAULT_ORG_ID,
+      email,
+      name: input.name,
+      role: input.role,
+      isActive: true,
+      createdAt: new Date().toISOString()
+    };
+    store.push(created);
+    return { ...created };
+  },
   async setRole(id, role: AppUserRole) {
     const idx = store.findIndex((u) => u.id === id);
     if (idx < 0) throw new Error(`User not found: ${id}`);

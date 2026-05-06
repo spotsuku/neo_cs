@@ -124,6 +124,8 @@ type CompaniesViewProps = {
   healthByCompany: Record<string, "green" | "yellow" | "red">;
   /** 企業ごとの 未対応タスク件数 (companyTaskRepo openOnly) */
   openTaskCountByCompany: Record<string, number>;
+  /** 企業ごとの 累計売上 (全期 active + renewed + churned 合算) */
+  totalRevenueByCompany: Record<string, number>;
   /** server で取得した {companyId: weather} の一覧 */
   weatherOverrides: { companyId: string; weather: CompanyWeather }[];
 };
@@ -135,6 +137,7 @@ export default function CompaniesView({
   initialOnboardingItems,
   healthByCompany,
   openTaskCountByCompany: openTaskCountByCompanyEntries,
+  totalRevenueByCompany: totalRevenueByCompanyProp,
   weatherOverrides: weatherOverrideEntries
 }: CompaniesViewProps) {
   // server から渡された配列を内部参照名にエイリアス
@@ -234,15 +237,15 @@ export default function CompaniesView({
     return map;
   }, [seedCompanyJourneys]);
 
-  // 累計売上 (active + renewed の revenue 合計)
+  // 累計売上 — Server Component で全期 (active + renewed + churned) を集計済み。
+  // ここで Map に詰め直すだけ。
   const totalRevenueByCompany = useMemo(() => {
     const map = new Map<string, number>();
-    activeContracts.forEach((c) => {
-      if (typeof c.revenue !== "number") return;
-      map.set(c.companyId, (map.get(c.companyId) ?? 0) + c.revenue);
-    });
+    for (const [id, amount] of Object.entries(totalRevenueByCompanyProp)) {
+      map.set(id, amount);
+    }
     return map;
-  }, [activeContracts]);
+  }, [totalRevenueByCompanyProp]);
 
   // 更新まで日数 (アクティブ契約のうち最も近い endDate)
   const renewalDaysByCompany = useMemo(() => {

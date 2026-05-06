@@ -165,6 +165,49 @@ export const supabaseUserRepo: UserRepo = {
     return null;
   },
 
+  async create(input) {
+    const sb = getServiceClient();
+    const ctx = getActorContext();
+    const email = input.email.trim().toLowerCase();
+    const orgId =
+      input.organizationId ?? ctx.actor.organizationId ?? "00000000-0000-0000-0000-000000000001";
+
+    const { data: existing } = await sb
+      .from("app_users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+    if (existing) {
+      throw new Error(`既に登録済みのメールアドレスです: ${input.email}`);
+    }
+
+    const { data, error } = await sb
+      .from("app_users")
+      .insert({
+        organization_id: orgId,
+        email,
+        name: input.name,
+        role: input.role,
+        is_active: true,
+        auth_user_id: null
+      })
+      .select("*")
+      .single();
+    if (error || !data) {
+      throw new Error(`app_users.create: ${error?.message ?? "unknown"}`);
+    }
+    const created = toUser(data as Row);
+    await runAfterWrite({
+      entityType: "app_users",
+      entityId: created.id,
+      before: null,
+      after: { email: created.email, name: created.name, role: created.role },
+      action: "create",
+      ctx
+    });
+    return created;
+  },
+
   async setRole(id, role) {
     const sb = getServiceClient();
     const ctx = getActorContext();

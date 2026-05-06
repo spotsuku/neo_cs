@@ -82,6 +82,15 @@ export default async function CompaniesPage() {
       (openTaskCountByCompany[t.companyId] ?? 0) + 1;
   }
 
+  // 4) 累計売上 (全期合算: active + renewed + churned の revenue 合計)
+  //    UI の "累計売上" カラムが過去期を含めて集計するため、active のみだと不足。
+  const totalRevenueByCompany: Record<string, number> = {};
+  for (const ct of allContracts) {
+    if (typeof ct.revenue !== "number") continue;
+    totalRevenueByCompany[ct.companyId] =
+      (totalRevenueByCompany[ct.companyId] ?? 0) + ct.revenue;
+  }
+
   return (
     <CompaniesView
       initialCompanies={companiesWithContracts}
@@ -90,6 +99,7 @@ export default async function CompaniesPage() {
       initialOnboardingItems={onboardingItems}
       healthByCompany={healthByCompany}
       openTaskCountByCompany={openTaskCountByCompany}
+      totalRevenueByCompany={totalRevenueByCompany}
       weatherOverrides={weatherOverrides.map((o) => ({
         companyId: o.companyId,
         weather: o.weather
