@@ -2,25 +2,37 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { AiExtraction, AiExtractionType } from "@/lib/mock/email";
+import type { AiExtractionType } from "@/lib/repository/types";
 
+// 新 enum (repo) 5 種
 const TYPE_LABEL: Record<AiExtractionType, string> = {
-  onboarding_task_done: "オンボ完了",
-  stakeholder_change: "関係者変更",
-  negative_signal: "ネガティブ",
-  next_action: "次アクション",
-  renewal_signal: "更新シグナル"
+  progress_signal: "進捗シグナル",
+  risk_signal: "リスク",
+  churn_signal: "解約シグナル",
+  expansion_signal: "拡張シグナル",
+  meeting_request: "ミーティング"
 };
 const TYPE_COLOR: Record<AiExtractionType, string> = {
-  onboarding_task_done: "#10B981",
-  stakeholder_change: "#8B5CF6",
-  negative_signal: "#EF4444",
-  next_action: "#3D9EFF",
-  renewal_signal: "#F59E0B"
+  progress_signal: "#10B981",
+  risk_signal: "#EF4444",
+  churn_signal: "#F59E0B",
+  expansion_signal: "#3D9EFF",
+  meeting_request: "#8B5CF6"
+};
+
+// adapter 後の AI 抽出 shape (page.tsx で組み立てる)
+export type AdaptedMeExtraction = {
+  id: string;
+  threadId: string;
+  type: AiExtractionType;
+  suggestion: string;
+  confidence: number;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
 };
 
 export type MeExtractionItem = {
-  extraction: AiExtraction;
+  extraction: AdaptedMeExtraction;
   threadSubject?: string;
   threadId?: string;
   companyId?: string;
@@ -42,11 +54,11 @@ export function MeExtractions({ items }: { items: MeExtractionItem[] }) {
 
   const pending = items.filter((i) => state.get(i.extraction.id) === "pending");
   const counts: Record<AiExtractionType, number> = {
-    onboarding_task_done: 0,
-    stakeholder_change: 0,
-    negative_signal: 0,
-    next_action: 0,
-    renewal_signal: 0
+    progress_signal: 0,
+    risk_signal: 0,
+    churn_signal: 0,
+    expansion_signal: 0,
+    meeting_request: 0
   };
   pending.forEach((p) => counts[p.extraction.type]++);
   const highCount = pending.filter((p) => p.extraction.confidence >= 0.9).length;

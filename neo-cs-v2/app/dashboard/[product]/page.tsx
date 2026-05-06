@@ -25,10 +25,12 @@ import type { Contract as MockContract } from "@/lib/mock/contracts";
 import type { Company as MockCompany } from "@/lib/mock/entities";
 import type { Survey as MockSurvey } from "@/lib/mock/surveys";
 import { companyHealthColor } from "@/lib/mock/health";
-import {
-  aggregateSurvey,
-  surveySchedules
-} from "@/lib/mock/surveys";
+import { aggregateSurvey } from "@/lib/mock/surveys";
+
+// TODO: surveySchedules は repo 未実装のため空配列で運用中。
+// supabase に survey_schedules テーブルを追加し surveyRepo に listSchedules を
+// 生やすまで、スケジュール別NPS推移は表示されない。
+const surveySchedules: { id: string; product: ProductCode; name: string }[] = [];
 import {
   companyRepo,
   contractRepo,

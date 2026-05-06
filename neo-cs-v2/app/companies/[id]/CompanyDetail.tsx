@@ -103,8 +103,8 @@ import {
 import { useHealthSnapshots } from "@/lib/hooks/useHealthSnapshots";
 import type { ChurnRecord } from "@/lib/mock/churn";
 import { reasonCategoryLabels, reasonCategoryOrder, churnRecords as initialChurnRecords } from "@/lib/mock/churn";
-import { emailThreads, emailMessages } from "@/lib/mock/email";
 import type { EmailThreadStatus } from "@/lib/mock/email";
+import type { EmailThread, EmailMessage } from "@/lib/repository/types";
 import {
   surveys as allSurveys,
   surveyInsights as allInsights,
@@ -229,7 +229,9 @@ export function CompanyDetail({
   companyVision = null,
   companyVisionLogs = [],
   weeklyReviews = [],
-  programData = []
+  programData = [],
+  emailThreads = [],
+  emailMessages = []
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -269,6 +271,10 @@ export function CompanyDetail({
   weeklyReviews?: WeeklyReview[];
   /** 事業別ToDo (program_company_tasks) を term ごとに事前ロードしたバンドル */
   programData?: ProgramBundle[];
+  /** メールスレッド一覧 (この企業に紐づくもの) */
+  emailThreads?: EmailThread[];
+  /** メールメッセージ一覧 (上記スレッド配下のもの) */
+  emailMessages?: EmailMessage[];
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -491,7 +497,13 @@ export function CompanyDetail({
           programData={programData}
         />
       )}
-      {tab === "weekly" && <WeeklyReviewPanel companyId={company.id} />}
+      {tab === "weekly" && (
+        <WeeklyReviewPanel
+          companyId={company.id}
+          activeContracts={contracts}
+          weeklyReviews={weeklyReviews}
+        />
+      )}
       {tab === "contracts" && (
         <ContractsTab
           allCycles={allCycles}
@@ -514,7 +526,13 @@ export function CompanyDetail({
       )}
       {tab === "surveys" && <SurveysTab companyId={company.id} contracts={allCycles} />}
       {tab === "engagement" && <EngagementTab companyId={company.id} contracts={allCycles} />}
-      {tab === "mail" && <MailTab companyId={company.id} />}
+      {tab === "mail" && (
+        <MailTab
+          companyId={company.id}
+          emailThreads={emailThreads}
+          emailMessages={emailMessages}
+        />
+      )}
       {tab === "org_chart" && (
         <OrgChartTab
           companyId={company.id}
@@ -3319,13 +3337,19 @@ const MAIL_STATUS_BG: Record<EmailThreadStatus, string> = {
   waiting: "bg-violet-50 text-violet-700 border-violet-100",
   closed: "bg-ink-50 text-ink-500 border-ink-100"
 };
-const MAIL_TODAY = "2026-04-24";
-
-function MailTab({ companyId }: { companyId: string }) {
+function MailTab({
+  companyId,
+  emailThreads,
+  emailMessages
+}: {
+  companyId: string;
+  emailThreads: EmailThread[];
+  emailMessages: EmailMessage[];
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
   const threads = emailThreads
     .filter((t) => t.companyId === companyId)
-    .sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 
   if (threads.length === 0) {
     return (
@@ -3346,10 +3370,8 @@ function MailTab({ companyId }: { companyId: string }) {
       <ul className="space-y-2">
         {threads.map((t) => {
           const open = openId === t.id;
-          const overdue =
-            t.slaDeadline &&
-            new Date(t.slaDeadline) < new Date(MAIL_TODAY) &&
-            (t.status === "new" || t.status === "in_progress");
+          // 旧 mock 由来の slaDeadline は repo モデルに無いため SLA 警告は当面無効
+          const overdue = false;
           const tMsgs = emailMessages
             .filter((m) => m.threadId === t.id)
             .sort((a, b) => (a.sentAt < b.sentAt ? -1 : 1));
@@ -3378,8 +3400,7 @@ function MailTab({ companyId }: { companyId: string }) {
                     {t.subject}
                   </div>
                   <div className="text-[11px] text-ink-500 mt-0.5">
-                    担当: {t.assignee} ・ 最終受信: {t.lastMessageAt}
-                    {t.slaDeadline && ` ・ SLA: ${t.slaDeadline}`}
+                    担当: {t.assigneeUserId ?? "未割当"} ・ 最終更新: {t.updatedAt}
                   </div>
                 </div>
                 <Link
@@ -3404,7 +3425,7 @@ function MailTab({ companyId }: { companyId: string }) {
                       ].join(" ")}
                     >
                       <div className="flex items-center justify-between text-[11px] text-ink-500">
-                        <span className="font-medium text-ink-700">{m.from}</span>
+                        <span className="font-medium text-ink-700">{m.senderEmail}</span>
                         <span>{new Date(m.sentAt).toLocaleString("ja-JP")}</span>
                       </div>
                       <pre className="mt-1 text-xs text-ink-900 whitespace-pre-wrap font-sans leading-relaxed">

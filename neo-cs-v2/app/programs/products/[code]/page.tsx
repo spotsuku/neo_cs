@@ -16,8 +16,7 @@ import {
   yen,
   type ProductCode
 } from "@/lib/mock/data";
-import { allContracts } from "@/lib/mock/onboarding";
-import { companies } from "@/lib/mock/entities";
+import { companyRepo, contractRepo } from "@/lib/repository/server";
 import { ContinuousProductView } from "./ContinuousProductView";
 import { OneShotProductView } from "./OneShotProductView";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
@@ -32,6 +31,11 @@ export default async function ProductDetailPage(props: {
   if (!product) notFound();
 
   const productCode = product.code as ProductCode;
+  // DB 駆動: 契約 / 企業を Repository から取得
+  const [allContracts, companies] = await Promise.all([
+    contractRepo.list(),
+    companyRepo.list()
+  ]);
   const myContracts = allContracts.filter((c) => c.product === productCode);
   const courses = productCourses[productCode] ?? [];
 

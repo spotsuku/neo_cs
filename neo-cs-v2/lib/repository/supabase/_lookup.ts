@@ -418,6 +418,24 @@ export const supabaseOnboardingItemRepo: OnboardingItemRepo = {
       required: true,
       completedAt: r.completed_at ?? undefined
     };
+  },
+  async createBatch(items) {
+    if (items.length === 0) return [];
+    const sb = getServiceClient();
+    const rows = items.map((it) => ({
+      id: it.id,
+      organization_id: it.organizationId ?? DEFAULT_ORG_ID,
+      contract_id: it.contractId,
+      phase_key: it.categoryKey,
+      name: it.name,
+      due_date: it.dueDate || null,
+      assignee_user_id: it.assignee || null,
+      status: it.status,
+      completed_at: it.completedAt ?? null
+    }));
+    const { error } = await sb.from("onboarding_tasks").insert(rows);
+    if (error) throw new Error(`onboarding_tasks.createBatch: ${error.message}`);
+    return items.map((it) => ({ ...it }));
   }
 };
 

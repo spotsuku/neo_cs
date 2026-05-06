@@ -1,18 +1,16 @@
 import Link from "next/link";
 import { TopNavServer } from "@/components/TopNavServer";
-import { emailThreads, aiExtractions } from "@/lib/mock/email";
-import { companies } from "@/lib/mock/entities";
-import {
-  activeContracts,
-  contractOnboardingItems
-} from "@/lib/mock/onboarding";
 import {
   userRepo,
   companyTaskRepo,
   businessJourneyRepo,
   vocItemRepo,
   chatRepo,
-  programRepo
+  programRepo,
+  companyRepo,
+  contractRepo,
+  emailRepo,
+  aiExtractionRepo
 } from "@/lib/repository/server";
 import { getPermissionContext } from "@/lib/auth/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
@@ -79,19 +77,54 @@ export default async function MyPage() {
   const ctx = await getPermissionContext();
   const orgId = ctx.actor?.organizationId ?? DEFAULT_ORG_ID;
 
-  const myThreads = emailThreads.filter((t) => t.assignee === CURRENT_USER);
+  // 本番 supabase は空 DB のため、emailRepo / aiExtractionRepo は空配列を返す
+  const [companies, allContracts, threadsRaw] = await Promise.all([
+    companyRepo.list(),
+    contractRepo.list({ activeOnly: true }),
+    emailRepo.listThreads({ organizationId: orgId })
+  ]);
+
+  // adapter: repo の EmailThread → mock 互換 shape (slaDeadline 等は undefined)
+  const adaptedThreads = threadsRaw.map((t) => ({
+    id: t.id,
+    companyId: t.companyId ?? "",
+    subject: t.subject,
+    status: t.status,
+    assignee: t.assigneeUserId ?? "",
+    slaDeadline: undefined as string | undefined,
+    lastMessageAt: t.lastInboundAt ?? t.lastOutboundAt ?? t.updatedAt
+  }));
+
+  // 全企業の AI 抽出を集約 (空 DB なら空配列)
+  const extractionsNested = await Promise.all(
+    companies.map((c) => aiExtractionRepo.listByCompany(c.id))
+  );
+  const adaptedExtractions = extractionsNested.flat().map((x) => ({
+    id: x.id,
+    threadId: x.sourceType === "email" ? x.sourceId : "",
+    type: x.extractionType,
+    suggestion: x.suggestedAction ?? x.excerpt ?? "",
+    confidence: x.confidence ?? 0,
+    status: (x.reviewed ? "approved" : "pending") as
+      | "pending"
+      | "approved"
+      | "rejected",
+    createdAt: x.createdAt
+  }));
+
+  const myThreads = adaptedThreads.filter((t) => t.assignee === CURRENT_USER);
   const myOpenThreads = myThreads
     .filter((t) => t.status === "new" || t.status === "in_progress")
     .sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
   const mySlaOver = myOpenThreads.filter((t) => isOverdue(t.slaDeadline));
 
   const myThreadIds = new Set(myThreads.map((t) => t.id));
-  const myPendingExtractions = aiExtractions
+  const myPendingExtractions = adaptedExtractions
     .filter((e) => e.status === "pending" && myThreadIds.has(e.threadId))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
   const myCompanies = companies.filter((c) => c.ownerName === CURRENT_USER);
-  const myContracts = activeContracts.filter(
+  const myContracts = allContracts.filter(
     (c) => c.ownerName === CURRENT_USER
   );
   const companyById = new Map(companies.map((c) => [c.id, c]));
@@ -238,7 +271,7 @@ export default async function MyPage() {
   );
 
   // ── AI抽出 用にスレッド/企業情報を組み立て ──
-  const threadById = new Map(emailThreads.map((t) => [t.id, t]));
+  const threadById = new Map(adaptedThreads.map((t) => [t.id, t]));
   const extractionItems: MeExtractionItem[] = myPendingExtractions.map((ex) => {
     const thread = threadById.get(ex.threadId);
     const company = thread ? companyById.get(thread.companyId) : null;
@@ -301,12 +334,8 @@ export default async function MyPage() {
 
           const rows: ContractRow[] = contractsForCourse.map((c) => {
             const company = companyById.get(c.companyId);
-            const onbItems = contractOnboardingItems.filter(
-              (i) => i.contractId === c.id
-            );
-            const onbDone = onbItems.filter((i) => i.status === "done").length;
-            const onbDoneRate =
-              onbItems.length > 0 ? onbDone / onbItems.length : 1;
+            // 本番 supabase に contract_onboarding_items は未実装のため一律 100% 扱い
+            const onbDoneRate = 1;
             const tasksForCompany = allTasksForMyCompanies.filter(
               (t) => t.companyId === c.companyId
             );

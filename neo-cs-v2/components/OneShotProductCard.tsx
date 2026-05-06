@@ -9,9 +9,15 @@ import {
   productCourses,
   courseShortName
 } from "@/lib/mock/data";
-import { activeContracts } from "@/lib/mock/onboarding";
+import type { Contract } from "@/lib/repository/types";
 
-export function OneShotProductCard({ code }: { code: "aiken" }) {
+export function OneShotProductCard({
+  code,
+  activeContracts
+}: {
+  code: "aiken";
+  activeContracts: Contract[];
+}) {
   const p = productByCode[code];
   const s = oneShotSummary[code];
 

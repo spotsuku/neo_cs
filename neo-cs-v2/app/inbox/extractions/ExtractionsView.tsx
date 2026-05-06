@@ -1,29 +1,57 @@
 "use client";
 
-// TODO(P3): supabase 実装が無いため mock を表示。実装後に props 化。
+// page.tsx (Server Component) で repo データを adapter 変換 → 本コンポーネントへ props で渡す。
+// 本番 supabase が空 DB なら一覧は空となり「承認待ちなし」が表示される。
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  AiExtraction,
-  AiExtractionType,
-  EmailThread,
-  EmailMessage
-} from "@/lib/mock/email";
+import type { AiExtractionType } from "@/lib/repository/types";
 import type { Company } from "@/lib/mock/entities";
 
+// adapter 後の shape
+export type AdaptedExtraction = {
+  id: string;
+  threadId: string;
+  messageId: string;
+  type: AiExtractionType;
+  suggestion: string;
+  confidence: number;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+};
+
+export type AdaptedThread = {
+  id: string;
+  companyId: string;
+  subject: string;
+  status: string;
+  assignee: string;
+  lastMessageAt: string;
+};
+
+export type AdaptedMessage = {
+  id: string;
+  threadId: string;
+  from: string;
+  to: string[];
+  cc: string[];
+  sentAt: string;
+  body: string;
+  direction: "inbound" | "outbound";
+};
+
 const TYPE_LABEL: Record<AiExtractionType, string> = {
-  onboarding_task_done: "オンボ完了",
-  stakeholder_change: "関係者変更",
-  negative_signal: "ネガティブ",
-  next_action: "次アクション",
-  renewal_signal: "更新シグナル"
+  progress_signal: "進捗シグナル",
+  risk_signal: "リスク",
+  churn_signal: "解約シグナル",
+  expansion_signal: "拡張シグナル",
+  meeting_request: "ミーティング"
 };
 const TYPE_COLOR: Record<AiExtractionType, string> = {
-  onboarding_task_done: "#10B981",
-  stakeholder_change: "#8B5CF6",
-  negative_signal: "#EF4444",
-  next_action: "#3D9EFF",
-  renewal_signal: "#F59E0B"
+  progress_signal: "#10B981",
+  risk_signal: "#EF4444",
+  churn_signal: "#F59E0B",
+  expansion_signal: "#3D9EFF",
+  meeting_request: "#8B5CF6"
 };
 
 type TypeFilter = "all" | AiExtractionType;
@@ -36,9 +64,9 @@ export function ExtractionsView({
   messages,
   companies
 }: {
-  extractions: AiExtraction[];
-  threads: EmailThread[];
-  messages: EmailMessage[];
+  extractions: AdaptedExtraction[];
+  threads: AdaptedThread[];
+  messages: AdaptedMessage[];
   companies: Company[];
 }) {
   const [extractions, setExtractions] = useState(initial);
@@ -81,11 +109,11 @@ export function ExtractionsView({
   };
 
   const counts: Record<AiExtractionType, number> = {
-    onboarding_task_done: 0,
-    stakeholder_change: 0,
-    negative_signal: 0,
-    next_action: 0,
-    renewal_signal: 0
+    progress_signal: 0,
+    risk_signal: 0,
+    churn_signal: 0,
+    expansion_signal: 0,
+    meeting_request: 0
   };
   pending.forEach((p) => {
     counts[p.type]++;

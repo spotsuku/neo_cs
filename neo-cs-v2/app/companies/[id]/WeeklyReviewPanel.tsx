@@ -8,7 +8,6 @@ import {
   hasMultipleCourses
 } from "@/lib/mock/data";
 import {
-  weeklyReviews,
   CURRENT_WEEK_MONDAY,
   formatWeekRange,
   prevWeek,
@@ -19,7 +18,7 @@ import {
   WeeklyNextAction,
   weeksStuck
 } from "@/lib/mock/weekly";
-import { activeContracts } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/mock/onboarding";
 import { submitWeeklyReviewAction } from "@/app/weekly/actions";
 import { useDraftPersistence } from "@/lib/hooks/useDraftPersistence";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
@@ -62,7 +61,15 @@ function ProductTab({
   );
 }
 
-export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
+export function WeeklyReviewPanel({
+  companyId,
+  activeContracts,
+  weeklyReviews
+}: {
+  companyId: string;
+  activeContracts: ActiveContract[];
+  weeklyReviews: WeeklyReview[];
+}) {
   const { name: currentUserName } = useCurrentUser();
   // この企業が契約している研修一覧
   const products = useMemo(() => {

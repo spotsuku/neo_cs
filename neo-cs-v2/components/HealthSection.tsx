@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { health, products, ProductCode } from "@/lib/mock/data";
+import { products, ProductCode } from "@/lib/mock/data";
 import { HealthDistribution } from "./HealthDistribution";
 
 // Health対象は継続型のみ
 const targetProducts = products.filter((p) => p.type === "continuous");
 
-export function HealthSection() {
+export type HealthByProduct = Record<
+  ProductCode,
+  { green: number; yellow: number; red: number }
+>;
+
+export function HealthSection({ healthByProduct }: { healthByProduct: HealthByProduct }) {
   const [selected, setSelected] = useState<Set<ProductCode>>(
     new Set(targetProducts.map((p) => p.code))
   );
@@ -40,7 +45,7 @@ export function HealthSection() {
     .filter((p) => selected.has(p.code))
     .reduce(
       (acc, p) => {
-        const h = health.byProduct[p.code];
+        const h = healthByProduct[p.code];
         acc.green += h.green;
         acc.yellow += h.yellow;
         acc.red += h.red;
@@ -100,9 +105,9 @@ export function HealthSection() {
               {p.shortName}
               {on && (
                 <span className="text-ink-500 font-normal">
-                  {health.byProduct[p.code].green +
-                    health.byProduct[p.code].yellow +
-                    health.byProduct[p.code].red}
+                  {healthByProduct[p.code].green +
+                    healthByProduct[p.code].yellow +
+                    healthByProduct[p.code].red}
                 </span>
               )}
             </button>

@@ -679,6 +679,8 @@ export interface OnboardingItemRepo {
   listByContractIds(contractIds: string[]): Promise<ContractOnboardingItem[]>;
   /** 単一項目を更新 (status / dueDate / assignee / note) */
   update(id: string, patch: OnboardingItemPatch): Promise<ContractOnboardingItem>;
+  /** 新規契約のチェックリストなどを一括投入 */
+  createBatch(items: ContractOnboardingItem[]): Promise<ContractOnboardingItem[]>;
 }
 
 export interface SuccessPlanRepo {

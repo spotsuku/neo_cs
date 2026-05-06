@@ -26,7 +26,8 @@ import {
   journeyCheckpointRepo,
   contractLifecycleRepo,
   companyWeatherRepo,
-  companyVisionRepo
+  companyVisionRepo,
+  emailRepo
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import {
@@ -212,6 +213,13 @@ export default async function CompanyDetailPage({
     (b): b is NonNullable<typeof b> => b !== null
   );
 
+  // メールタブ用: この企業に紐づく全スレッドとそのメッセージ
+  const emailThreads = await emailRepo.listThreads({ companyId: company.id });
+  const emailMessagesNested = await Promise.all(
+    emailThreads.map((t) => emailRepo.listMessages(t.id))
+  );
+  const emailMessages = emailMessagesNested.flat();
+
   return (
     <>
       <TopNavServer current="/companies" />
@@ -250,6 +258,8 @@ export default async function CompanyDetailPage({
         companyVisionLogs={companyVisionLogs}
         weeklyReviews={weeklyReviews}
         programData={programData}
+        emailThreads={emailThreads}
+        emailMessages={emailMessages}
       />
     </>
   );

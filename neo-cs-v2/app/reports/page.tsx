@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { TopNavServer } from "@/components/TopNavServer";
-import { allContracts } from "@/lib/mock/onboarding";
 import { yen } from "@/lib/mock/data";
 import {
   computeMrr,
@@ -10,11 +9,16 @@ import {
   periodFor,
   formatPct
 } from "@/lib/domain/kpi";
+import { contractRepo } from "@/lib/repository/server";
 import { ReportExportButtons } from "./ReportExportButtons";
 
 const ASOF = "2026-04-24";
 
-export default function ReportsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ReportsPage() {
+  // DB 駆動: 契約一覧を Repository から取得して KPI を算出
+  const allContracts = await contractRepo.list();
   const monthlyMrr = computeMrrTrend(allContracts, 12, ASOF);
 
   const monthlyMetrics = monthlyMrr.map((p, i) => {
@@ -111,7 +115,7 @@ export default function ReportsPage() {
         </section>
 
         <p className="text-caption text-neutral-500">
-          ※ mock データ駆動。Supabase 切替時は kpi_snapshots テーブルを直接 SELECT する想定。
+          ※ 契約データから純関数で算出。将来的には kpi_snapshots テーブルを直接 SELECT する想定。
         </p>
       </main>
     </>

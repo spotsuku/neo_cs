@@ -1,21 +1,15 @@
 "use client";
 
-// TODO(P3): supabase 実装が無いため mock を表示。実装後に props 化。
+// page.tsx (Server Component) で repo から取得 → 旧 mock 互換 shape へ adapter 変換 → 本コンポーネントに props で渡す。
+// 本番 supabase は空 DB のため実質「データ無し」表示で動く。
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import {
-  EmailThread,
-  EmailMessage,
-  AiExtraction,
-  AiExtractionType,
+import type {
   EmailThreadStatus,
-  AssigneeReason,
-  InternalThreadComment,
-  StatusChangeEntry,
-  mockGenerateReplyDraft,
-  nextStatus
-} from "@/lib/mock/email";
+  EmailAssigneeReason,
+  AiExtractionType
+} from "@/lib/repository/types";
 import type { Company, Contact, ContactCommunityTier } from "@/lib/mock/entities";
 import type { Contract } from "@/lib/mock/contracts";
 import type { ProgramTerm } from "@/lib/repository";
@@ -27,6 +21,56 @@ import { ReplyEditor, type ReplySubmit } from "./ReplyEditor";
 
 const TODAY = "2026-04-24";
 const FALLBACK_USER = "古野";
+
+// adapter 後の email thread / message / extraction の shape
+export type AdaptedEmailThread = {
+  id: string;
+  companyId: string;
+  contractId?: string;
+  programTermId?: string;
+  subject: string;
+  status: EmailThreadStatus;
+  assignee: string;
+  assigneeReason?: EmailAssigneeReason;
+  receivedBy?: string;
+  slaDeadline?: string;
+  lastMessageAt: string;
+  messageIds: string[];
+  statusHistory: never[];
+};
+
+export type AdaptedEmailMessage = {
+  id: string;
+  threadId: string;
+  from: string;
+  to: string[];
+  cc: string[];
+  sentAt: string;
+  body: string;
+  direction: "inbound" | "outbound";
+};
+
+export type AdaptedAiExtraction = {
+  id: string;
+  threadId: string;
+  messageId: string;
+  type: AiExtractionType;
+  targetId?: string;
+  suggestion: string;
+  confidence: number;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+};
+
+export type AdaptedInternalThreadComment = {
+  id: string;
+  threadId: string;
+  authorName: string;
+  body: string;
+  mentions: string[];
+  createdAt: string;
+};
+
 const STATUS_LABEL: Record<EmailThreadStatus, string> = {
   new: "未対応",
   in_progress: "対応中",
@@ -41,29 +85,30 @@ const STATUS_BG: Record<EmailThreadStatus, string> = {
   waiting: "bg-violet-50 text-violet-700 border-violet-100",
   closed: "bg-ink-50 text-ink-500 border-ink-100"
 };
+// 新 enum (repo) 5 種
 const TYPE_LABEL: Record<AiExtractionType, string> = {
-  onboarding_task_done: "オンボ完了",
-  stakeholder_change: "関係者変更",
-  negative_signal: "ネガティブ",
-  next_action: "次アクション",
-  renewal_signal: "更新シグナル"
+  progress_signal: "進捗シグナル",
+  risk_signal: "リスク",
+  churn_signal: "解約シグナル",
+  expansion_signal: "拡張シグナル",
+  meeting_request: "ミーティング"
 };
 const TYPE_COLOR: Record<AiExtractionType, string> = {
-  onboarding_task_done: "#10B981",
-  stakeholder_change: "#8B5CF6",
-  negative_signal: "#EF4444",
-  next_action: "#3D9EFF",
-  renewal_signal: "#F59E0B"
+  progress_signal: "#10B981",
+  risk_signal: "#EF4444",
+  churn_signal: "#F59E0B",
+  expansion_signal: "#3D9EFF",
+  meeting_request: "#8B5CF6"
 };
 
 type Filter = "received" | "assigned" | "program" | "all";
 
-const ASSIGNEE_REASON_LABEL: Record<AssigneeReason, string> = {
+const ASSIGNEE_REASON_LABEL: Record<EmailAssigneeReason, string> = {
   received: "受信者ベース",
   program: "事業ラベル経由",
   manual: "手動アサイン"
 };
-const ASSIGNEE_REASON_COLOR: Record<AssigneeReason, string> = {
+const ASSIGNEE_REASON_COLOR: Record<EmailAssigneeReason, string> = {
   received: "bg-emerald-50 text-emerald-700 border-emerald-200",
   program: "bg-violet-50 text-violet-700 border-violet-200",
   manual: "bg-ink-100 text-ink-700 border-ink-200"
@@ -84,22 +129,22 @@ export function InboxView({
   programs,
   internalComments: initialComments
 }: {
-  threads: EmailThread[];
-  messages: EmailMessage[];
-  extractions: AiExtraction[];
+  threads: AdaptedEmailThread[];
+  messages: AdaptedEmailMessage[];
+  extractions: AdaptedAiExtraction[];
   companies: Company[];
   contacts: Contact[];
   contracts: Contract[];
   programs: ProgramTerm[];
-  internalComments: InternalThreadComment[];
+  internalComments: AdaptedInternalThreadComment[];
 }) {
   const params = useSearchParams();
   const queryThreadId = params?.get("threadId") ?? null;
   const { name: currentUserName } = useCurrentUser();
   const currentUser = currentUserName ?? FALLBACK_USER;
   const { names: assigneeOptions } = useActiveMembers();
-  const [threads, setThreads] = useState(initialThreads);
-  const [extractions, setExtractions] = useState(initialExtractions);
+  const [threads, setThreads] = useState<AdaptedEmailThread[]>(initialThreads);
+  const [extractions, setExtractions] = useState<AdaptedAiExtraction[]>(initialExtractions);
   const [filter, setFilter] = useState<Filter>("received");
   const [programFilter, setProgramFilter] = useState<string>("");
   const [openOnly, setOpenOnly] = useState<boolean>(true);
@@ -114,7 +159,7 @@ export function InboxView({
       : initialThreads[0]?.id ?? "";
   const [selectedId, setSelectedId] = useState<string>(initialSelected);
   const [replyDraft, setReplyDraft] = useState<string | null>(null);
-  const [comments, setComments] = useState<InternalThreadComment[]>(initialComments);
+  const [comments, setComments] = useState<AdaptedInternalThreadComment[]>(initialComments);
   const [chatInput, setChatInput] = useState<string>("");
 
   const companyById = useMemo(
@@ -202,29 +247,26 @@ export function InboxView({
       (t.status === "new" || t.status === "in_progress")
   ).length;
 
-  const updateThread = (id: string, patch: Partial<EmailThread>) => {
+  const updateThread = (id: string, patch: Partial<AdaptedEmailThread>) => {
     setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   };
 
-  // 状態自動遷移: イベントを受け取り、ルールに従って status を更新 + 履歴追加
+  // 状態自動遷移: 送信→waiting / 受信→in_progress 等の単純ルール
   const applyEvent = (id: string, event: "inbound" | "send" | "close") => {
     setThreads((prev) =>
       prev.map((t) => {
         if (t.id !== id) return t;
-        const result = nextStatus(t.status, event);
-        if (!result) return t;
-        const entry: StatusChangeEntry = {
-          at: new Date().toISOString(),
-          from: t.status,
-          to: result.status,
-          reason: result.reason,
-          by: currentUser
-        };
-        return {
-          ...t,
-          status: result.status,
-          statusHistory: [...(t.statusHistory ?? []), entry]
-        };
+        let next: EmailThreadStatus | null = null;
+        if (event === "send" && t.status !== "waiting") next = "waiting";
+        else if (
+          event === "inbound" &&
+          t.status !== "new" &&
+          t.status !== "in_progress"
+        )
+          next = "in_progress";
+        else if (event === "close" && t.status !== "closed") next = "closed";
+        if (!next) return t;
+        return { ...t, status: next };
       })
     );
   };
@@ -239,7 +281,17 @@ export function InboxView({
     if (!selected) return;
     const last = selectedMessages[selectedMessages.length - 1];
     if (!last) return;
-    setReplyDraft(mockGenerateReplyDraft(selected, last));
+    // 簡易テンプレ (実装時は Claude API 経由の下書き生成に差し替え)
+    setReplyDraft(
+      [
+        "お世話になっております。",
+        "",
+        `「${selected.subject}」の件、ご連絡ありがとうございます。`,
+        "内容を確認のうえ、改めてご連絡いたします。",
+        "",
+        "引き続きどうぞよろしくお願いいたします。"
+      ].join("\n")
+    );
   };
 
   // 社内チャット: @メンションを単純パース（半角/全角@ + 既存メンバー名）
@@ -256,7 +308,7 @@ export function InboxView({
     if (!selected) return;
     const body = chatInput.trim();
     if (!body) return;
-    const c: InternalThreadComment = {
+    const c: AdaptedInternalThreadComment = {
       id: `ic-mock-${Date.now()}`,
       threadId: selected.id,
       authorName: currentUser,
@@ -506,20 +558,7 @@ export function InboxView({
                       value={selected.status}
                       onChange={(e) => {
                         const to = e.target.value as EmailThreadStatus;
-                        const entry: StatusChangeEntry = {
-                          at: new Date().toISOString(),
-                          from: selected.status,
-                          to,
-                          reason: "manual",
-                          by: currentUser
-                        };
-                        updateThread(selected.id, {
-                          status: to,
-                          statusHistory: [
-                            ...(selected.statusHistory ?? []),
-                            entry
-                          ]
-                        });
+                        updateThread(selected.id, { status: to });
                       }}
                       className="border border-ink-100 rounded-md px-2 py-1 text-xs"
                     >
@@ -581,7 +620,7 @@ export function InboxView({
                       value={selected.programTermId ?? ""}
                       onChange={(e) =>
                         updateThread(selected.id, {
-                          programTermId: e.target.value || null
+                          programTermId: e.target.value || undefined
                         })
                       }
                       className="border border-ink-100 rounded-md px-2 py-1 text-xs"
@@ -607,31 +646,7 @@ export function InboxView({
                     </span>
                   )}
                 </div>
-                {selected.statusHistory && selected.statusHistory.length > 0 && (
-                  <div className="mt-2 text-[10px] text-ink-500">
-                    {(() => {
-                      const last = selected.statusHistory[selected.statusHistory.length - 1];
-                      const REASON: Record<typeof last.reason, string> = {
-                        sent_reply: "返信送信により",
-                        inbound_new: "新規受信により",
-                        inbound_reopen: "新着受信により",
-                        manual: "手動変更"
-                      };
-                      return (
-                        <>
-                          🕘 {REASON[last.reason]} → {STATUS_LABEL[last.to]}（
-                          {new Date(last.at).toLocaleString("ja-JP", {
-                            month: "numeric",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
-                          {last.by ? ` / ${last.by}` : ""}）
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
+                {/* statusHistory は本番には未実装のため非表示 */}
               </div>
 
               <ul className="space-y-3">

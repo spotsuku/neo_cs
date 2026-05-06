@@ -11,7 +11,6 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
-import { contractOnboardingItems } from "@/lib/mock/onboarding";
 import { productOnboardingTemplates, filterTemplateByCourse } from "@/lib/mock/onboarding";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { ContractOnboardingItem } from "@/lib/repository/types";
@@ -96,8 +95,7 @@ export async function createNextCycleAction(input: {
         required: item.required
       }))
     );
-    // mock では module-level 配列に push して反映
-    contractOnboardingItems.push(...newItems);
+    await repo.onboardingItems.createBatch(newItems);
 
     // ─── 4. 次期契約の事業ジャーニー (kickoff) を初期化 ───
     await repo.businessJourneys.setStage({

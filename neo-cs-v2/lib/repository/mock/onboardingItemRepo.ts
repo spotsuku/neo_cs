@@ -44,5 +44,13 @@ export const mockOnboardingItemRepo: OnboardingItemRepo = {
     }
     store[i] = next;
     return { ...next };
+  },
+  async createBatch(items) {
+    const created = items.map((it) => ({
+      ...it,
+      organizationId: it.organizationId ?? DEFAULT_ORG_ID
+    }));
+    store.push(...created);
+    return created.map((c) => ({ ...c }));
   }
 };

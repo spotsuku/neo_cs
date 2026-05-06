@@ -2,7 +2,6 @@
 import Link from "next/link";
 import {
   continuousSummary,
-  health,
   productByCode,
   ProductCode,
   yen,
@@ -12,13 +11,21 @@ import {
   productCourses,
   courseShortName
 } from "@/lib/mock/data";
-import { activeContracts } from "@/lib/mock/onboarding";
+import type { Contract } from "@/lib/repository/types";
 import { HealthDistribution } from "./HealthDistribution";
 
-export function ContinuousProductCard({ code }: { code: "academia" | "hyogikai" | "commu" }) {
+export function ContinuousProductCard({
+  code,
+  activeContracts,
+  health
+}: {
+  code: "academia" | "hyogikai" | "commu";
+  activeContracts: Contract[];
+  health: { green: number; yellow: number; red: number };
+}) {
   const p = productByCode[code as ProductCode];
   const s = continuousSummary[code];
-  const h = health.byProduct[code];
+  const h = health;
 
   // 新しい activeContracts から集計
   const productContracts = activeContracts.filter((c) => c.product === code);
