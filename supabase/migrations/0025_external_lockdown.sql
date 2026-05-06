@@ -19,13 +19,20 @@
 -- テンプレ・テンプレ系（external は触れない）
 -- ============================================================
 
--- renewal_milestones
+-- renewal_milestones (company_id は持たないので contracts 経由で導出)
 drop policy if exists renewal_milestones_select on renewal_milestones;
 create policy renewal_milestones_select on renewal_milestones
   for select to authenticated
   using (
     not is_external()
-    and (is_manager_or_above() or has_company_access(company_id))
+    and (
+      is_manager_or_above()
+      or exists (
+        select 1 from contracts c
+        where c.id = renewal_milestones.contract_id
+          and has_company_access(c.company_id)
+      )
+    )
   );
 
 drop policy if exists renewal_milestones_write on renewal_milestones;
@@ -33,11 +40,25 @@ create policy renewal_milestones_write on renewal_milestones
   for all to authenticated
   using (
     not is_external()
-    and (is_manager_or_above() or has_company_access(company_id))
+    and (
+      is_manager_or_above()
+      or exists (
+        select 1 from contracts c
+        where c.id = renewal_milestones.contract_id
+          and has_company_access(c.company_id)
+      )
+    )
   )
   with check (
     not is_external()
-    and (is_manager_or_above() or has_company_access(company_id))
+    and (
+      is_manager_or_above()
+      or exists (
+        select 1 from contracts c
+        where c.id = renewal_milestones.contract_id
+          and has_company_access(c.company_id)
+      )
+    )
   );
 
 -- churn_signals
