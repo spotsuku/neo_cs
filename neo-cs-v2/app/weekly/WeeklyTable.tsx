@@ -29,6 +29,7 @@ import {
   WeeklyDraft,
   buildInitialDraft
 } from "./CompanyWeeklyEditor";
+import { submitWeeklyReviewAction } from "./actions";
 
 const FALLBACK_ASSIGNEE = "古野";
 
@@ -66,8 +67,11 @@ export function WeeklyTable({
   const isCurrentWeek = weekStart === CURRENT_WEEK_MONDAY;
   const weekRange = getWeekRange(weekStart);
 
-  // 表示用の合成データ: review優先、なければdraft、なければ初期値
+  // 表示用の合成データ: ユーザのドラフト > DB の確定レビュー > 初期値
+  // (draft より review を優先すると、入力中にテキストが消えて見える)
   const resolveDisplay = (row: TableRow): WeeklyDraft => {
+    const d = getDraft(row.companyId);
+    if (d) return d;
     if (row.review) {
       return {
         actions: row.review.actions,
@@ -76,8 +80,6 @@ export function WeeklyTable({
         nextActions: row.review.nextActions
       };
     }
-    const d = getDraft(row.companyId);
-    if (d) return d;
     return buildInitialDraft(row.prevReview);
   };
 
@@ -101,6 +103,31 @@ export function WeeklyTable({
 
   const isRowEditable = (row: TableRow) =>
     isCurrentWeek && !row.review?.locked;
+
+  const { name: currentUserName } = useCurrentUser();
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  const persistRow = async (row: TableRow) => {
+    const draft = getDraft(row.companyId);
+    if (!draft) return;
+    setSavingId(row.companyId);
+    const res = await submitWeeklyReviewAction({
+      companyId: row.companyId,
+      product,
+      weekStart,
+      actions: draft.actions,
+      good: draft.good,
+      more: draft.more,
+      nextActions: draft.nextActions,
+      authorName: currentUserName ?? FALLBACK_ASSIGNEE,
+      locked: false
+    });
+    setSavingId(null);
+    if (res.ok) {
+      setSavedIds((s) => new Set([...s, row.companyId]));
+    }
+  };
 
   return (
     <div className="liquid-surface">
@@ -275,6 +302,20 @@ export function WeeklyTable({
                           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
                             ⚠ Stuck {row.stuckCount}
                           </span>
+                        )}
+                        {draftDirty && editable && (
+                          <button
+                            onClick={() => persistRow(row)}
+                            disabled={savingId === row.companyId}
+                            className="text-[10px] px-2 py-0.5 rounded-full bg-ink-900 text-white hover:bg-ink-700 disabled:opacity-60 whitespace-nowrap"
+                          >
+                            {savingId === row.companyId
+                              ? "保存中..."
+                              : "💾 保存"}
+                          </button>
+                        )}
+                        {savedIds.has(row.companyId) && !draftDirty && (
+                          <span className="text-[10px] text-emerald-600">✓ 保存済</span>
                         )}
                         <button
                           onClick={() => toggleExpand(row.companyId)}
