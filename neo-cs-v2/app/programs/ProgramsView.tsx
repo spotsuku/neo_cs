@@ -85,7 +85,19 @@ export function ProgramsView({
     return Array.from(set).sort((a, b) => a - b);
   }, [productTerms]);
 
-  const latestCycle = availableCycles.at(-1) ?? null;
+  // contract セルが既に存在する期を「実運用中の期」として優先選択する。
+  // (空 program_terms (例: AI研 第10回 など先行作成のみ) を初期表示すると
+  //  「データが無い」誤認に繋がるため。)
+  const cyclesWithCells = useMemo(() => {
+    const set = new Set<number>();
+    for (const e of productTerms) {
+      if (e.term.cycleNo == null) continue;
+      if (e.cells.length > 0) set.add(e.term.cycleNo);
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [productTerms]);
+  const latestCycle =
+    cyclesWithCells.at(-1) ?? availableCycles.at(-1) ?? null;
 
   // 事業切替・データ更新時に最新期 / 共通へ追従
   const syncRef = `${product}:${latestCycle ?? ""}`;
