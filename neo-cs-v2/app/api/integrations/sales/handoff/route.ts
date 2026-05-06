@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
         amountJpy: payload.contract.amountJpy ?? null,
         primaryContactName: payload.primaryContact.name,
         salesOwnerEmail: payload.salesOwner?.email ?? null,
-        dashboardUrl: `${APP_BASE_URL}/sales-handoff/${handoffRow?.id ?? ""}`,
+        dashboardUrl: `${APP_BASE_URL}/companies/${companyId}`,
         receivedAt: new Date().toISOString(),
         notes: payload.notes ?? null,
       });
@@ -271,7 +271,7 @@ export async function POST(req: NextRequest) {
         primaryContactId: contactId,
         assignmentId,
         driveFolderUrl,
-        dashboardUrl: `${APP_BASE_URL}/sales-handoff/${handoffRow?.id ?? ""}`,
+        dashboardUrl: `${APP_BASE_URL}/companies/${companyId}`,
         request_id: requestId,
       },
       200,

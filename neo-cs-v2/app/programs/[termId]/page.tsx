@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TopNavServer } from "@/components/TopNavServer";
-import { programRepo, companyRepo, userRepo } from "@/lib/repository";
+import { programRepo, companyRepo, userRepo } from "@/lib/repository/server";
 import { productByCode, courseShortName, hasMultipleCourses } from "@/lib/mock/data";
 import { summarizeProgress } from "@/lib/domain/program";
 import { ProgramMatrix, ProgramMatrixLegend } from "./ProgramMatrix";
@@ -50,7 +50,7 @@ export default async function ProgramTermPage({
             <span>{term.label}</span>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-ink-900">{term.label}</h1>
+            <h1 className="text-xl font-bold text-ink-900">{term.label}</h1>
             <span
               className="text-[12px] font-medium px-2.5 py-0.5 rounded-full"
               style={{

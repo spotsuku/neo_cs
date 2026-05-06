@@ -9,7 +9,7 @@ import {
 } from "@/lib/mock/email";
 import { companies, contacts } from "@/lib/mock/entities";
 import { allContracts } from "@/lib/mock/onboarding";
-import { programRepo } from "@/lib/repository";
+import { programRepo } from "@/lib/repository/server";
 
 // CS運用の中核: 全社横断のメールキュー
 // 「自分宛 / 自分が返信担当 / 事業別 / すべて」で切替

@@ -10,7 +10,7 @@ import {
   isViewModeOverride
 } from "./permissions";
 import { getPermissionContext, getPermissionContextWithRealActor } from "./server";
-import { userRepo, auditLogRepo } from "@/lib/repository";
+import { userRepo, auditLogRepo } from "@/lib/repository/server";
 
 /**
  * admin の表示モード切替（manager / member）

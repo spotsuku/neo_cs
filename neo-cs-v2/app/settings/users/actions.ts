@@ -14,7 +14,7 @@ import {
   userRepo,
   userProgramRoleRepo,
   userCompanyAccessRepo
-} from "@/lib/repository";
+} from "@/lib/repository/server";
 import type {
   AppUserRole,
   ProgramScopeRole,

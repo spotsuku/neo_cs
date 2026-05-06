@@ -8,7 +8,7 @@ import { TopNavServer } from "@/components/TopNavServer";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canSeeManagerView, assignedProductCodes } from "@/lib/auth/permissions";
 import { products as allProducts, productByCode } from "@/lib/mock/data";
-import { contractRepo, churnSignalRepo, companyRepo } from "@/lib/repository";
+import { contractRepo, churnSignalRepo, companyRepo } from "@/lib/repository/server";
 
 export const metadata: Metadata = {
   title: "アラート | マネージャー | NEO CS"
@@ -72,7 +72,7 @@ export default async function AlertsPage({
           <span>アラート</span>
         </div>
         <header>
-          <h1 className="text-2xl font-bold text-ink-900">未対応アラート</h1>
+          <h1 className="text-xl font-bold text-ink-900">未対応アラート</h1>
           <p className="mt-1 text-sm text-ink-500">
             未解決の churn シグナル {filtered.length} 件
             {productFilter && ` · ${productByCode[productFilter as keyof typeof productByCode]?.name ?? productFilter}`}

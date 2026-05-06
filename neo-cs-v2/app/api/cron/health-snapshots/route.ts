@@ -17,7 +17,7 @@
 
 import { NextRequest } from "next/server";
 import { getRepo } from "@/lib/repository/server";
-import { DEFAULT_ORG_ID } from "@/lib/repository";
+import { DEFAULT_ORG_ID } from "@/lib/repository/server";
 import { computeHealthScore, deriveMockFactors } from "@/lib/domain/health";
 import { getLogger } from "@/lib/observability/logger";
 import { captureException } from "@/lib/observability/sentry";

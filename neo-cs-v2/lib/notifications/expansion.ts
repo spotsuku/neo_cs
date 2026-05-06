@@ -18,8 +18,8 @@ import {
   companyRepo,
   healthSnapshotRepo,
   userRepo
-} from "@/lib/repository";
-import type { ExpansionOpportunityRecord } from "@/lib/repository";
+} from "@/lib/repository/server";
+import type { ExpansionOpportunityRecord } from "@/lib/repository/server";
 import { EXPANSION_NOTIFY_THRESHOLD } from "@/lib/domain/expansion";
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL ?? "http://localhost:3000";

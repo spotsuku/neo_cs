@@ -25,7 +25,7 @@ import { getPermissionContext } from "@/lib/auth/server";
 import { canManageUsers } from "@/lib/auth/permissions";
 import { getServiceClient } from "@/lib/supabase/server";
 import { withActorFromHeaders } from "@/lib/security/actor-from-headers";
-import { userCompanyAccessRepo, contractRepo } from "@/lib/repository";
+import { userCompanyAccessRepo, contractRepo } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 
 type Body = {

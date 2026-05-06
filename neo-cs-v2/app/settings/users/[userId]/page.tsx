@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TopNavServer } from "@/components/TopNavServer";
-import { userRepo, userProgramRoleRepo, userCompanyAccessRepo, companyRepo } from "@/lib/repository";
+import { userRepo, userProgramRoleRepo, userCompanyAccessRepo, companyRepo } from "@/lib/repository/server";
 import { DisableUserPanel } from "./DisableUserPanel";
 import { ScopeRolesPanel } from "./ScopeRolesPanel";
 import { CompanyAccessPanel } from "./CompanyAccessPanel";
@@ -51,7 +51,7 @@ export default async function UserDetailPage({
             <span className="mx-1">/</span>
             <span>{user.name}</span>
           </div>
-          <h1 className="text-h1 font-bold text-neutral-900">{user.name}</h1>
+          <h1 className="text-xl font-bold text-neutral-900">{user.name}</h1>
           <p className="text-body text-neutral-500">{user.email}</p>
         </header>
 

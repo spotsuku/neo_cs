@@ -23,7 +23,7 @@ import {
   CURRENT_WEEK_MONDAY
 } from "@/lib/mock/weekly";
 import { activeContracts } from "@/lib/mock/onboarding";
-import { weeklyReviewRepo, DEFAULT_ORG_ID } from "@/lib/repository";
+import { submitWeeklyReviewAction } from "./actions";
 import { useDraftPersistence } from "@/lib/hooks/useDraftPersistence";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
@@ -132,24 +132,23 @@ export function CompanyWeeklyEditor({
     const d = draft ?? buildInitialDraft(prevReview);
     setSaveState("saving");
     setSaveError(null);
-    try {
-      await weeklyReviewRepo.upsert({
-        organizationId: DEFAULT_ORG_ID,
-        companyId,
-        product,
-        weekStart: selectedRange.start,
-        actions: d.actions,
-        good: d.good,
-        more: d.more,
-        nextActions: d.nextActions,
-        authorName: currentUserName ?? FALLBACK_ASSIGNEE,
-        locked
-      });
+    const res = await submitWeeklyReviewAction({
+      companyId,
+      product,
+      weekStart: selectedRange.start,
+      actions: d.actions,
+      good: d.good,
+      more: d.more,
+      nextActions: d.nextActions,
+      authorName: currentUserName ?? FALLBACK_ASSIGNEE,
+      locked
+    });
+    if (res.ok) {
       setSaveState("saved");
       markClean();
-    } catch (e) {
+    } else {
       setSaveState("error");
-      setSaveError(e instanceof Error ? e.message : String(e));
+      setSaveError(res.message);
     }
   }
 

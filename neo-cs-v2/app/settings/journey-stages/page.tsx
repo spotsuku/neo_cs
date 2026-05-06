@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { TopNavServer } from "@/components/TopNavServer";
-import { journeyStageDefinitionRepo } from "@/lib/repository";
+import { journeyStageDefinitionRepo } from "@/lib/repository/server";
 import type { JourneyType } from "@/lib/repository/types";
 import { JourneyStagesEditor } from "./JourneyStagesEditor";
 
@@ -30,7 +30,7 @@ export default async function JourneyStagesSettingsPage({
             <span>ジャーニーステージ</span>
           </div>
           <div className="mt-1">
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-xl font-bold tracking-tight">
               ジャーニーステージ
             </h1>
             <div className="mt-1 text-sm text-ink-500">

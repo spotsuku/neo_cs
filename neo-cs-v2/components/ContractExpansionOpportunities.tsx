@@ -7,7 +7,11 @@
 //   - 引き継ぎ履歴 (handedOffAt / handedOffTo / handedOffNote) を表示
 
 import { useEffect, useState } from "react";
-import { expansionOpportunityRepo, userRepo } from "@/lib/repository";
+import {
+  listExpansionsForContractAction,
+  listActiveUsersAction,
+  handOffExpansionAction
+} from "@/app/companies/[id]/expansion-actions";
 import type { AppUser, ExpansionOpportunityRecord } from "@/lib/repository";
 import {
   EXPANSION_KIND_LABEL,
@@ -34,19 +38,17 @@ export function ContractExpansionOpportunities({ contractId }: { contractId: str
   const [note, setNote] = useState<string>("");
 
   const reload = () => {
-    expansionOpportunityRepo
-      .listByContract(contractId, { openOnly: false })
-      .then((list) => {
-        setItems(list);
-        setReady(true);
-      });
+    listExpansionsForContractAction(contractId).then((list) => {
+      setItems(list);
+      setReady(true);
+    });
   };
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      expansionOpportunityRepo.listByContract(contractId, { openOnly: false }),
-      userRepo.list({ activeOnly: true })
+      listExpansionsForContractAction(contractId),
+      listActiveUsersAction()
     ]).then(([list, us]) => {
       if (cancelled) return;
       setItems(list);
@@ -185,7 +187,7 @@ export function ContractExpansionOpportunities({ contractId }: { contractId: str
               <button
                 type="button"
                 onClick={async () => {
-                  await expansionOpportunityRepo.handOff(confirmTarget.id, {
+                  await handOffExpansionAction(confirmTarget.id, {
                     handedOffTo: pickedUserId,
                     note: note.trim() || undefined
                   });

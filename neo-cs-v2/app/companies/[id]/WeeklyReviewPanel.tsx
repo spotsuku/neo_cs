@@ -20,7 +20,7 @@ import {
   weeksStuck
 } from "@/lib/mock/weekly";
 import { activeContracts } from "@/lib/mock/onboarding";
-import { weeklyReviewRepo, DEFAULT_ORG_ID } from "@/lib/repository";
+import { submitWeeklyReviewAction } from "@/app/weekly/actions";
 import { useDraftPersistence } from "@/lib/hooks/useDraftPersistence";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
@@ -197,24 +197,23 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
     const d = draft ?? ensureDraft();
     setSaveState("saving");
     setSaveError(null);
-    try {
-      await weeklyReviewRepo.upsert({
-        organizationId: DEFAULT_ORG_ID,
-        companyId,
-        product,
-        weekStart: selectedRange.start,
-        actions: d.actions,
-        good: d.good,
-        more: d.more,
-        nextActions: d.nextActions,
-        authorName: currentUserName ?? FALLBACK_ASSIGNEE,
-        locked
-      });
+    const res = await submitWeeklyReviewAction({
+      companyId,
+      product,
+      weekStart: selectedRange.start,
+      actions: d.actions,
+      good: d.good,
+      more: d.more,
+      nextActions: d.nextActions,
+      authorName: currentUserName ?? FALLBACK_ASSIGNEE,
+      locked
+    });
+    if (res.ok) {
       setSaveState("saved");
       markClean();
-    } catch (e) {
+    } else {
       setSaveState("error");
-      setSaveError(e instanceof Error ? e.message : String(e));
+      setSaveError(res.message);
     }
   }
 
@@ -228,8 +227,8 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* ヘッダ: 研修切替 + 週タブ */}
-      <div className="liquid-surface p-4 space-y-3">
+      {/* ヘッダ: 研修切替 + 週タブ。メインタブ直下 (top-[146px]) にスティッキー固定 */}
+      <div className="sticky top-[146px] z-10 liquid-surface p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100">
             {products.map((code) => {
@@ -299,8 +298,18 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      {/* 選択週の本文 */}
+      {/* 選択週の本文。今週かつ先週レビューがある場合は 2カラム (左=先週read-only / 右=今週入力) */}
       {displayData && (
+        <div
+          className={[
+            isCurrentWeek && prevReview
+              ? "grid grid-cols-1 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-4"
+              : ""
+          ].join(" ")}
+        >
+          {isCurrentWeek && prevReview && (
+            <PreviousWeekReadColumn review={prevReview} accent={p.accent} />
+          )}
         <div
           className="liquid-surface p-6 relative overflow-hidden"
           style={{
@@ -444,10 +453,11 @@ export function WeeklyReviewPanel({ companyId }: { companyId: string }) {
             </div>
           )}
         </div>
+        </div>
       )}
 
-      {/* 前週の記録（折りたたみ） */}
-      {prevReview && (
+      {/* 前週の記録 (折りたたみ) — 今週ビュー時は左カラムに inline 表示しているため非表示 */}
+      {prevReview && !isCurrentWeek && (
         <PreviousWeekSummary review={prevReview} />
       )}
 
@@ -850,6 +860,110 @@ function NextActionsList({
           setRemoveTarget(null);
         }}
       />
+    </div>
+  );
+}
+
+/* 今週入力ビュー用の「先週」読み取り専用カラム。
+   right column の編集カードと並べる。背景をうすくグレーアウトして read-only を明示。 */
+function PreviousWeekReadColumn({
+  review,
+  accent
+}: {
+  review: WeeklyReview;
+  accent: string;
+}) {
+  return (
+    <div
+      className="liquid-surface p-6 relative overflow-hidden bg-ink-50/30"
+      style={{ borderTop: `3px dashed ${accent}66` }}
+    >
+      <div className="flex items-baseline justify-between mb-5 flex-wrap gap-3">
+        <div>
+          <div className="text-[11px] text-ink-500 flex items-center gap-1.5">
+            <span aria-hidden>👁</span>
+            <span>先週 / 読み取り専用</span>
+          </div>
+          <div className="mt-0.5 text-xl font-bold tracking-tight flex items-baseline gap-2 text-ink-700">
+            {review.weekLabel}
+            <span className="text-sm font-normal text-ink-500">
+              ({formatWeekRange(review.weekStart, review.weekEnd)})
+            </span>
+            {review.locked && (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500 border border-ink-200">
+                🔒 ロック済
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="text-[11px] text-ink-500">
+          記入者{" "}
+          <span className="text-ink-700 font-medium">
+            {review.authorName ?? "—"}
+          </span>
+        </div>
+      </div>
+
+      <Section title="実施事項">
+        {review.actions.length === 0 ? (
+          <div className="text-center text-xs text-ink-400 py-4">
+            実施事項の記録なし
+          </div>
+        ) : (
+          <ul className="space-y-1.5">
+            {review.actions.map((a) => (
+              <li key={a.id} className="flex items-start gap-2 text-xs">
+                <span className="mt-0.5">{a.done ? "✓" : "☐"}</span>
+                <span className={a.done ? "text-ink-700" : "text-ink-500"}>
+                  {a.text}{" "}
+                  <span className="text-ink-400">({a.assigneeName})</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Good（うまくいったこと）">
+        {review.good ? (
+          <div className="text-xs text-ink-700 whitespace-pre-wrap rounded-lg bg-emerald-50/50 border border-emerald-100 p-3">
+            {review.good}
+          </div>
+        ) : (
+          <div className="text-xs text-ink-400">記載なし</div>
+        )}
+      </Section>
+
+      <Section title="More（改善点・課題）">
+        {review.more ? (
+          <div className="text-xs text-ink-700 whitespace-pre-wrap rounded-lg bg-amber-50/50 border border-amber-100 p-3">
+            {review.more}
+          </div>
+        ) : (
+          <div className="text-xs text-ink-400">記載なし</div>
+        )}
+      </Section>
+
+      <Section title="Next（来週=今週やる予定だったこと）">
+        {review.nextActions.length === 0 ? (
+          <div className="text-xs text-ink-400">記載なし</div>
+        ) : (
+          <ul className="space-y-1.5">
+            {review.nextActions.map((n) => (
+              <li key={n.id} className="text-xs text-ink-700">
+                • {n.text}{" "}
+                <span className="text-ink-500">
+                  ({n.assigneeName}
+                  {n.dueDate
+                    ? ` · 期限${n.dueDate.slice(5).replace("-", "/")}`
+                    : ""}
+                  )
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
     </div>
   );
 }

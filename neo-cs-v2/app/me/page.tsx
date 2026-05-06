@@ -1,37 +1,44 @@
 import Link from "next/link";
 import { TopNavServer } from "@/components/TopNavServer";
-import {
-  emailThreads,
-  emailMessages,
-  aiExtractions,
-  AiExtractionType
-} from "@/lib/mock/email";
+import { emailThreads, aiExtractions } from "@/lib/mock/email";
 import { companies } from "@/lib/mock/entities";
-import { activeContracts, contractOnboardingItems } from "@/lib/mock/onboarding";
-import { weeklyReviews, CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
-import { churnRecords, reasonCategoryLabels } from "@/lib/mock/churn";
-import { allContracts } from "@/lib/mock/onboarding";
-import { userRepo, contractRepo, churnSignalRepo } from "@/lib/repository";
+import {
+  activeContracts,
+  contractOnboardingItems
+} from "@/lib/mock/onboarding";
+import {
+  userRepo,
+  companyTaskRepo,
+  businessJourneyRepo,
+  vocItemRepo,
+  chatRepo,
+  programRepo
+} from "@/lib/repository/server";
 import { getPermissionContext } from "@/lib/auth/server";
-import { canSeeManagerView, effectiveRole } from "@/lib/auth/permissions";
-import { products as allProducts, productByCode } from "@/lib/mock/data";
+import { DEFAULT_ORG_ID } from "@/lib/repository/types";
+import {
+  products,
+  productByCode,
+  productCourses,
+  courseShortName,
+  ProductCode
+} from "@/lib/mock/data";
+import { MeExtractions, MeExtractionItem } from "./MeExtractions";
 
 const TODAY = "2026-04-24";
 const FALLBACK_USER = "古野";
 
-const TYPE_LABEL: Record<AiExtractionType, string> = {
-  onboarding_task_done: "オンボ完了",
-  stakeholder_change: "関係者変更",
-  negative_signal: "ネガティブ",
-  next_action: "次アクション",
-  renewal_signal: "更新シグナル"
-};
-const TYPE_COLOR: Record<AiExtractionType, string> = {
-  onboarding_task_done: "#10B981",
-  stakeholder_change: "#8B5CF6",
-  negative_signal: "#EF4444",
-  next_action: "#3D9EFF",
-  renewal_signal: "#F59E0B"
+// 事業ジャーニーの短縮ラベル
+const BUSINESS_STAGE_SHORT: Record<string, string> = {
+  kickoff: "立上げ",
+  running: "運用中",
+  value_articulated: "成果言語化",
+  renewal_consideration: "継続検討",
+  internal_share: "社内共有",
+  approval_prep: "稟議準備",
+  verbal_consent: "口頭内諾",
+  consent: "内諾",
+  upsell: "アップセル"
 };
 
 function isOverdue(d?: string) {
@@ -44,577 +51,863 @@ function daysBetween(a: string, b: string) {
   );
 }
 
+type TodoColor = "red" | "amber" | "ink";
+
+type UpcomingTodo = {
+  key: string;
+  badge: string;
+  badgeColor: TodoColor;
+  company: string;
+  title: string;
+  href: string;
+  dueDate?: string;
+  daysLeft: number; // 期限なしは 9999
+  meta?: string;
+};
+
+function dueBadge(days: number): { text: string; color: TodoColor } {
+  if (days < 0) return { text: `${-days}日超過`, color: "red" };
+  if (days === 0) return { text: "本日", color: "red" };
+  if (days <= 2) return { text: `あと${days}日`, color: "amber" };
+  return { text: `あと${days}日`, color: "ink" };
+}
+
 export default async function MyPage() {
   const me = await userRepo.getCurrent();
   const CURRENT_USER = me?.name ?? FALLBACK_USER;
-  // 1. 自分宛て未対応メール
+  const myUserId = me?.id ?? "";
+  const ctx = await getPermissionContext();
+  const orgId = ctx.actor?.organizationId ?? DEFAULT_ORG_ID;
+
   const myThreads = emailThreads.filter((t) => t.assignee === CURRENT_USER);
   const myOpenThreads = myThreads
     .filter((t) => t.status === "new" || t.status === "in_progress")
     .sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
   const mySlaOver = myOpenThreads.filter((t) => isOverdue(t.slaDeadline));
 
-  // 2. 自分関連のAI抽出（自分担当スレッドの pending）
   const myThreadIds = new Set(myThreads.map((t) => t.id));
   const myPendingExtractions = aiExtractions
     .filter((e) => e.status === "pending" && myThreadIds.has(e.threadId))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  const extractionByType: Record<AiExtractionType, number> = {
-    onboarding_task_done: 0,
-    stakeholder_change: 0,
-    negative_signal: 0,
-    next_action: 0,
-    renewal_signal: 0
-  };
-  myPendingExtractions.forEach((e) => extractionByType[e.type]++);
 
-  // 3. 自分担当社のうちWeekly未入力（今週分）
   const myCompanies = companies.filter((c) => c.ownerName === CURRENT_USER);
-  const myContracts = activeContracts.filter((c) => c.ownerName === CURRENT_USER);
-  // 「自分担当(企業×研修)」のうち今週Weekly未入力なもの
-  const reviewKey = (companyId: string, product: string) => `${companyId}:${product}`;
-  const thisWeekReviewed = new Set(
-    weeklyReviews
-      .filter((r) => r.weekStart === CURRENT_WEEK_MONDAY)
-      .map((r) => reviewKey(r.companyId, r.product))
+  const myContracts = activeContracts.filter(
+    (c) => c.ownerName === CURRENT_USER
   );
-  const missingWeekly = myContracts
-    .filter(
-      (c) =>
-        c.status !== "renewed" &&
-        c.status !== "churned" &&
-        !thisWeekReviewed.has(reviewKey(c.companyId, c.product))
-    )
-    .slice(0, 5);
   const companyById = new Map(companies.map((c) => [c.id, c]));
 
-  // 4. 自分担当のRed/Yellow契約
-  const riskContracts = myContracts
+  // 個社ToDo: 自分担当（完了/未完了の両方を取得）
+  const myCompanyTasksAll = myUserId
+    ? await companyTaskRepo.list({ assignedTo: myUserId })
+    : [];
+  const myCompanyTasksOpen = myCompanyTasksAll.filter(
+    (t) => t.status === "pending" || t.status === "in_progress"
+  );
+
+  // 担当企業の個社ToDo（自分以外も含む完了率算出用）
+  const myCompanyIds = myCompanies.map((c) => c.id);
+  const allTasksForMyCompanies = (
+    await Promise.all(
+      myCompanyIds.map((id) => companyTaskRepo.list({ companyId: id }))
+    )
+  ).flat();
+
+  // 事業ジャーニー
+  const myContractIds = myContracts.map((c) => c.id);
+  const journeysList = await businessJourneyRepo.listByContractIds(myContractIds);
+  const journeyByContract = new Map(
+    journeysList.map((j) => [j.contractId, j])
+  );
+
+  // VOC（オープンのみ）
+  const openVoc = await vocItemRepo.list({
+    organizationId: orgId,
+    status: ["open", "in_progress"]
+  });
+  const vocCountByCompany = new Map<string, number>();
+  openVoc.forEach((v) => {
+    if (!v.companyId) return;
+    vocCountByCompany.set(
+      v.companyId,
+      (vocCountByCompany.get(v.companyId) ?? 0) + 1
+    );
+  });
+
+  // チャット
+  const myChannels = await chatRepo.listChannels({
+    organizationId: orgId,
+    userName: CURRENT_USER
+  });
+  // 最新メッセージの著者が自分でないものを「未対応」とする
+  const channelsWithLastAuthor = await Promise.all(
+    myChannels.map(async (ch) => {
+      const msgs = await chatRepo.listMessages(ch.id);
+      const last = msgs[msgs.length - 1];
+      return { channel: ch, lastAuthor: last?.authorName, lastBody: last?.body };
+    })
+  );
+  const openChats = channelsWithLastAuthor
     .filter(
       (c) =>
-        c.healthScore?.color === "red" || c.healthScore?.color === "yellow"
+        c.lastAuthor &&
+        c.lastAuthor !== CURRENT_USER &&
+        c.channel.kind !== "email_thread"
     )
-    .sort((a, b) => {
-      const order = { red: 0, yellow: 1, green: 2 } as const;
-      return (
-        order[a.healthScore!.color] - order[b.healthScore!.color]
-      );
-    });
+    .sort((a, b) =>
+      a.channel.lastMessageAt < b.channel.lastMessageAt ? 1 : -1
+    );
 
-  // 5. 期限近いオンボタスク（自分担当・7日以内）
-  const myOnboardingTasks = contractOnboardingItems
-    .filter(
-      (i) =>
-        i.assignee === CURRENT_USER &&
-        i.status !== "done" &&
-        daysBetween(i.dueDate, TODAY) <= 7
-    )
-    .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
-
-  // ヘッダ統計
-  const todayTaskCount = myOnboardingTasks.filter(
-    (t) => daysBetween(t.dueDate, TODAY) <= 0
+  // ── ヘッダ KPI ──
+  const redContractCount = myContracts.filter(
+    (c) => c.healthScore?.color === "red"
   ).length;
 
-  // 6. 解約後の再アプローチ予定（自分担当・7日以内・notified=false）
-  const myChurnRecords = churnRecords.filter((r) => {
-    const c = allContracts.find((ct) => ct.id === r.contractId);
-    return c?.ownerName === CURRENT_USER;
+  // ── 事業別ToDo（program_company_tasks）：自分担当 or 担当企業の open セル ──
+  const myCompanyIdSet = new Set(myCompanies.map((c) => c.id));
+  const activeTerms = await programRepo.listTerms({
+    status: ["draft", "active"]
   });
-  const reapproachUpcoming = myChurnRecords.filter((r) => {
-    if (r.notified) return false;
-    if (!r.nextActionDate) return false;
-    const d = daysBetween(r.nextActionDate, TODAY);
-    return d >= 0 && d <= 7;
-  });
-  const reapproachAll7d = myChurnRecords
-    .filter((r) => {
-      if (!r.nextActionDate) return false;
-      const d = daysBetween(r.nextActionDate, TODAY);
-      return d >= 0;
-    })
-    .sort((a, b) => (a.nextActionDate! < b.nextActionDate! ? -1 : 1));
+  const programTodos: UpcomingTodo[] = [];
+  for (const term of activeTerms) {
+    const [templates, cells] = await Promise.all([
+      programRepo.listTemplates(term.id),
+      programRepo.listCells(term.id)
+    ]);
+    const tplById = new Map(templates.map((t) => [t.id, t]));
+    for (const cell of cells) {
+      if (cell.status !== "pending" && cell.status !== "in_progress") continue;
+      if (!cell.dueDate) continue;
+      const mine =
+        (myUserId && cell.assignedTo === myUserId) ||
+        myCompanyIdSet.has(cell.companyId);
+      if (!mine) continue;
+      const days = daysBetween(cell.dueDate, TODAY);
+      if (days > 14) continue;
+      const tpl = tplById.get(cell.templateId);
+      const co = companyById.get(cell.companyId);
+      const b = dueBadge(days);
+      programTodos.push({
+        key: `prog-${cell.id}`,
+        badge: b.text,
+        badgeColor: b.color,
+        company: co?.name ?? cell.companyId,
+        title: tpl?.label ?? "事業別ToDo",
+        href: `/programs/${term.id}`,
+        dueDate: cell.dueDate,
+        daysLeft: days,
+        meta: term.label
+      });
+    }
+  }
+  programTodos.sort((a, b) => a.daysLeft - b.daysLeft);
 
-  // マネージャー視点サマリー（admin/manager のみ）
-  const ctx = await getPermissionContext();
-  const showManagerSummary =
-    canSeeManagerView(ctx) && effectiveRole(ctx) !== "member";
-  const managerSections = showManagerSummary
-    ? await buildManagerSummary(ctx)
-    : null;
+  // ── 個別ToDo（company_tasks）：自分担当 open ──
+  const personalTodos: UpcomingTodo[] = myCompanyTasksOpen
+    .map((t) => {
+      const co = companyById.get(t.companyId);
+      const days = t.dueDate ? daysBetween(t.dueDate, TODAY) : 9999;
+      const b = t.dueDate
+        ? dueBadge(days)
+        : { text: "期限なし", color: "ink" as TodoColor };
+      return {
+        key: `task-${t.id}`,
+        badge: b.text,
+        badgeColor: b.color,
+        company: co?.name ?? t.companyId,
+        title: t.title,
+        href: `/companies/${t.companyId}`,
+        dueDate: t.dueDate,
+        daysLeft: days,
+        meta: t.priority === "urgent" ? "緊急" : undefined
+      };
+    })
+    .filter((t) => t.daysLeft <= 14)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+
+  // 本日タスク詳細（事業別ToDo + 個別ToDo の overdue+本日 ぶん）
+  const todayDetailTodos: UpcomingTodo[] = [
+    ...programTodos,
+    ...personalTodos
+  ]
+    .filter((t) => t.daysLeft <= 0)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+
+  // Red企業（自分担当の健康スコアred契約）
+  const redContracts = myContracts.filter(
+    (c) => c.healthScore?.color === "red"
+  );
+
+  // ── AI抽出 用にスレッド/企業情報を組み立て ──
+  const threadById = new Map(emailThreads.map((t) => [t.id, t]));
+  const extractionItems: MeExtractionItem[] = myPendingExtractions.map((ex) => {
+    const thread = threadById.get(ex.threadId);
+    const company = thread ? companyById.get(thread.companyId) : null;
+    return {
+      extraction: ex,
+      threadId: thread?.id,
+      threadSubject: thread?.subject,
+      companyId: company?.id,
+      companyName: company?.name
+    };
+  });
+
+  // ── 担当企業を 事業 → コース でグループ化 ──
+  const colorOrder: Record<"red" | "yellow" | "green", number> = {
+    red: 0,
+    yellow: 1,
+    green: 2
+  };
+
+  type ContractRow = {
+    contractId: string;
+    companyId: string;
+    companyName: string;
+    karuteNo?: number;
+    healthColor: "red" | "yellow" | "green";
+    journeyShort?: string;
+    onbDoneRate: number; // 0..1
+    todoDoneRate: number; // 0..1
+    vocCount: number;
+  };
+
+  type CourseGroup = {
+    courseKey: string;
+    courseLabel: string;
+    rows: ContractRow[];
+  };
+
+  type ProductGroup = {
+    code: ProductCode;
+    name: string;
+    accent: string;
+    courses: CourseGroup[];
+    contractCount: number;
+  };
+
+  const productGroups: ProductGroup[] = products
+    .map((p) => {
+      const contractsForProduct = myContracts.filter(
+        (c) => c.product === p.code
+      );
+      if (contractsForProduct.length === 0) return null;
+
+      const courses = productCourses[p.code] ?? [];
+      const courseGroups: CourseGroup[] = courses
+        .map((co) => {
+          const contractsForCourse = contractsForProduct.filter(
+            (c) => c.courseKey === co.key
+          );
+          if (contractsForCourse.length === 0) return null;
+
+          const rows: ContractRow[] = contractsForCourse.map((c) => {
+            const company = companyById.get(c.companyId);
+            const onbItems = contractOnboardingItems.filter(
+              (i) => i.contractId === c.id
+            );
+            const onbDone = onbItems.filter((i) => i.status === "done").length;
+            const onbDoneRate =
+              onbItems.length > 0 ? onbDone / onbItems.length : 1;
+            const tasksForCompany = allTasksForMyCompanies.filter(
+              (t) => t.companyId === c.companyId
+            );
+            const todoDone = tasksForCompany.filter(
+              (t) => t.status === "done"
+            ).length;
+            const todoDoneRate =
+              tasksForCompany.length > 0
+                ? todoDone / tasksForCompany.length
+                : 1;
+            const journey = journeyByContract.get(c.id);
+            const journeyShort = journey
+              ? BUSINESS_STAGE_SHORT[journey.currentStageKey] ?? journey.currentStageKey
+              : undefined;
+            return {
+              contractId: c.id,
+              companyId: c.companyId,
+              companyName: company?.name ?? c.companyId,
+              karuteNo: company?.karuteNo,
+              healthColor: c.healthScore?.color ?? "green",
+              journeyShort,
+              onbDoneRate,
+              todoDoneRate,
+              vocCount: vocCountByCompany.get(c.companyId) ?? 0
+            };
+          });
+
+          rows.sort((a, b) => {
+            const c = colorOrder[a.healthColor] - colorOrder[b.healthColor];
+            if (c !== 0) return c;
+            return (a.karuteNo ?? 9999) - (b.karuteNo ?? 9999);
+          });
+
+          return {
+            courseKey: co.key,
+            courseLabel: courseShortName(p.code, co.key),
+            rows
+          };
+        })
+        .filter((g): g is CourseGroup => g !== null);
+
+      return {
+        code: p.code,
+        name: p.shortName,
+        accent: p.accent,
+        courses: courseGroups,
+        contractCount: contractsForProduct.length
+      };
+    })
+    .filter((g): g is ProductGroup => g !== null);
 
   return (
     <>
       <TopNavServer current="/me" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
-        {/* マネージャー視点サマリー */}
-        {managerSections && managerSections.length > 0 && (
-          <section className="liquid-surface p-6">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-base font-semibold text-ink-900">
-                  マネージャー視点サマリー
+      <main className="mx-auto max-w-[1720px] px-6 py-6">
+        {/* 4分割: 左1/4 担当企業（フルハイト）/ 右3/4 ヘッダ + やること系 */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 items-start">
+          {/* ── 左: 担当企業（事業→コース） ── */}
+          <section className="liquid-surface p-4 lg:col-span-1 flex flex-col lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] z-20">
+            <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🏢</span>
+                <h2 className="text-sm font-semibold text-ink-700">
+                  担当企業
                 </h2>
-                <div className="text-xs text-ink-500 mt-0.5">
-                  担当事業の今週進捗・アラート・契約更新の概況
-                </div>
+                <span className="text-[11px] text-ink-500">
+                  {myCompanies.length} 社
+                </span>
               </div>
               <Link
-                href="/manager"
-                className="text-xs text-ink-700 hover:text-ink-900 font-medium"
+                href="/companies"
+                className="text-[11px] text-ink-700 hover:underline"
               >
-                マネージャー画面へ →
+                すべて →
               </Link>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {managerSections.map((s) => (
-                <div
-                  key={s.code}
-                  className="rounded-xl border border-ink-100 p-4 bg-white"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="inline-block w-2 h-2 rounded-full"
-                      style={{ background: s.accent }}
-                    />
-                    <span className="text-sm font-semibold text-ink-900">
-                      {s.name}
-                    </span>
-                    <span className="ml-auto text-[11px] text-ink-500">
-                      {s.contractsCount}社
-                    </span>
+            {productGroups.length === 0 ? (
+              <Empty>担当企業はありません</Empty>
+            ) : (
+              <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-3">
+                {productGroups.map((p) => (
+                  <div key={p.code}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span
+                        className="inline-block w-1.5 h-3 rounded-sm"
+                        style={{ background: p.accent }}
+                      />
+                      <span className="text-[11px] font-bold text-ink-900">
+                        {p.name}
+                      </span>
+                      <span className="text-[10px] text-ink-500">
+                        {p.contractCount}
+                      </span>
+                    </div>
+                    <div className="space-y-2 ml-2">
+                      {p.courses.map((co) => (
+                        <div key={co.courseKey}>
+                          {p.courses.length > 1 && (
+                            <div className="text-[10px] text-ink-500 mb-1 px-1">
+                              {co.courseLabel}
+                            </div>
+                          )}
+                          <ul className="space-y-1">
+                            {co.rows.map((r) => (
+                              <li key={r.contractId}>
+                                <Link
+                                  href={`/companies/${r.companyId}`}
+                                  className="block px-2 py-1.5 rounded-lg hover:bg-ink-50/60"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <HealthDot color={r.healthColor} />
+                                    {r.karuteNo !== undefined && (
+                                      <span className="text-[9px] text-ink-400 tabular-nums shrink-0">
+                                        #{r.karuteNo}
+                                      </span>
+                                    )}
+                                    <span className="text-[12px] font-medium text-ink-900 truncate flex-1 min-w-0">
+                                      {r.companyName}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1 text-[9px] text-ink-500 ml-3 flex-wrap">
+                                    {r.journeyShort && (
+                                      <span className="px-1.5 py-px rounded bg-ink-50 text-ink-700">
+                                        ジャーニー: {r.journeyShort}
+                                      </span>
+                                    )}
+                                    <span>
+                                      オンボ {Math.round(r.onbDoneRate * 100)}%
+                                    </span>
+                                    <span>
+                                      ToDo {Math.round(r.todoDoneRate * 100)}%
+                                    </span>
+                                    {r.vocCount > 0 && (
+                                      <span className="text-rose-600">
+                                        VOC {r.vocCount}件
+                                      </span>
+                                    )}
+                                  </div>
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                    <SmallStat label="今週未提出" value={s.weeklyMissing} warn />
-                    <SmallStat label="アラート" value={s.alertsCount} warn />
-                    <SmallStat label="更新60日" value={s.renewalSoon} warn />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
-        )}
 
-        {/* ユーザヘッダ */}
-        <section className="liquid-surface p-6 relative overflow-hidden">
-          <div
-            className="liquid-blob"
-            style={{
-              top: -80,
-              right: -40,
-              width: 220,
-              height: 220,
-              background: "#3D9EFF",
-              opacity: 0.12
-            }}
-          />
-          <div className="relative flex items-start justify-between gap-6 flex-wrap">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-14 h-14 rounded-full bg-ink-900 text-white flex items-center justify-center text-lg font-bold">
-                古
+          {/* ── 右: ヘッダ + やること / AI抽出 / メール・チャット ── */}
+          <div className="lg:col-span-3 flex flex-col gap-5">
+            {/* ヘッダ + KPI（スクロール中も常に表示） */}
+            <section className="liquid-surface p-5 relative lg:sticky lg:top-20 z-30">
+              <div className="absolute inset-0 overflow-hidden rounded-[inherit] pointer-events-none">
+                <div
+                  className="liquid-blob"
+                  style={{
+                    top: -80,
+                    right: -40,
+                    width: 220,
+                    height: 220,
+                    background: "#3D9EFF",
+                    opacity: 0.12
+                  }}
+                />
               </div>
-              <div className="min-w-0">
-                <div className="text-xs text-ink-500">マイページ</div>
-                <h1 className="text-2xl font-bold tracking-tight text-ink-900">
-                  古野 健太
-                </h1>
-                <div className="text-xs text-ink-500 mt-0.5">
-                  Customer Success / 福岡
+              <div className="relative flex items-center justify-between gap-6 flex-wrap">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-12 h-12 rounded-full bg-ink-900 text-white flex items-center justify-center text-base font-bold">
+                    古
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-ink-500">マイページ</div>
+                    <h1 className="text-xl font-bold tracking-tight text-ink-900">
+                      {CURRENT_USER}
+                    </h1>
+                    <div className="text-[11px] text-ink-500 mt-0.5">
+                      Customer Success / 福岡
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <KpiStat
+                    label="担当企業"
+                    value={myCompanies.length}
+                    href="/companies"
+                  >
+                    {myCompanies.slice(0, 12).map((c) => (
+                      <Link
+                        key={c.id}
+                        href={`/companies/${c.id}`}
+                        className="block px-2 py-1 text-[12px] text-ink-700 hover:bg-ink-50 rounded"
+                      >
+                        {c.name}
+                      </Link>
+                    ))}
+                  </KpiStat>
+                  <KpiStat
+                    label="本日タスク"
+                    value={todayDetailTodos.length}
+                    accent={
+                      todayDetailTodos.length > 0 ? "text-rose-600" : undefined
+                    }
+                    emptyText="本日締切のタスクはありません"
+                  >
+                    {todayDetailTodos.map((t) => (
+                      <Link
+                        key={t.key}
+                        href={t.href}
+                        className="flex items-center gap-2 px-2 py-1 hover:bg-ink-50 rounded"
+                      >
+                        <BadgeChip color={t.badgeColor}>{t.badge}</BadgeChip>
+                        <span className="text-[11px] font-medium text-ink-900 truncate max-w-[110px]">
+                          {t.company}
+                        </span>
+                        <span className="text-[11px] text-ink-700 truncate flex-1 min-w-0">
+                          {t.title}
+                        </span>
+                      </Link>
+                    ))}
+                  </KpiStat>
+                  <KpiStat
+                    label="未対応メール"
+                    value={myOpenThreads.length}
+                    accent={mySlaOver.length > 0 ? "text-rose-600" : undefined}
+                    emptyText="未対応メールはありません"
+                    footer={
+                      <Link
+                        href="/inbox"
+                        className="text-[11px] text-ink-700 hover:underline block px-2 pt-1"
+                      >
+                        受信箱を開く →
+                      </Link>
+                    }
+                  >
+                    {myOpenThreads.slice(0, 10).map((t) => {
+                      const co = companyById.get(t.companyId);
+                      const overdue = isOverdue(t.slaDeadline);
+                      return (
+                        <Link
+                          key={t.id}
+                          href={`/inbox?threadId=${t.id}`}
+                          className="flex items-center gap-2 px-2 py-1 hover:bg-ink-50 rounded"
+                        >
+                          {overdue && (
+                            <span className="text-[9px] px-1.5 py-px rounded-full bg-rose-100 text-rose-600 font-medium shrink-0">
+                              SLA
+                            </span>
+                          )}
+                          <span className="text-[11px] font-medium text-ink-900 truncate shrink-0 max-w-[110px]">
+                            {co?.name ?? t.companyId}
+                          </span>
+                          <span className="text-[11px] text-ink-700 truncate flex-1 min-w-0">
+                            {t.subject}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </KpiStat>
+                  <KpiStat
+                    label="SLA超過"
+                    value={mySlaOver.length}
+                    accent={mySlaOver.length > 0 ? "text-rose-600" : undefined}
+                    emptyText="SLA超過のメールはありません"
+                  >
+                    {mySlaOver.map((t) => {
+                      const co = companyById.get(t.companyId);
+                      const days = t.slaDeadline
+                        ? -daysBetween(t.slaDeadline, TODAY)
+                        : 0;
+                      return (
+                        <Link
+                          key={t.id}
+                          href={`/inbox?threadId=${t.id}`}
+                          className="flex items-center gap-2 px-2 py-1 hover:bg-ink-50 rounded"
+                        >
+                          <span className="text-[9px] px-1.5 py-px rounded-full bg-rose-100 text-rose-600 font-medium shrink-0">
+                            {days}日超過
+                          </span>
+                          <span className="text-[11px] font-medium text-ink-900 truncate shrink-0 max-w-[110px]">
+                            {co?.name ?? t.companyId}
+                          </span>
+                          <span className="text-[11px] text-ink-700 truncate flex-1 min-w-0">
+                            {t.subject}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </KpiStat>
+                  <KpiStat
+                    label="Red企業"
+                    value={redContractCount}
+                    accent={redContractCount > 0 ? "text-rose-600" : undefined}
+                    emptyText="Red企業はありません"
+                  >
+                    {redContracts.map((c) => {
+                      const co = companyById.get(c.companyId);
+                      return (
+                        <Link
+                          key={c.id}
+                          href={`/companies/${c.companyId}`}
+                          className="flex items-center gap-2 px-2 py-1 hover:bg-ink-50 rounded"
+                        >
+                          <span className="inline-block w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                          <span className="text-[11px] font-medium text-ink-900 truncate flex-1 min-w-0">
+                            {co?.name ?? c.companyId}
+                          </span>
+                          <span className="text-[10px] text-ink-500 shrink-0">
+                            {productByCode[c.product]?.shortName ?? c.product}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </KpiStat>
                 </div>
               </div>
+            </section>
+
+            {/* 上段: 事業別ToDo / 個別ToDo（締切が近い順） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <UpcomingColumn
+                title="事業別ToDo（締切が近い順）"
+                emoji="📋"
+                todos={programTodos}
+                emptyText="直近で締切が迫る事業別ToDoはありません"
+              />
+              <UpcomingColumn
+                title="個別ToDo（締切が近い順）"
+                emoji="✅"
+                todos={personalTodos}
+                emptyText="直近で締切が迫る個別ToDoはありません"
+              />
             </div>
-            <div className="flex items-center gap-6">
-              <Stat label="担当企業" value={myCompanies.length} />
-              <Stat
-                label="本日タスク"
-                value={todayTaskCount}
-                accent={todayTaskCount > 0 ? "text-rose-600" : undefined}
-              />
-              <Stat label="未対応メール" value={myOpenThreads.length} />
-              <Stat
-                label="SLA超過"
-                value={mySlaOver.length}
-                accent={mySlaOver.length > 0 ? "text-rose-600" : undefined}
-              />
+
+            {/* AI抽出 承認待ち（この場で承認/却下できる） */}
+            <MeExtractions items={extractionItems} />
+
+            {/* 下段: 未対応メール / 未対応チャット */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* 未対応メール */}
+              <section className="liquid-surface p-4 flex flex-col h-[360px]">
+                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📧</span>
+                    <h2 className="text-sm font-semibold text-ink-700">
+                      未対応メール
+                    </h2>
+                    <span className="text-[11px] text-ink-500">
+                      {myOpenThreads.length} 件
+                      {mySlaOver.length > 0 && (
+                        <span className="text-rose-600 ml-1">
+                          (SLA超過 {mySlaOver.length})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <Link
+                    href="/inbox"
+                    className="text-[11px] text-ink-700 hover:underline"
+                  >
+                    受信箱 →
+                  </Link>
+                </div>
+                {myOpenThreads.length === 0 ? (
+                  <Empty>未対応のメールはありません</Empty>
+                ) : (
+                  <ul className="divide-y divide-ink-50 overflow-y-auto flex-1 -mx-2 px-2">
+                    {myOpenThreads.slice(0, 12).map((t) => {
+                      const co = companyById.get(t.companyId);
+                      const overdue = isOverdue(t.slaDeadline);
+                      return (
+                        <li key={t.id}>
+                          <Link
+                            href={`/inbox?threadId=${t.id}`}
+                            className="block py-2 px-2 -mx-2 rounded-lg hover:bg-ink-50/60"
+                          >
+                            <div className="flex items-center gap-2">
+                              {overdue && (
+                                <span className="text-[9px] px-1.5 py-px rounded-full bg-rose-100 text-rose-600 font-medium shrink-0">
+                                  SLA
+                                </span>
+                              )}
+                              <span className="text-[12px] font-medium text-ink-900 truncate shrink-0 max-w-[140px]">
+                                {co?.name ?? t.companyId}
+                              </span>
+                              <span className="text-[12px] text-ink-700 truncate flex-1 min-w-0">
+                                {t.subject}
+                              </span>
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+
+              {/* 未対応チャット */}
+              <section className="liquid-surface p-4 flex flex-col h-[360px]">
+                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">💬</span>
+                    <h2 className="text-sm font-semibold text-ink-700">
+                      未対応チャット
+                    </h2>
+                    <span className="text-[11px] text-ink-500">
+                      {openChats.length} 件
+                    </span>
+                  </div>
+                  <Link
+                    href="/chat"
+                    className="text-[11px] text-ink-700 hover:underline"
+                  >
+                    チャット →
+                  </Link>
+                </div>
+                {openChats.length === 0 ? (
+                  <Empty>未対応のチャットはありません</Empty>
+                ) : (
+                  <ul className="divide-y divide-ink-50 overflow-y-auto flex-1 -mx-2 px-2">
+                    {openChats.slice(0, 12).map((c) => {
+                      const kindLabel =
+                        c.channel.kind === "dm"
+                          ? "DM"
+                          : c.channel.kind === "program"
+                          ? productByCode[c.channel.productCode!]?.shortName ??
+                            "事業"
+                          : "メール";
+                      return (
+                        <li key={c.channel.id}>
+                          <Link
+                            href={`/chat?channelId=${c.channel.id}`}
+                            className="block py-2 px-2 -mx-2 rounded-lg hover:bg-ink-50/60"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] px-1.5 py-px rounded-full bg-ink-50 text-ink-700 shrink-0">
+                                {kindLabel}
+                              </span>
+                              <span className="text-[12px] font-medium text-ink-900 truncate shrink-0 max-w-[120px]">
+                                {c.channel.title}
+                              </span>
+                              <span className="text-[11px] text-ink-500 truncate flex-1 min-w-0">
+                                {c.lastAuthor}: {c.lastBody}
+                              </span>
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
             </div>
           </div>
-        </section>
-
-        {/* 1. 未対応メール */}
-        <Section
-          icon="🔴"
-          title="未対応メール"
-          link={{ href: "/inbox", label: "すべて見る →" }}
-          rightSlot={
-            <span className="text-xs text-ink-500">
-              {myOpenThreads.length} 件{" "}
-              {mySlaOver.length > 0 && (
-                <span className="text-rose-600 font-semibold">
-                  / SLA超過 {mySlaOver.length}
-                </span>
-              )}
-            </span>
-          }
-        >
-          {myOpenThreads.length === 0 ? (
-            <Empty>未対応のメールはありません</Empty>
-          ) : (
-            <ul className="space-y-2">
-              {myOpenThreads.slice(0, 5).map((t) => {
-                const co = companyById.get(t.companyId);
-                const overdue = isOverdue(t.slaDeadline);
-                return (
-                  <li key={t.id}>
-                    <Link
-                      href={`/inbox?threadId=${t.id}`}
-                      className="block rounded-xl border border-ink-100 p-3 bg-white hover:bg-ink-50"
-                    >
-                      <div className="flex items-center gap-2 text-[11px]">
-                        {overdue && (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 font-medium">
-                            SLA超過
-                          </span>
-                        )}
-                        <span className="text-ink-500">
-                          {t.status === "new" ? "未対応" : "対応中"}
-                        </span>
-                        <span className="ml-auto text-ink-500">
-                          {t.lastMessageAt}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-ink-900 truncate">
-                        {co?.name ?? t.companyId}
-                      </div>
-                      <div className="text-xs text-ink-700 truncate">
-                        {t.subject}
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
-
-        {/* 2. AI抽出 承認待ち */}
-        <Section
-          icon="🤖"
-          title="AI抽出 承認待ち"
-          link={{ href: "/inbox/extractions", label: "すべて見る →" }}
-          rightSlot={
-            <div className="flex items-center gap-1.5 text-[10px]">
-              {(Object.keys(extractionByType) as AiExtractionType[]).map((t) =>
-                extractionByType[t] > 0 ? (
-                  <span
-                    key={t}
-                    className="px-2 py-0.5 rounded-full font-medium"
-                    style={{
-                      color: TYPE_COLOR[t],
-                      background: `${TYPE_COLOR[t]}14`
-                    }}
-                  >
-                    {TYPE_LABEL[t]} {extractionByType[t]}
-                  </span>
-                ) : null
-              )}
-            </div>
-          }
-        >
-          {myPendingExtractions.length === 0 ? (
-            <Empty>承認待ちはありません</Empty>
-          ) : (
-            <ul className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              {myPendingExtractions.slice(0, 3).map((e) => {
-                const t = emailThreads.find((th) => th.id === e.threadId);
-                const co = t ? companyById.get(t.companyId) : null;
-                return (
-                  <li
-                    key={e.id}
-                    className="rounded-xl border border-ink-100 p-3 bg-white"
-                  >
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{
-                        color: TYPE_COLOR[e.type],
-                        background: `${TYPE_COLOR[e.type]}14`
-                      }}
-                    >
-                      {TYPE_LABEL[e.type]}
-                    </span>
-                    <div className="mt-1.5 text-xs text-ink-500">{co?.name}</div>
-                    <div className="text-sm text-ink-900 line-clamp-2 leading-snug mt-0.5">
-                      {e.suggestion}
-                    </div>
-                    <div className="text-[10px] text-ink-500 mt-1">
-                      確信度 {Math.round(e.confidence * 100)}%
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
-
-        {/* 3. 今週の未入力Weekly */}
-        <Section
-          icon="📝"
-          title="今週の未入力Weekly"
-          link={{ href: "/weekly", label: "週次画面 →" }}
-          rightSlot={
-            <span className="text-xs text-ink-500">{missingWeekly.length} 件</span>
-          }
-        >
-          {missingWeekly.length === 0 ? (
-            <Empty>今週分はすべて入力済み</Empty>
-          ) : (
-            <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {missingWeekly.map((c) => {
-                const co = companyById.get(c.companyId);
-                return (
-                  <li
-                    key={c.id}
-                    className="rounded-xl border border-ink-100 p-3 bg-white"
-                  >
-                    <div className="text-sm font-semibold text-ink-900 truncate">
-                      {co?.name ?? c.companyId}
-                    </div>
-                    <div className="text-[11px] text-ink-500 mt-0.5">
-                      {c.product} ・ {c.courseKey}
-                    </div>
-                    <Link
-                      href={`/companies/${c.companyId}`}
-                      className="mt-1.5 inline-block text-[11px] text-ink-700 hover:underline"
-                    >
-                      企業カルテへ →
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
-
-        {/* 4. Red/Yellow企業 */}
-        <Section
-          icon="⚠️"
-          title="担当のRed/Yellow企業"
-          rightSlot={
-            <span className="text-xs text-ink-500">{riskContracts.length} 件</span>
-          }
-        >
-          {riskContracts.length === 0 ? (
-            <Empty>Red/Yellowはありません</Empty>
-          ) : (
-            <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {riskContracts.map((c) => {
-                const co = companyById.get(c.companyId);
-                const color = c.healthScore!.color;
-                return (
-                  <li key={c.id}>
-                    <Link
-                      href={`/companies/${c.companyId}`}
-                      className="block rounded-xl border border-ink-100 p-3 bg-white hover:bg-ink-50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{
-                            background: color === "red" ? "#EF4444" : "#F59E0B"
-                          }}
-                        />
-                        <span className="text-sm font-semibold text-ink-900 truncate">
-                          {co?.name ?? c.companyId}
-                        </span>
-                        <span
-                          className={[
-                            "ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                            color === "red"
-                              ? "bg-rose-100 text-rose-600"
-                              : "bg-amber-100 text-amber-700"
-                          ].join(" ")}
-                        >
-                          {color.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-ink-500 mt-1">
-                        {c.product} ・ 期末 {c.endDate ?? "—"}
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
-
-        {/* 6. 解約後の再アプローチ予定 */}
-        <Section
-          icon="🔔"
-          title="解約後の再アプローチ予定"
-          link={{ href: "/renewal", label: "すべて見る → /renewal" }}
-          rightSlot={
-            <span className="text-xs text-ink-500">
-              7日以内 <span className="text-ink-900 font-semibold">{reapproachUpcoming.length}</span> 件
-            </span>
-          }
-        >
-          {reapproachAll7d.length === 0 ? (
-            <Empty>再アプローチ予定はありません</Empty>
-          ) : (
-            <ul className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              {reapproachAll7d.slice(0, 3).map((r) => {
-                const contract = allContracts.find((c) => c.id === r.contractId);
-                const co = contract ? companyById.get(contract.companyId) : null;
-                const days = r.nextActionDate ? daysBetween(r.nextActionDate, TODAY) : 0;
-                return (
-                  <li
-                    key={r.contractId}
-                    className="rounded-xl border border-ink-100 p-3 bg-white"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={[
-                          "px-2 py-0.5 rounded-full text-[10px] font-medium",
-                          days <= 7
-                            ? "bg-rose-100 text-rose-600"
-                            : "bg-ink-50 text-ink-700"
-                        ].join(" ")}
-                      >
-                        あと{days}日
-                      </span>
-                      <span className="text-[10px] text-ink-500 ml-auto">
-                        {reasonCategoryLabels[r.reasonCategory]}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 text-sm font-semibold text-ink-900 truncate">
-                      {co?.name ?? r.contractId}
-                    </div>
-                    <div className="text-[11px] text-ink-500 mt-0.5">
-                      予定日 {r.nextActionDate}
-                    </div>
-                    <div className="text-xs text-ink-700 mt-1 line-clamp-2">
-                      {r.nextActionNote ?? "—"}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
-
-        {/* 5. 期限近いオンボタスク */}
-        <Section
-          icon="📅"
-          title="期限近いオンボタスク（7日以内）"
-          link={{ href: "/onboarding", label: "オンボ画面 →" }}
-          rightSlot={
-            <span className="text-xs text-ink-500">{myOnboardingTasks.length} 件</span>
-          }
-        >
-          {myOnboardingTasks.length === 0 ? (
-            <Empty>期限近いオンボタスクはありません</Empty>
-          ) : (
-            <ul className="space-y-1.5">
-              {myOnboardingTasks.slice(0, 8).map((task) => {
-                const contract = activeContracts.find((c) => c.id === task.contractId);
-                const co = contract ? companyById.get(contract.companyId) : null;
-                const days = daysBetween(task.dueDate, TODAY);
-                const isOd = task.status === "overdue" || days < 0;
-                return (
-                  <li
-                    key={task.id}
-                    className="rounded-lg border border-ink-100 p-2.5 bg-white flex items-center gap-3"
-                  >
-                    <span
-                      className={[
-                        "px-2 py-0.5 rounded-full text-[10px] shrink-0",
-                        isOd
-                          ? "bg-rose-100 text-rose-600"
-                          : days <= 2
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-ink-50 text-ink-700"
-                      ].join(" ")}
-                    >
-                      {isOd ? `${-days}日超過` : `あと${days}日`}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-ink-900 truncate">{task.name}</div>
-                      <div className="text-[11px] text-ink-500">
-                        {co?.name ?? "—"} ・ 期限 {task.dueDate}
-                      </div>
-                    </div>
-                    {contract && (
-                      <Link
-                        href={`/onboarding/${contract.id}`}
-                        className="text-[11px] text-ink-700 hover:underline shrink-0"
-                      >
-                        →
-                      </Link>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
+        </div>
       </main>
     </>
   );
 }
 
-function Stat({
+function UpcomingColumn({
+  title,
+  emoji,
+  todos,
+  emptyText
+}: {
+  title: string;
+  emoji: string;
+  todos: UpcomingTodo[];
+  emptyText: string;
+}) {
+  return (
+    <section className="liquid-surface p-4 flex flex-col h-[420px]">
+      <div className="flex items-center gap-2 mb-2 shrink-0">
+        <span className="text-base">{emoji}</span>
+        <h2 className="text-sm font-semibold text-ink-700">{title}</h2>
+        <span className="text-[11px] text-ink-500">{todos.length} 件</span>
+      </div>
+      {todos.length === 0 ? (
+        <Empty>{emptyText}</Empty>
+      ) : (
+        <ul className="divide-y divide-ink-50 overflow-y-auto flex-1 -mx-2 px-2">
+          {todos.map((t) => (
+            <li key={t.key}>
+              <Link
+                href={t.href}
+                className="flex items-center gap-2 py-2 hover:bg-ink-50/60 rounded-lg px-2 -mx-2"
+              >
+                <BadgeChip color={t.badgeColor}>{t.badge}</BadgeChip>
+                <span className="text-[12px] font-medium text-ink-900 shrink-0 truncate max-w-[120px]">
+                  {t.company}
+                </span>
+                <span className="text-[12px] text-ink-700 truncate flex-1 min-w-0">
+                  {t.title}
+                </span>
+                {t.meta && (
+                  <span className="text-[10px] text-ink-500 shrink-0 truncate max-w-[80px]">
+                    {t.meta}
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function KpiStat({
   label,
   value,
-  accent
+  accent,
+  href,
+  emptyText,
+  footer,
+  children
 }: {
   label: string;
   value: number;
   accent?: string;
+  href?: string;
+  emptyText?: string;
+  footer?: React.ReactNode;
+  children?: React.ReactNode;
 }) {
-  return (
-    <div className="text-center">
-      <div className={`text-2xl font-bold ${accent ?? "text-ink-900"}`}>
-        {value}
+  // 0件 かつ href が無い場合はクリック不要なので静的表示
+  const hasContent =
+    href || (Array.isArray(children) ? children.length > 0 : !!children);
+  if (!hasContent) {
+    return (
+      <div className="text-center px-2">
+        <div className={`text-xl font-bold ${accent ?? "text-ink-900"}`}>
+          {value}
+        </div>
+        <div className="text-[10px] text-ink-500">{label}</div>
       </div>
-      <div className="text-[10px] text-ink-500">{label}</div>
-    </div>
+    );
+  }
+  return (
+    <details className="relative group">
+      <summary className="list-none cursor-pointer text-center select-none px-2 py-1 rounded hover:bg-ink-50 [&::-webkit-details-marker]:hidden">
+        <div className={`text-xl font-bold ${accent ?? "text-ink-900"}`}>
+          {value}
+        </div>
+        <div className="text-[10px] text-ink-500">{label} ▾</div>
+      </summary>
+      <div className="absolute right-0 top-full mt-2 w-[340px] z-50 rounded-xl bg-white border border-ink-100 shadow-xl p-2 max-h-[420px] overflow-y-auto">
+        {value === 0 ? (
+          <div className="px-2 py-3 text-center text-[11px] text-ink-500">
+            {emptyText ?? "該当なし"}
+          </div>
+        ) : (
+          <div className="space-y-px">{children}</div>
+        )}
+        {footer}
+        {href && (
+          <Link
+            href={href}
+            className="text-[11px] text-ink-700 hover:underline block px-2 pt-1"
+          >
+            一覧を開く →
+          </Link>
+        )}
+      </div>
+    </details>
   );
 }
 
-function Section({
-  icon,
-  title,
-  link,
-  rightSlot,
+function BadgeChip({
+  color,
   children
 }: {
-  icon: string;
-  title: string;
-  link?: { href: string; label: string };
-  rightSlot?: React.ReactNode;
+  color: TodoColor;
   children: React.ReactNode;
 }) {
+  const cls =
+    color === "red"
+      ? "bg-rose-100 text-rose-600"
+      : color === "amber"
+      ? "bg-amber-100 text-amber-700"
+      : "bg-ink-50 text-ink-700";
   return (
-    <section className="liquid-surface p-5">
-      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-base">{icon}</span>
-          <h2 className="text-sm font-semibold text-ink-700">{title}</h2>
-        </div>
-        <div className="flex items-center gap-3">
-          {rightSlot}
-          {link && (
-            <Link
-              href={link.href}
-              className="text-[11px] text-ink-700 hover:underline"
-            >
-              {link.label}
-            </Link>
-          )}
-        </div>
-      </div>
+    <span
+      className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 w-[68px] text-center ${cls}`}
+    >
       {children}
-    </section>
+    </span>
+  );
+}
+
+function HealthDot({ color }: { color: "red" | "yellow" | "green" }) {
+  const bg =
+    color === "red" ? "#EF4444" : color === "yellow" ? "#F59E0B" : "#10B981";
+  return (
+    <span
+      className="inline-block w-2 h-2 rounded-full shrink-0"
+      style={{ background: bg }}
+    />
   );
 }
 
@@ -622,95 +915,6 @@ function Empty({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-ink-100 p-6 text-center text-xs text-ink-500">
       {children}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// マネージャー視点サマリー（admin / manager のみ）
-// 担当事業ごとに今週未提出の週次・未解決アラート・更新60日内の件数を集計
-// ─────────────────────────────────────────────
-type ManagerSection = {
-  code: string;
-  name: string;
-  accent: string;
-  contractsCount: number;
-  weeklyMissing: number;
-  alertsCount: number;
-  renewalSoon: number;
-};
-
-async function buildManagerSummary(
-  ctx: Awaited<ReturnType<typeof getPermissionContext>>
-): Promise<ManagerSection[]> {
-  const codes =
-    ctx.actor?.role === "admin"
-      ? allProducts.map((p) => p.code as string)
-      : ctx.programs.map((p) => p.productCode);
-
-  if (codes.length === 0) return [];
-
-  const [allActiveContracts, allSignals] = await Promise.all([
-    contractRepo.list({ activeOnly: true }),
-    churnSignalRepo.list({ unresolvedOnly: true }).catch(() => [])
-  ]);
-
-  const horizon = addDaysIso(TODAY, 60);
-
-  return codes.map((code) => {
-    const product = productByCode[code as keyof typeof productByCode];
-    const contracts = allActiveContracts.filter((c) => c.product === code);
-    const contractIds = new Set(contracts.map((c) => c.id));
-    const companyIds = new Set(contracts.map((c) => c.companyId));
-
-    // 今週未提出: 担当事業の active 契約のうち、今週レビューが無い社の数
-    const reviewedCompanyIds = new Set(
-      weeklyReviews
-        .filter(
-          (r) =>
-            r.product === code && r.weekStart === CURRENT_WEEK_MONDAY
-        )
-        .map((r) => r.companyId)
-    );
-    const weeklyMissing = Array.from(companyIds).filter(
-      (cid) => !reviewedCompanyIds.has(cid)
-    ).length;
-
-    const alertsCount = allSignals.filter((s) => contractIds.has(s.contractId)).length;
-    const renewalSoon = contracts.filter((c) => c.endDate && c.endDate <= horizon).length;
-
-    return {
-      code,
-      name: product?.name ?? code,
-      accent: product?.accent ?? "#999",
-      contractsCount: contracts.length,
-      weeklyMissing,
-      alertsCount,
-      renewalSoon
-    };
-  });
-}
-
-function addDaysIso(iso: string, days: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function SmallStat({
-  label,
-  value,
-  warn
-}: {
-  label: string;
-  value: number;
-  warn?: boolean;
-}) {
-  const cls = warn && value > 0 ? "text-rose-600" : "text-ink-900";
-  return (
-    <div>
-      <div className={`text-lg font-bold ${cls}`}>{value}</div>
-      <div className="text-[10px] text-ink-500">{label}</div>
     </div>
   );
 }

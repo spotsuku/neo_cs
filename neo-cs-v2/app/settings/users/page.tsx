@@ -14,7 +14,7 @@ import {
   userProgramRoleRepo,
   userCompanyAccessRepo,
   companyRepo
-} from "@/lib/repository";
+} from "@/lib/repository/server";
 import { InviteExternalDialog } from "./InviteExternalDialog";
 import { ImpersonateButton } from "./ImpersonateButton";
 import type {
@@ -86,7 +86,7 @@ export default async function UsersSettingsPage() {
   return (
     <>
       <TopNavServer current="/settings" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
         <section>
           <div className="flex items-center gap-2 text-xs text-ink-500 font-medium">
             <Link href="/settings" className="hover:text-ink-700">設定</Link>
@@ -95,7 +95,7 @@ export default async function UsersSettingsPage() {
           </div>
           <div className="mt-1 flex items-end justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">ユーザー管理</h1>
+              <h1 className="text-xl font-bold tracking-tight">ユーザー管理</h1>
               <div className="mt-1 text-sm text-ink-500">
                 グローバルロールと事業×スコープロールを管理（Admin のみ）
               </div>
@@ -183,12 +183,25 @@ export default async function UsersSettingsPage() {
                     {initials(u.name)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-ink-900">{u.name}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-ink-900">{u.name}</span>
+                      {!u.isActive && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-500">
+                          無効
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-ink-500">{u.email}</div>
                   </div>
                   <div className="text-xs text-ink-700">
                     閲覧可能 {accessByUser.get(u.id) ?? 0} 社
                   </div>
+                  <Link
+                    href={`/settings/users/${u.id}`}
+                    className="text-xs text-ink-700 hover:text-ink-900 ml-2"
+                  >
+                    編集 →
+                  </Link>
                 </li>
               ))}
             </ul>

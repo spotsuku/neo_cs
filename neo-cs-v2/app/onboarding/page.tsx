@@ -4,8 +4,9 @@
 // インライン展開で各契約の ChecklistView (事業内ToDo と同 UX) を表示する。
 
 import { TopNavServer } from "@/components/TopNavServer";
-import { activeContracts } from "@/lib/mock/onboarding";
-import { onboardingItemRepo, userRepo, companyRepo } from "@/lib/repository";
+import { SectionSubNav, TODO_SUBNAV } from "@/components/SectionSubNav";
+import { allContracts } from "@/lib/mock/onboarding";
+import { onboardingItemRepo, userRepo, companyRepo } from "@/lib/repository/server";
 import { OnboardingView } from "./OnboardingView";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function OnboardingPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [items, users, companies] = await Promise.all([
-    onboardingItemRepo.listByContractIds(activeContracts.map((c) => c.id)),
+    onboardingItemRepo.listByContractIds(allContracts.map((c) => c.id)),
     userRepo.list({ activeOnly: true }),
     companyRepo.list()
   ]);
@@ -28,8 +29,9 @@ export default async function OnboardingPage() {
   return (
     <>
       <TopNavServer current="/onboarding" />
+      <SectionSubNav items={TODO_SUBNAV} />
       <OnboardingView
-        activeContracts={activeContracts}
+        activeContracts={allContracts}
         itemsByContract={itemsByContract}
         companyMap={Object.fromEntries(companies.map((c) => [c.id, c.name]))}
         users={users.map((u) => ({ id: u.id, name: u.name }))}

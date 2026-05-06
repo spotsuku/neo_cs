@@ -15,16 +15,14 @@ import { supabaseAssignmentRepo } from "./assignmentRepo";
 import { supabaseOneOnOneLogRepo } from "./oneOnOneLogRepo";
 import { supabaseContractRepo } from "./contractRepo";
 import { supabaseHealthSnapshotRepo } from "./healthSnapshotRepo";
-import { supabaseRenewalMilestoneRepo } from "./renewalMilestoneRepo";
 import { supabaseKpiSnapshotRepo } from "./kpiSnapshotRepo";
 import { supabaseChurnSignalRepo } from "./churnSignalRepo";
 import { supabaseExpansionOpportunityRepo } from "./expansionOpportunityRepo";
 import { supabaseVocItemRepo } from "./vocItemRepo";
 import { supabaseProductCourseRepo } from "./productCourseRepo";
 import { supabaseCompanyTaskRepo } from "./companyTaskRepo";
-// program (事業内ToDo): supabase 実装は migration 0020 投入後に追加予定。
-// 現状は mock 実装に委譲し型を満たす。
-import { mockProgramRepo } from "../mock/programRepo";
+// program (事業内ToDo): migration 0020 + supabaseProgramRepo で実装済
+import { supabaseProgramRepo } from "./programRepo";
 import {
   supabaseContactRepo,
   supabaseMeetingLogRepo,
@@ -33,18 +31,21 @@ import {
   supabaseOnboardingItemRepo,
   supabaseSuccessPlanRepo
 } from "./_lookup";
-// 企業/事業ジャーニー (account-journey-v2): supabase 実装は migration 0020
-// 投入後に追加予定。現状は mock 実装に委譲し型を満たす。
-import {
-  mockJourneyStageDefinitionRepo
-} from "../mock/journeyStageDefinitionRepo";
-import { mockCompanyJourneyRepo } from "../mock/companyJourneyRepo";
-import { mockBusinessJourneyRepo } from "../mock/businessJourneyRepo";
+// 企業/事業ジャーニー (account-journey-v2): migration 0028 + 各 supabase repo で実装済
+import { supabaseJourneyStageDefinitionRepo } from "./journeyStageDefinitionRepo";
+import { supabaseCompanyJourneyRepo } from "./companyJourneyRepo";
+import { supabaseBusinessJourneyRepo } from "./businessJourneyRepo";
 // 権限スコープ (user_program_roles / user_company_access)
 // マイグレーション 0022 投入後に有効
 import { supabaseUserProgramRoleRepo } from "./userProgramRoleRepo";
 import { supabaseUserCompanyAccessRepo } from "./userCompanyAccessRepo";
 import { supabaseChatRepo } from "./chatRepo";
+// ジャーニーチェックポイント: migration 0028 + supabaseJourneyCheckpointRepo で実装済
+// 契約ライフサイクル / 企業天気 / 企業ビジョン: migration 0029 + 各 supabase repo で実装済
+import { supabaseJourneyCheckpointRepo } from "./journeyCheckpointRepo";
+import { supabaseContractLifecycleRepo } from "./contractLifecycleRepo";
+import { supabaseCompanyWeatherRepo } from "./companyWeatherRepo";
+import { supabaseCompanyVisionRepo } from "./companyVisionRepo";
 
 export const supabaseRepository: Repository = {
   users: supabaseUserRepo,
@@ -58,22 +59,25 @@ export const supabaseRepository: Repository = {
   healthSnapshots: supabaseHealthSnapshotRepo,
   kpiSnapshots: supabaseKpiSnapshotRepo,
   churnSignals: supabaseChurnSignalRepo,
-  renewalMilestones: supabaseRenewalMilestoneRepo,
   expansionOpportunities: supabaseExpansionOpportunityRepo,
   vocItems: supabaseVocItemRepo,
   productCourses: supabaseProductCourseRepo,
   companyTasks: supabaseCompanyTaskRepo,
-  programs: mockProgramRepo,
+  programs: supabaseProgramRepo,
   contacts: supabaseContactRepo,
   meetingLogs: supabaseMeetingLogRepo,
   stakeholders: supabaseStakeholderRepo,
   accountJourneys: supabaseAccountJourneyRepo,
   onboardingItems: supabaseOnboardingItemRepo,
   successPlans: supabaseSuccessPlanRepo,
-  journeyStageDefinitions: mockJourneyStageDefinitionRepo,
-  companyJourneys: mockCompanyJourneyRepo,
-  businessJourneys: mockBusinessJourneyRepo,
+  journeyStageDefinitions: supabaseJourneyStageDefinitionRepo,
+  companyJourneys: supabaseCompanyJourneyRepo,
+  businessJourneys: supabaseBusinessJourneyRepo,
   userProgramRoles: supabaseUserProgramRoleRepo,
   userCompanyAccess: supabaseUserCompanyAccessRepo,
-  chats: supabaseChatRepo
+  chats: supabaseChatRepo,
+  journeyCheckpoints: supabaseJourneyCheckpointRepo,
+  contractLifecycle: supabaseContractLifecycleRepo,
+  companyWeatherOverrides: supabaseCompanyWeatherRepo,
+  companyVisions: supabaseCompanyVisionRepo
 };

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TopNavServer } from "@/components/TopNavServer";
-import { programRepo } from "@/lib/repository";
+import { programRepo } from "@/lib/repository/server";
 import { PROGRAM_TASK_CATEGORY_LABEL } from "@/lib/domain/program";
 import { TemplateEditor } from "./TemplateEditor";
 import { DeleteTermButton } from "./DeleteTermButton";
@@ -38,7 +38,7 @@ export default async function ProgramTermEditPage({
             <span className="mx-1">/</span>
             <span>編集</span>
           </div>
-          <h1 className="text-2xl font-bold text-ink-900">{term.label} の編集</h1>
+          <h1 className="text-xl font-bold text-ink-900">{term.label} の編集</h1>
           <p className="text-sm text-ink-500">
             タスク列 (テンプレ) のラベル / 説明 / 並び順を編集できます
           </p>

@@ -3,7 +3,6 @@ import { TopNavServer } from "@/components/TopNavServer";
 import { CompanyDetail } from "./CompanyDetail";
 import { getPermissionContext } from "@/lib/auth/server";
 import { products } from "@/lib/mock/data";
-import { CompletenessChecklistCard } from "@/components/CompletenessChecklistCard";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness";
 import { computeStakeholderEngagement } from "@/lib/domain/engagement-builder";
 import type { StakeholderEngagementMetrics } from "@/components/StakeholderEngagementCard";
@@ -21,9 +20,15 @@ import {
   userRepo,
   companyJourneyRepo,
   businessJourneyRepo,
+  weeklyReviewRepo,
+  programRepo,
   journeyStageDefinitionRepo,
-  renewalMilestoneRepo
-} from "@/lib/repository";
+  journeyCheckpointRepo,
+  contractLifecycleRepo,
+  companyWeatherRepo,
+  companyVisionRepo
+} from "@/lib/repository/server";
+import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import {
   suggestBusinessStage,
   suggestCompanyStage,
@@ -115,15 +120,9 @@ export default async function CompanyDetailPage({
       id: company.id,
       name: company.name,
       industry: company.industry
-      // size / website / legalNumber は現行 Company 型に未定義 (将来追加予定)
+      // size / website は現行 Company 型に未定義 (将来追加予定)
     },
-    contacts: contacts.map((c) => ({
-      isPrimary: c.isPrimary,
-      name: c.name,
-      email: c.email,
-      title: c.title
-      // slackId は将来追加予定
-    })),
+    contacts: [],
     contracts: allCycles.map((c) => ({
       status: c.status,
       courseKey: c.courseKey,
@@ -135,7 +134,6 @@ export default async function CompanyDetailPage({
     assignments: assignments.map((a) => ({ role: a.role, unassignedAt: a.unassignedAt })),
     fallbackPrimaryOwnerName: company.ownerName,
     onboarding: { taskCount: items.length },
-    stakeholders: stakeholders.map((s) => ({ type: s.type })),
     drive: { folderUrl: company.driveFolderUrl ?? null }
   });
 
@@ -153,17 +151,13 @@ export default async function CompanyDetailPage({
     };
   }
 
-  // ─── 事業ジャーニー: 契約ごとに更新マイルストーン取得 → 推奨算出 ─────
-  const milestonesByContract = await Promise.all(
-    allContractIds.map((cid) => renewalMilestoneRepo.listByContract(cid))
-  );
+  // ─── 事業ジャーニー: 契約ごとの推奨算出 (旧 RenewalMilestone は廃止) ─────
   const businessSuggestionByContract = new Map<string, JourneySuggestion>();
-  allCycles.forEach((c, idx) => {
+  allCycles.forEach((c) => {
     businessSuggestionByContract.set(
       c.id,
       suggestBusinessStage({
         contract: c,
-        milestones: milestonesByContract[idx],
         current: businessJourneysRaw.find((bj) => bj.contractId === c.id) ?? null,
         stageDefinitions: businessStageDefs
       })
@@ -179,12 +173,48 @@ export default async function CompanyDetailPage({
     businessStageDefinitions: businessStageDefs
   });
 
+  // チェックポイント完了状態 (各契約) と過去契約スナップショット
+  const checkpointStatusesByContract: Record<string, Awaited<ReturnType<typeof journeyCheckpointRepo.list>>> = {};
+  await Promise.all(
+    allCycles.map(async (c) => {
+      checkpointStatusesByContract[c.id] = await journeyCheckpointRepo.list({
+        organizationId: DEFAULT_ORG_ID,
+        journeyType: "business",
+        subjectId: c.id
+      });
+    })
+  );
+  const lifecycleSnapshots = await contractLifecycleRepo.listByCompany(company.id);
+
+  // 企業天気は手動制御。未設定なら undefined
+  const weatherOverride = await companyWeatherRepo.get(company.id);
+  // 企業ビジョン (NEO参画動機 / 目標 / 活用方針) + 改訂ログ
+  const companyVision = await companyVisionRepo.get(company.id);
+  const companyVisionLogs = await companyVisionRepo.listLogs(company.id);
+  // 週次レビュー (概要タブ「直近の動き」に使用)
+  const weeklyReviews = (await weeklyReviewRepo.list({ companyId: company.id }))
+    .sort((a, b) => (a.weekStart < b.weekStart ? 1 : -1));
+
+  // 事業別ToDo (program_company_tasks) をこの企業に絞って読込み。
+  // この企業がセルを持つ term のみを対象とする
+  const allTerms = await programRepo.listTerms();
+  const programBundles = await Promise.all(
+    allTerms.map(async (term) => {
+      const cells = (await programRepo.listCells(term.id)).filter(
+        (c) => c.companyId === company.id
+      );
+      if (cells.length === 0) return null;
+      const templates = await programRepo.listTemplates(term.id);
+      return { term, templates, cells };
+    })
+  );
+  const programData = programBundles.filter(
+    (b): b is NonNullable<typeof b> => b !== null
+  );
+
   return (
     <>
       <TopNavServer current="/companies" />
-      <div className="mx-auto max-w-[1400px] px-6 pt-8">
-        <CompletenessChecklistCard result={completeness} />
-      </div>
       <CompanyDetail
         viewerRole={viewerRole}
         accessibleProductCodes={accessibleProductCodes}
@@ -199,6 +229,11 @@ export default async function CompanyDetailPage({
         journeys={journeys}
         tasks={tasks}
         members={members.map((u) => ({ id: u.id, name: u.name }))}
+        assignments={assignments.map((a) => ({
+          userId: a.userId,
+          role: a.role
+        }))}
+        completeness={completeness}
         engagementByStakeholder={engagementByStakeholder}
         companyJourney={companyJourney}
         businessJourneys={businessJourneysRaw}
@@ -208,6 +243,13 @@ export default async function CompanyDetailPage({
         businessSuggestions={Object.fromEntries(
           businessSuggestionByContract.entries()
         )}
+        checkpointStatusesByContract={checkpointStatusesByContract}
+        lifecycleSnapshots={lifecycleSnapshots}
+        weatherOverride={weatherOverride?.weather}
+        companyVision={companyVision}
+        companyVisionLogs={companyVisionLogs}
+        weeklyReviews={weeklyReviews}
+        programData={programData}
       />
     </>
   );

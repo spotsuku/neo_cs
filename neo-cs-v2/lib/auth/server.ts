@@ -5,7 +5,7 @@
 
 import "server-only";
 import { cookies } from "next/headers";
-import { userProgramRoleRepo, userCompanyAccessRepo, userRepo } from "@/lib/repository";
+import { userProgramRoleRepo, userCompanyAccessRepo, userRepo } from "@/lib/repository/server";
 import {
   VIEW_MODE_COOKIE,
   IMPERSONATE_COOKIE,

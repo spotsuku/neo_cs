@@ -12,7 +12,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
-import { userRepo } from "@/lib/repository";
+import { userRepo } from "@/lib/repository/server";
 import { withActorContext } from "@/lib/repository/supabase/_actor";
 
 export type CourseDraft = {

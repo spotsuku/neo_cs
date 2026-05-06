@@ -8,9 +8,10 @@ import { companies } from "@/lib/mock/entities";
 import {
   activeContracts,
   productOnboardingTemplates,
-  daysUntilStart
+  daysUntilStart,
+  filterTemplateByCourse
 } from "@/lib/mock/onboarding";
-import { onboardingItemRepo, userRepo } from "@/lib/repository";
+import { onboardingItemRepo, userRepo } from "@/lib/repository/server";
 import { ChecklistView } from "./ChecklistView";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,11 @@ export default async function ContractOnboardingPage({
 
   const company = companies.find((c) => c.id === contract.companyId);
   const product = productByCode[contract.product];
-  const template = productOnboardingTemplates[contract.product];
+  // 契約の courseKey に該当する項目（＋全コース共通）だけを表示
+  const template = filterTemplateByCourse(
+    productOnboardingTemplates[contract.product],
+    contract.courseKey
+  );
   const [items, users] = await Promise.all([
     onboardingItemRepo.listByContractIds([contract.id]),
     userRepo.list({ activeOnly: true })
@@ -80,7 +85,7 @@ export default async function ContractOnboardingPage({
           <div className="relative flex items-start justify-between gap-6">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-ink-900">
+                <h1 className="text-xl font-bold tracking-tight text-ink-900">
                   {company?.name ?? contract.companyId}
                 </h1>
                 <ProductBadge code={contract.product} />

@@ -33,7 +33,7 @@ import {
   userRepo,
   assignmentRepo,
   onboardingItemRepo
-} from "@/lib/repository";
+} from "@/lib/repository/server";
 import { summarizeProgress } from "@/lib/domain/program";
 import { CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 import { surveys as allSurveys, surveyResponses as allSurveyResponses } from "@/lib/mock/surveys";
@@ -286,9 +286,9 @@ export default async function ManagerPage() {
   return (
     <div className="min-h-screen bg-canvas">
       <TopNavServer current="/manager" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
         <header>
-          <h1 className="text-2xl font-bold text-ink-900">マネージャー</h1>
+          <h1 className="text-xl font-bold text-ink-900">マネージャー</h1>
           <p className="mt-1 text-sm text-ink-500">
             担当事業の全体進捗・アラート・メンバー稼働を一画面で把握
           </p>
@@ -344,7 +344,7 @@ export default async function ManagerPage() {
                         label="更新60日"
                         value={String(s.renewalSoon)}
                         warn={s.renewalSoon > 0}
-                        href={`/renewal?product=${s.code}`}
+                        href={`/companies?product=${s.code}`}
                       />
                     </dl>
                   </article>

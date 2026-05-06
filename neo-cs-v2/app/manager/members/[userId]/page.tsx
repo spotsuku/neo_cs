@@ -18,7 +18,7 @@ import {
   userProgramRoleRepo,
   healthSnapshotRepo,
   churnSignalRepo
-} from "@/lib/repository";
+} from "@/lib/repository/server";
 import { productByCode } from "@/lib/mock/data";
 import { CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 
@@ -180,7 +180,7 @@ export default async function MemberDetailPage({
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs text-ink-500">{user.role}</div>
-              <h1 className="text-2xl font-bold text-ink-900">{user.name}</h1>
+              <h1 className="text-xl font-bold text-ink-900">{user.name}</h1>
               <div className="text-xs text-ink-500 mt-0.5">{user.email}</div>
             </div>
             <Link

@@ -23,8 +23,8 @@ import {
   type ChurnSeverity,
   type ChurnSignalNotification
 } from "./slack";
-import { churnSignalRepo, companyRepo, healthSnapshotRepo, userRepo } from "@/lib/repository";
-import type { ChurnSignalRecord } from "@/lib/repository";
+import { churnSignalRepo, companyRepo, healthSnapshotRepo, userRepo } from "@/lib/repository/server";
+import type { ChurnSignalRecord } from "@/lib/repository/server";
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL ?? "http://localhost:3000";
 

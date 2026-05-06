@@ -4,8 +4,7 @@
  * 用途:
  *   - 営業 (neo-sales) → CS 引継ぎ時に、テンプレフォルダを共有ドライブ配下に
  *     複製して顧客個別フォルダを生成する
- *   - フォルダURLを Supabase に保存して /companies/[id] や /sales-handoff/[id]
- *     からワンクリックで開けるようにする
+ *   - フォルダURLを Supabase に保存して /companies/[id] からワンクリックで開けるようにする
  *
  * 認証:
  *   - サービスアカウント JWT (env: GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON)

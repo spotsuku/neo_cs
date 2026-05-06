@@ -1,5 +1,6 @@
 import { TopNavServer } from "@/components/TopNavServer";
-import { programRepo, companyRepo, userRepo } from "@/lib/repository";
+import { SectionSubNav, TODO_SUBNAV } from "@/components/SectionSubNav";
+import { programRepo, companyRepo, userRepo } from "@/lib/repository/server";
 import { summarizeProgress } from "@/lib/domain/program";
 import { ProgramsView, type EnrichedTerm } from "./ProgramsView";
 import { getPermissionContext } from "@/lib/auth/server";
@@ -45,6 +46,7 @@ export default async function ProgramsListPage() {
   return (
     <>
       <TopNavServer current="/programs" />
+      <SectionSubNav items={TODO_SUBNAV} />
       <ProgramsView
         enriched={enriched}
         companyMap={Object.fromEntries(companies.map((c) => [c.id, c.name]))}

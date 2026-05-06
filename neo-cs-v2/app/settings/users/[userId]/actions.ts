@@ -14,7 +14,7 @@
  */
 
 import { revalidatePath } from "next/cache";
-import { userRepo } from "@/lib/repository";
+import { userRepo } from "@/lib/repository/server";
 import { recordAudit } from "@/lib/repository/audit";
 
 export interface SetActiveResult {

@@ -15,7 +15,7 @@ import {
   companyRepo,
   assignmentRepo,
   userRepo
-} from "@/lib/repository";
+} from "@/lib/repository/server";
 import { CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 
 export const metadata: Metadata = {
@@ -98,7 +98,7 @@ export default async function MissingWeeklyPage({
           <span>週次未記入</span>
         </div>
         <header>
-          <h1 className="text-2xl font-bold text-ink-900">週次レビュー 未記入企業</h1>
+          <h1 className="text-xl font-bold text-ink-900">週次レビュー 未記入企業</h1>
           <p className="mt-1 text-sm text-ink-500">
             {CURRENT_WEEK_MONDAY} 週の未提出 {rows.length} 件
             {productFilter && ` · ${productByCode[productFilter as keyof typeof productByCode]?.name ?? productFilter}`}

@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from "react";
 import { extractVocCandidates, VOC_TAG_LABEL, type VocSourceTextInput, type VocTag } from "@/lib/domain/voc";
-import { vocItemRepo, DEFAULT_ORG_ID } from "@/lib/repository";
+import { createVocItemAction } from "@/app/voc/actions";
 
 export function VocScanButton({
   inputs,
@@ -31,21 +31,20 @@ export function VocScanButton({
   async function saveOne(idx: number) {
     const c = candidates[idx];
     setErr(null);
-    try {
-      await vocItemRepo.create({
-        organizationId: DEFAULT_ORG_ID,
-        sourceType: c.sourceType,
-        sourceId: c.sourceId,
-        contractId: c.contractId,
-        companyId: c.companyId,
-        excerpt: c.excerpt,
-        tags: c.suggestedTags,
-        status: "new",
-        priority: "med"
-      });
+    const res = await createVocItemAction({
+      sourceType: c.sourceType,
+      sourceId: c.sourceId,
+      contractId: c.contractId,
+      companyId: c.companyId,
+      excerpt: c.excerpt,
+      tags: c.suggestedTags,
+      status: "open",
+      priority: "med"
+    });
+    if (res.ok) {
       setSavedIds((s) => new Set([...s, idx]));
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+    } else {
+      setErr(res.message);
     }
   }
 
