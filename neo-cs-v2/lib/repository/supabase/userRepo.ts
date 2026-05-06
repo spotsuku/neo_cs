@@ -64,19 +64,105 @@ export const supabaseUserRepo: UserRepo = {
   },
 
   async getCurrent() {
-    // RLS が有効になり次第 auth.uid() ベースのSELECTに切替。
-    // 現状は service_role 経由で auth_user_id をもとに取得するヘルパーは
-    // middleware.ts 整備とセットで P1 後半。MOCK_CURRENT_USER_EMAIL があれば優先。
-    const sb = getServiceClient();
-    const email = process.env.MOCK_CURRENT_USER_EMAIL;
-    if (!email) return null;
-    const { data, error } = await sb
-      .from("app_users")
-      .select("*")
-      .eq("email", email.toLowerCase())
-      .maybeSingle();
-    if (error) throw new Error(`app_users.getCurrent: ${error.message}`);
-    return data ? toUser(data as Row) : null;
+    // 開発時の env 強制経路 (CI / local dev) は MOCK_CURRENT_USER_EMAIL を優先。
+    const mockEmail = process.env.MOCK_CURRENT_USER_EMAIL;
+    const sbService = getServiceClient();
+    if (mockEmail) {
+      const { data, error } = await sbService
+        .from("app_users")
+        .select("*")
+        .eq("email", mockEmail.toLowerCase())
+        .maybeSingle();
+      if (error) throw new Error(`app_users.getCurrent (mock): ${error.message}`);
+      return data ? toUser(data as Row) : null;
+    }
+
+    // 本番: Supabase Auth セッションから auth.uid() を取得し、
+    // app_users.auth_user_id で突き合わせる。
+    let authUser: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null = null;
+    try {
+      const { cookies } = await import("next/headers");
+      const { createServerClient } = await import("@supabase/ssr");
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!url || !anon) return null;
+      const cookieStore = await cookies();
+      const sbAuth = createServerClient(url, anon, {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll().map((c) => ({ name: c.name, value: c.value }));
+          },
+          setAll() {
+            /* Server Component からは cookie 書込みできないが認可だけなので OK */
+          }
+        }
+      });
+      const { data } = await sbAuth.auth.getUser();
+      if (data?.user) {
+        authUser = {
+          id: data.user.id,
+          email: data.user.email ?? undefined,
+          user_metadata: data.user.user_metadata ?? undefined
+        };
+      }
+    } catch {
+      return null;
+    }
+    if (!authUser) return null;
+
+    // 1) auth_user_id で直接ヒットする app_users
+    {
+      const { data, error } = await sbService
+        .from("app_users")
+        .select("*")
+        .eq("auth_user_id", authUser.id)
+        .maybeSingle();
+      if (!error && data) return toUser(data as Row);
+    }
+
+    // 2) email マッチで auth_user_id を後付けリンク (seed 由来の app_user 等)
+    if (authUser.email) {
+      const { data: byEmail } = await sbService
+        .from("app_users")
+        .select("*")
+        .eq("email", authUser.email.toLowerCase())
+        .maybeSingle();
+      if (byEmail) {
+        await sbService
+          .from("app_users")
+          .update({ auth_user_id: authUser.id, is_active: true })
+          .eq("id", (byEmail as Row).id);
+        return toUser({ ...(byEmail as Row), auth_user_id: authUser.id, is_active: true });
+      }
+    }
+
+    // 3) INITIAL_ADMIN_EMAIL と一致する初回ログインユーザは admin で自動登録
+    const initialAdmin = process.env.INITIAL_ADMIN_EMAIL?.toLowerCase();
+    if (authUser.email && initialAdmin && authUser.email.toLowerCase() === initialAdmin) {
+      const name =
+        (typeof authUser.user_metadata?.name === "string"
+          ? (authUser.user_metadata?.name as string)
+          : null) ?? authUser.email;
+      const orgRow = await sbService.from("organizations").select("id").limit(1).maybeSingle();
+      const organizationId =
+        (orgRow.data as { id: string } | null)?.id ?? "00000000-0000-0000-0000-000000000001";
+      const { data: created } = await sbService
+        .from("app_users")
+        .insert({
+          auth_user_id: authUser.id,
+          email: authUser.email,
+          name,
+          role: "admin",
+          is_active: true,
+          organization_id: organizationId
+        })
+        .select()
+        .single();
+      if (created) return toUser(created as Row);
+    }
+
+    // 一致しない場合は app_user 未登録 — 管理者による招待待ち
+    return null;
   },
 
   async setRole(id, role) {
