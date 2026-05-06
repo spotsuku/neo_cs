@@ -22,10 +22,10 @@ create or replace view contracts_active_v as
 comment on view contracts_active_v is
   '契約サイクル中のもの (renewed / churned 以外)。バンドル整合性チェックに使用。';
 
--- 2) 同一 (organization_id, company_id, product) で active が複数生まれないよう
+-- 2) 同一 (organization_id, company_id, product_code) で active が複数生まれないよう
 --    部分 unique index を追加
 create unique index if not exists contracts_active_unique_idx
-  on contracts (organization_id, company_id, product)
+  on contracts (organization_id, company_id, product_code)
   where status in ('handoff', 'onboarding', 'active', 'renewal_window');
 
 -- 3) academia と hyogikai が同時 active にならないよう専用 unique
@@ -33,7 +33,7 @@ create unique index if not exists contracts_active_unique_idx
 --    1本だけ active を許容する仕組みを部分 index で実現
 create unique index if not exists contracts_academia_hyogikai_bundle_idx
   on contracts (organization_id, company_id)
-  where product in ('academia', 'hyogikai')
+  where product_code in ('academia', 'hyogikai')
     and status in ('handoff', 'onboarding', 'active', 'renewal_window');
 
 comment on index contracts_academia_hyogikai_bundle_idx is
@@ -42,7 +42,7 @@ comment on index contracts_academia_hyogikai_bundle_idx is
 -- 4) 解約→切替時のための説明
 --    academia → hyogikai に切替える場合のシーケンス:
 --      a) UPDATE contracts SET status='churned' WHERE id=<academia_id>
---      b) INSERT INTO contracts (...) VALUES (..., product='hyogikai', status='active')
+--      b) INSERT INTO contracts (...) VALUES (..., product_code='hyogikai', status='active')
 --    トランザクション内で a→b の順に実行する限り、上記 unique index は通る。
 
 -- ============================================================
