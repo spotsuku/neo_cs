@@ -33,22 +33,6 @@ import { productAttendanceByAttribute } from "@/lib/mock/participants";
 
 const VALID_CODES: ProductCode[] = ["academia", "hyogikai", "aiken", "commu"];
 
-// ダミーの次回MTG（企業ごと）
-const nextMtgByCompany: Record<string, string> = {
-  "c-aeon": "2026-04-25",
-  "c-nishitetsu": "2026-04-26",
-  "c-ffg": "2026-04-28",
-  "c-kyudenko": "2026-05-02",
-  "c-jrq": "2026-04-30",
-  "c-fukugin": "2026-04-28",
-  "c-yamae": "2026-05-10",
-  "c-toto": "2026-05-08",
-  "c-nccb": "2026-05-12",
-  "c-saibugas": "2026-05-15",
-  "c-fukuokashi": "2026-05-18",
-  "c-levias": "2026-05-20"
-};
-
 const healthDotColor: Record<string, string> = {
   green: "#10B981",
   yellow: "#F59E0B",
@@ -71,7 +55,7 @@ export default async function ProductDashboard({
   return (
     <>
       <TopNavServer current="/dashboard" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-10">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-10">
         {/* ヘッダ */}
         <section>
           <div className="flex items-end justify-between">
@@ -81,7 +65,7 @@ export default async function ProductDashboard({
                 <span>/</span>
                 <span>研修別</span>
               </div>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight flex items-center gap-3">
+              <h1 className="mt-1 text-xl font-bold tracking-tight flex items-center gap-3">
                 <span
                   className="inline-block w-3 h-3 rounded-full"
                   style={{ background: p.accent }}
@@ -261,7 +245,8 @@ function ContinuousView({
                   </td>
                   <td className="px-3 py-3 text-ink-700">{yen(c.mrr)}</td>
                   <td className="px-3 py-3 text-ink-500 whitespace-nowrap">
-                    {nextMtgByCompany[c.id] ?? "—"}
+                    {/* 次回MTG予定: 予定MTG用テーブルが導入されたら DB 由来に差し替え */}
+                    —
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button className="text-xs text-ink-700 hover:underline whitespace-nowrap">

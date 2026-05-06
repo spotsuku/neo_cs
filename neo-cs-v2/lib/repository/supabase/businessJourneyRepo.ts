@@ -190,6 +190,40 @@ export const supabaseBusinessJourneyRepo: BusinessJourneyRepo = {
     return next;
   },
 
+  async setLifecycleState(input) {
+    const sb = getServiceClient();
+    const ctx = getActorContext();
+    const { data: before } = await sb
+      .from("business_journeys")
+      .select("*")
+      .eq("contract_id", input.contractId)
+      .maybeSingle();
+    if (!before) {
+      throw new Error(`business-journey not found: ${input.contractId}`);
+    }
+    const { data, error } = await sb
+      .from("business_journeys")
+      .update({
+        lifecycle_state: input.state,
+        lifecycle_reason: input.reason ?? null,
+        updated_by: input.changedBy ?? null
+      })
+      .eq("contract_id", input.contractId)
+      .select()
+      .single();
+    if (error) throw new Error(`business_journeys.setLifecycleState: ${error.message}`);
+    const next = toJourney(data as Row);
+    await runAfterWrite({
+      entityType: "business_journeys",
+      entityId: input.contractId,
+      before,
+      after: next,
+      action: "update",
+      ctx
+    });
+    return next;
+  },
+
   async listEvents(contractId) {
     const sb = getServiceClient();
     const { data, error } = await sb

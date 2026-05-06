@@ -109,6 +109,23 @@ export const mockBusinessJourneyRepo: BusinessJourneyRepo = {
     return { ...next };
   },
 
+  async setLifecycleState(input) {
+    const idx = journeys.findIndex((j) => j.contractId === input.contractId);
+    if (idx < 0) {
+      throw new Error(`business-journey not found: ${input.contractId}`);
+    }
+    const now = new Date().toISOString();
+    const next: BusinessJourney = {
+      ...journeys[idx],
+      lifecycleState: input.state,
+      lifecycleReason: input.reason,
+      updatedAt: now,
+      updatedBy: input.changedBy
+    };
+    journeys[idx] = next;
+    return { ...next };
+  },
+
   async listEvents(contractId) {
     return events
       .filter((e) => e.subjectId === contractId && e.journeyType === "business")

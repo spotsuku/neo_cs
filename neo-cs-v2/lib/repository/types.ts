@@ -27,15 +27,17 @@ import type { ProductCode } from "@/lib/mock/data";
 import type {
   Stakeholder as MockStakeholder,
   AccountJourney,
-  SuccessPlan,
-  RenewalMilestone
+  SuccessPlan
 } from "@/lib/mock/cycles";
 import type {
   JourneyType,
   JourneyStageDefinition as MockJourneyStageDefinition,
   CompanyJourney as MockCompanyJourney,
   BusinessJourney as MockBusinessJourney,
-  JourneyEvent as MockJourneyEvent
+  JourneyEvent as MockJourneyEvent,
+  JourneyCheckpointStatus as MockJourneyCheckpointStatus,
+  ContractLifecycleSnapshot as MockContractLifecycleSnapshot,
+  BusinessLifecycleState as MockBusinessLifecycleState
 } from "@/lib/mock/journeys";
 
 // ─────────────────────────────────────────────
@@ -77,7 +79,6 @@ export type {
   ProductCode,
   AccountJourney,
   SuccessPlan,
-  RenewalMilestone,
   JourneyType
 };
 
@@ -86,6 +87,9 @@ export type JourneyStageDefinition = MockJourneyStageDefinition;
 export type CompanyJourney = MockCompanyJourney;
 export type BusinessJourney = MockBusinessJourney;
 export type JourneyEvent = MockJourneyEvent;
+export type JourneyCheckpointStatus = MockJourneyCheckpointStatus;
+export type ContractLifecycleSnapshot = MockContractLifecycleSnapshot;
+export type BusinessLifecycleState = MockBusinessLifecycleState;
 
 // ─────────────────────────────────────────────
 // 追加Domain型（mock非依存）
@@ -577,8 +581,13 @@ export interface ContactRepo {
   create(input: ContactCreateInput): Promise<Contact>;
 }
 
+export type MeetingLogCreateInput = Omit<MeetingLog, "id" | "organizationId"> & {
+  organizationId?: string;
+};
+
 export interface MeetingLogRepo {
   listByCompany(companyId: string, opts?: MeetingLogListOpts): Promise<MeetingLog[]>;
+  create(input: MeetingLogCreateInput): Promise<MeetingLog>;
 }
 
 export type EngagementTierValue = "core" | "active" | "casual" | "at_risk";
@@ -698,7 +707,7 @@ export interface ExpansionOpportunityRepo {
 // VOC (Voice of Customer) 要望管理 (H項)
 // ─────────────────────────────────────────────
 export type VocSourceType = "survey_response" | "meeting_log" | "weekly_review";
-export type VocStatus = "new" | "triaged" | "backlog" | "shipped" | "wontfix";
+export type VocStatus = "open" | "in_progress" | "done" | "wontfix";
 export type VocPriority = "low" | "med" | "high";
 
 export type VocItemRecord = {
@@ -761,35 +770,16 @@ export interface VocItemRepo {
     }
   ): Promise<VocItemRecord>;
   setPriority(id: string, priority: VocPriority): Promise<VocItemRecord>;
+  setTags(id: string, tags: string[]): Promise<VocItemRecord>;
   setLinkedPrUrl(id: string, url: string | undefined): Promise<VocItemRecord>;
   setAssignedTo(id: string, userId: string | undefined): Promise<VocItemRecord>;
   appendComment(id: string, comment: Omit<VocComment, "id" | "createdAt">): Promise<VocItemRecord>;
   markNotified(id: string, notifiedAt?: string): Promise<void>;
 }
 
-// ─────────────────────────────────────────────
-// 更新マイルストン (G項)
-// 自動done を廃止し、CS担当者の明示完了 + 証跡で管理する
-// ─────────────────────────────────────────────
-export interface RenewalMilestoneRepo {
-  listByContract(contractId: string): Promise<RenewalMilestone[]>;
-  /** 担当者が明示完了マーク。証跡 (note または attachmentUrl) のいずれかが必須 */
-  markDone(
-    id: string,
-    opts: {
-      completedBy: string;
-      evidence: { note?: string; attachmentUrl?: string };
-      completedAt?: string;
-    }
-  ): Promise<RenewalMilestone>;
-  /** スキップ。reason が必須 */
-  markSkipped(
-    id: string,
-    opts: { reason: string; skippedAt?: string; skippedBy?: string }
-  ): Promise<RenewalMilestone>;
-  /** 「対応中」へ遷移 (任意操作) */
-  markInProgress(id: string): Promise<RenewalMilestone>;
-}
+// 旧 RenewalMilestone は廃止 (事業ジャーニー × 事業別ToDo に統合)
+// 期日付きの更新タスクは program_company_tasks へ、
+// ステージ進捗は journey_stage_definitions.checkpoints + journey_checkpoint_status へ移行
 
 // ─────────────────────────────────────────────
 // プロダクトコース (product_courses)
@@ -1089,6 +1079,13 @@ export interface BusinessJourneyRepo {
   listByCompany(companyId: string): Promise<BusinessJourney[]>;
   listByContractIds(contractIds: string[]): Promise<BusinessJourney[]>;
   setStage(input: SetBusinessJourneyStageInput): Promise<BusinessJourney>;
+  /** 解約軸 (lifecycleState) を更新する。stage は変えない */
+  setLifecycleState(input: {
+    contractId: string;
+    state: import("@/lib/mock/journeys").BusinessLifecycleState;
+    reason?: string;
+    changedBy?: string;
+  }): Promise<BusinessJourney>;
   listEvents(contractId: string): Promise<JourneyEvent[]>;
 }
 
@@ -1142,6 +1139,120 @@ export interface ChatRepo {
   }): Promise<ChatChannel>;
 }
 
+// ─────────────────────────────────────────────
+// ジャーニーチェックポイント完了状態
+// 0026_journey_checkpoint.sql の journey_checkpoint_status に対応
+// ─────────────────────────────────────────────
+export interface JourneyCheckpointRepo {
+  list(opts: {
+    organizationId: string;
+    journeyType: JourneyType;
+    subjectId: string;
+  }): Promise<JourneyCheckpointStatus[]>;
+  /** 1チェック項目の done/未done を切替。done=true 時は completedBy/At を記録 */
+  setStatus(input: {
+    organizationId: string;
+    journeyType: JourneyType;
+    subjectId: string;
+    stageKey: string;
+    checkpointKey: string;
+    done: boolean;
+    completedBy?: string;
+    note?: string;
+  }): Promise<JourneyCheckpointStatus>;
+}
+
+// ─────────────────────────────────────────────
+// 契約ライフサイクル スナップショット
+// 解約・更新成功・期満了で凍結。読み取りのみで改変なし
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// 企業ビジョン (NEO参画動機 / 中長期目標 / 今年度目標 / 活用方針)
+// 企業単位の長文ナラティブ。CSの戦略整理・引継ぎに使う
+// ─────────────────────────────────────────────
+export type CompanyVision = {
+  companyId: string;
+  /** NEO参画動機 — なぜ NEO を導入したか */
+  joinMotivation?: string;
+  /** 中長期で NEO と実現したいこと (3〜5年スパン) */
+  longTermGoal?: string;
+  /** 今年度達成したいこと */
+  thisYearGoal?: string;
+  /** NEO活用方針 — 社内での位置付け・運用ルール */
+  usagePolicy?: string;
+  updatedAt: string;
+  updatedBy?: string;
+};
+
+export type CompanyVisionUpsert = {
+  companyId: string;
+  joinMotivation?: string;
+  longTermGoal?: string;
+  thisYearGoal?: string;
+  usagePolicy?: string;
+  updatedBy?: string;
+};
+
+/**
+ * 企業ビジョンの変更ログ
+ * 「今年度ゴール」「活用方針」は年度更新で改訂され、「中長期ゴール」も
+ * 変更が起きうる。upsert で値が変わったときに変更前の状態をここに保存する。
+ */
+export type CompanyVisionLog = {
+  id: string;
+  companyId: string;
+  /** 変更前のスナップショット (改変なし) */
+  joinMotivation?: string;
+  longTermGoal?: string;
+  thisYearGoal?: string;
+  usagePolicy?: string;
+  /** 何が変更されたか（field key の配列） */
+  changedFields: Array<"joinMotivation" | "longTermGoal" | "thisYearGoal" | "usagePolicy">;
+  recordedAt: string;
+  recordedBy?: string;
+};
+
+export interface CompanyVisionRepo {
+  get(companyId: string): Promise<CompanyVision | null>;
+  upsert(input: CompanyVisionUpsert): Promise<CompanyVision>;
+  listLogs(companyId: string): Promise<CompanyVisionLog[]>;
+}
+
+// ─────────────────────────────────────────────
+// 企業天気の手動オーバーライド
+// 自動派生 (deriveCompanyWeather) を手動値で上書きする
+// ─────────────────────────────────────────────
+import type { CompanyWeather } from "@/lib/domain/weather";
+
+export type CompanyWeatherOverride = {
+  companyId: string;
+  weather: CompanyWeather;
+  updatedAt: string;
+  updatedBy?: string;
+  note?: string;
+};
+
+export interface CompanyWeatherRepo {
+  getAll(): Promise<CompanyWeatherOverride[]>;
+  get(companyId: string): Promise<CompanyWeatherOverride | null>;
+  set(
+    companyId: string,
+    weather: CompanyWeather,
+    opts?: { updatedBy?: string; note?: string }
+  ): Promise<CompanyWeatherOverride>;
+  /** 自動派生に戻す */
+  clear(companyId: string): Promise<void>;
+}
+
+export interface ContractLifecycleRepo {
+  listByCompany(companyId: string): Promise<ContractLifecycleSnapshot[]>;
+  getByContract(contractId: string): Promise<ContractLifecycleSnapshot | null>;
+  /** 解約・更新成功などのライフサイクル終端時に書き込む */
+  freeze(input: Omit<ContractLifecycleSnapshot, "createdAt">): Promise<ContractLifecycleSnapshot>;
+  /** 凍結を取り消す（誤操作からのリカバリ専用） */
+  unfreeze(contractId: string): Promise<void>;
+}
+
 export interface Repository {
   companies: CompanyRepo;
   contracts: ContractRepo;
@@ -1155,7 +1266,6 @@ export interface Repository {
   oneOnOneLogs: OneOnOneLogRepo;
   churnSignals: ChurnSignalRepo;
   expansionOpportunities: ExpansionOpportunityRepo;
-  renewalMilestones: RenewalMilestoneRepo;
   vocItems: VocItemRepo;
   productCourses: ProductCourseRepo;
   companyTasks: CompanyTaskRepo;
@@ -1171,6 +1281,14 @@ export interface Repository {
   journeyStageDefinitions: JourneyStageDefinitionRepo;
   companyJourneys: CompanyJourneyRepo;
   businessJourneys: BusinessJourneyRepo;
+  // ジャーニーステージのチェックポイント完了状態
+  journeyCheckpoints: JourneyCheckpointRepo;
+  // 契約終了スナップショット (解約・更新成功・期満了の凍結履歴)
+  contractLifecycle: ContractLifecycleRepo;
+  // 企業天気の手動オーバーライド
+  companyWeatherOverrides: CompanyWeatherRepo;
+  // 企業ビジョン (NEO参画動機 / 目標 / 活用方針)
+  companyVisions: CompanyVisionRepo;
   // 権限スコープ
   userProgramRoles: UserProgramRoleRepo;
   userCompanyAccess: UserCompanyAccessRepo;
