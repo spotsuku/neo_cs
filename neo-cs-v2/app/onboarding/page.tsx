@@ -5,8 +5,12 @@
 
 import { TopNavServer } from "@/components/TopNavServer";
 import { SectionSubNav, TODO_SUBNAV } from "@/components/SectionSubNav";
-import { allContracts } from "@/lib/mock/onboarding";
-import { onboardingItemRepo, userRepo, companyRepo } from "@/lib/repository/server";
+import {
+  onboardingItemRepo,
+  userRepo,
+  companyRepo,
+  contractRepo
+} from "@/lib/repository/server";
 import { OnboardingView } from "./OnboardingView";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +18,10 @@ export const dynamic = "force-dynamic";
 export default async function OnboardingPage() {
   const today = new Date().toISOString().slice(0, 10);
 
+  // 全契約を repo から取得 (過去サイクル含む — 完了済セクションで参照する)
+  const allContractsFromRepo = await contractRepo.list();
   const [items, users, companies] = await Promise.all([
-    onboardingItemRepo.listByContractIds(allContracts.map((c) => c.id)),
+    onboardingItemRepo.listByContractIds(allContractsFromRepo.map((c) => c.id)),
     userRepo.list({ activeOnly: true }),
     companyRepo.list()
   ]);
@@ -31,7 +37,7 @@ export default async function OnboardingPage() {
       <TopNavServer current="/onboarding" />
       <SectionSubNav items={TODO_SUBNAV} />
       <OnboardingView
-        activeContracts={allContracts}
+        activeContracts={allContractsFromRepo}
         itemsByContract={itemsByContract}
         companyMap={Object.fromEntries(companies.map((c) => [c.id, c.name]))}
         users={users.map((u) => ({ id: u.id, name: u.name }))}

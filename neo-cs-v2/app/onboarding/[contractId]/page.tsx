@@ -4,14 +4,17 @@ import { TopNavServer } from "@/components/TopNavServer";
 import { ProductBadge } from "@/components/ProductBadge";
 // コース表示に対応
 import { productByCode, yen, hasMultipleCourses, courseName } from "@/lib/mock/data";
-import { companies } from "@/lib/mock/entities";
 import {
-  activeContracts,
   productOnboardingTemplates,
   daysUntilStart,
   filterTemplateByCourse
 } from "@/lib/mock/onboarding";
-import { onboardingItemRepo, userRepo } from "@/lib/repository/server";
+import {
+  onboardingItemRepo,
+  userRepo,
+  contractRepo,
+  companyRepo
+} from "@/lib/repository/server";
 import { ChecklistView } from "./ChecklistView";
 
 export const dynamic = "force-dynamic";
@@ -22,10 +25,10 @@ export default async function ContractOnboardingPage({
   params: Promise<{ contractId: string }>;
 }) {
   const { contractId } = await params;
-  const contract = activeContracts.find((c) => c.id === contractId);
+  const contract = await contractRepo.getById(contractId);
   if (!contract) return notFound();
 
-  const company = companies.find((c) => c.id === contract.companyId);
+  const company = await companyRepo.getById(contract.companyId);
   const product = productByCode[contract.product];
   // 契約の courseKey に該当する項目（＋全コース共通）だけを表示
   const template = filterTemplateByCourse(

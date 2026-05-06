@@ -7,7 +7,7 @@
 // Q1 と FY は from/to が別物 (kpi.periodFor) になり、結果も別になる。
 
 import { useMemo, useState } from "react";
-import { allContracts } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/mock/onboarding";
 import { yen } from "@/lib/mock/data";
 import {
   computePeriodPerformance,
@@ -24,12 +24,12 @@ const periods: { value: PeriodKey; label: string }[] = [
   { value: "thisFY", label: "今年度" }
 ];
 
-export function PeriodSwitcher() {
+export function PeriodSwitcher({ contracts }: { contracts: ActiveContract[] }) {
   const [current, setCurrent] = useState<PeriodKey>("thisMonth");
   const breakdown = useMemo(() => {
     const window = periodFor(current, ASOF);
-    return computePeriodPerformance(allContracts, window);
-  }, [current]);
+    return computePeriodPerformance(contracts, window);
+  }, [current, contracts]);
 
   return (
     <div className="liquid-surface p-6">

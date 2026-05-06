@@ -11,18 +11,18 @@ import {
   hasMultipleCourses
 } from "@/lib/mock/data";
 import {
-  weeklyReviews,
   formatWeekRange,
   prevWeek,
   nextWeekDate,
   getWeekRange,
-  WeeklyReview,
-  WeeklyAction,
-  WeeklyNextAction,
   weeksStuck,
   CURRENT_WEEK_MONDAY
 } from "@/lib/mock/weekly";
-import { activeContracts } from "@/lib/mock/onboarding";
+import type {
+  WeeklyReview,
+  WeeklyAction,
+  WeeklyNextAction
+} from "@/lib/mock/weekly";
 import { submitWeeklyReviewAction } from "./actions";
 import { useDraftPersistence } from "@/lib/hooks/useDraftPersistence";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
@@ -64,31 +64,31 @@ export function CompanyWeeklyEditor({
   product,
   weekStart,
   draft,
-  setDraft
+  setDraft,
+  courseKeys,
+  reviewsForCompany
 }: {
   companyId: string;
   product: ProductCode;
   weekStart: string;
   draft: WeeklyDraft | null;
   setDraft: (d: WeeklyDraft) => void;
+  /** この企業 × この研修 に紐づく courseKey 一覧 (親 Server Component から DB 経由で取得) */
+  courseKeys: string[];
+  /** この企業 × この研修 に紐づく週次レビュー一覧 (親 Server Component から DB 経由で取得) */
+  reviewsForCompany: WeeklyReview[];
 }) {
   const p = productByCode[product];
   const { name: currentUserName } = useCurrentUser();
 
-  const courses = useMemo(
-    () =>
-      activeContracts
-        .filter((c) => c.companyId === companyId && c.product === product)
-        .map((c) => c.courseKey),
-    [companyId, product]
-  );
+  const courses = courseKeys;
 
   const reviews = useMemo(
     () =>
-      weeklyReviews
-        .filter((r) => r.companyId === companyId && r.product === product)
-        .sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
-    [companyId, product]
+      [...reviewsForCompany].sort((a, b) =>
+        a.weekStart.localeCompare(b.weekStart)
+      ),
+    [reviewsForCompany]
   );
 
   const selectedReview: WeeklyReview | null = useMemo(() => {

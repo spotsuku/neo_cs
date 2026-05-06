@@ -15,12 +15,14 @@ import {
   courseShortName
 } from "@/lib/mock/data";
 import {
-  WeeklyReview,
-  WeeklyAction,
-  WeeklyNextAction,
   weeksStuck,
   getWeekRange,
   CURRENT_WEEK_MONDAY
+} from "@/lib/mock/weekly";
+import type {
+  WeeklyReview,
+  WeeklyAction,
+  WeeklyNextAction
 } from "@/lib/mock/weekly";
 import {
   CompanyWeeklyEditor,
@@ -46,7 +48,9 @@ export function WeeklyTable({
   getDraft,
   setDraftFor,
   expandedCompanyIds,
-  toggleExpand
+  toggleExpand,
+  courseKeysFor,
+  reviewsFor
 }: {
   rows: TableRow[];
   product: ProductCode;
@@ -55,6 +59,8 @@ export function WeeklyTable({
   setDraftFor: (cid: string, d: WeeklyDraft) => void;
   expandedCompanyIds: Set<string>;
   toggleExpand: (cid: string) => void;
+  courseKeysFor: (cid: string) => string[];
+  reviewsFor: (cid: string) => WeeklyReview[];
 }) {
   const p = productByCode[product];
   const isCurrentWeek = weekStart === CURRENT_WEEK_MONDAY;
@@ -295,6 +301,8 @@ export function WeeklyTable({
                           weekStart={weekStart}
                           draft={getDraft(row.companyId)}
                           setDraft={(d) => setDraftFor(row.companyId, d)}
+                          courseKeys={courseKeysFor(row.companyId)}
+                          reviewsForCompany={reviewsFor(row.companyId)}
                         />
                       </td>
                     </tr>

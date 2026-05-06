@@ -1,5 +1,6 @@
 "use client";
 
+// TODO(P3): supabase 実装が無いため mock を表示。実装後に props 化。
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
