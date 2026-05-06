@@ -17,6 +17,7 @@ import { supabaseContractRepo } from "./contractRepo";
 import { supabaseHealthSnapshotRepo } from "./healthSnapshotRepo";
 import { supabaseKpiSnapshotRepo } from "./kpiSnapshotRepo";
 import { supabaseChurnSignalRepo } from "./churnSignalRepo";
+import { supabaseChurnRecordRepo } from "./churnRecordRepo";
 import { supabaseExpansionOpportunityRepo } from "./expansionOpportunityRepo";
 import { supabaseVocItemRepo } from "./vocItemRepo";
 import { supabaseProductCourseRepo } from "./productCourseRepo";
@@ -46,6 +47,13 @@ import { supabaseJourneyCheckpointRepo } from "./journeyCheckpointRepo";
 import { supabaseContractLifecycleRepo } from "./contractLifecycleRepo";
 import { supabaseCompanyWeatherRepo } from "./companyWeatherRepo";
 import { supabaseCompanyVisionRepo } from "./companyVisionRepo";
+import { supabaseSurveyRepo } from "./surveyRepo";
+import { supabaseParticipantRepo } from "./participantRepo";
+import { supabaseSessionRepo } from "./sessionRepo";
+import { supabaseAttendanceRepo } from "./attendanceRepo";
+// メール / AI 抽出: migration 0031 + 各 supabase repo で実装済
+import { supabaseEmailRepo } from "./emailRepo";
+import { supabaseAiExtractionRepo } from "./aiExtractionRepo";
 
 export const supabaseRepository: Repository = {
   users: supabaseUserRepo,
@@ -59,6 +67,7 @@ export const supabaseRepository: Repository = {
   healthSnapshots: supabaseHealthSnapshotRepo,
   kpiSnapshots: supabaseKpiSnapshotRepo,
   churnSignals: supabaseChurnSignalRepo,
+  churnRecords: supabaseChurnRecordRepo,
   expansionOpportunities: supabaseExpansionOpportunityRepo,
   vocItems: supabaseVocItemRepo,
   productCourses: supabaseProductCourseRepo,
@@ -79,5 +88,11 @@ export const supabaseRepository: Repository = {
   journeyCheckpoints: supabaseJourneyCheckpointRepo,
   contractLifecycle: supabaseContractLifecycleRepo,
   companyWeatherOverrides: supabaseCompanyWeatherRepo,
-  companyVisions: supabaseCompanyVisionRepo
+  companyVisions: supabaseCompanyVisionRepo,
+  surveys: supabaseSurveyRepo,
+  participants: supabaseParticipantRepo,
+  sessions: supabaseSessionRepo,
+  attendance: supabaseAttendanceRepo,
+  emails: supabaseEmailRepo,
+  aiExtractions: supabaseAiExtractionRepo
 };

@@ -39,6 +39,15 @@ import type {
   ContractLifecycleSnapshot as MockContractLifecycleSnapshot,
   BusinessLifecycleState as MockBusinessLifecycleState
 } from "@/lib/mock/journeys";
+import type {
+  Participant as MockParticipant,
+  Session as MockSession,
+  AttendanceRecord as MockAttendanceRecord
+} from "@/lib/mock/participants";
+import type {
+  Survey as MockSurvey,
+  SurveyResponse as MockSurveyResponse
+} from "@/lib/mock/surveys";
 
 // ─────────────────────────────────────────────
 // テナント (organizations)
@@ -557,6 +566,50 @@ export interface ChurnSignalRepo {
   upsert(input: ChurnSignalUpsertInput): Promise<ChurnSignalRecord>;
   resolve(id: string, opts: { resolvedBy?: string; note?: string; resolvedAt?: string }): Promise<void>;
   markNotified(id: string, notifiedAt?: string): Promise<void>;
+}
+
+// ─────────────────────────────────────────────
+// 解約レコード (churn_events / churn_event_reasons)
+// マイグレーション: supabase/migrations/0001_init.sql (526行付近)
+// ChurnSignalRecord (解約予兆) とは別物 — こちらは「実際の解約」を記録する
+// ─────────────────────────────────────────────
+import type { ChurnRecord as MockChurnRecord, ChurnReasonCategory } from "@/lib/mock/churn";
+
+export type { ChurnReasonCategory };
+export type ChurnRecord = MockChurnRecord;
+
+/** 解約決定時に呼び出される upsert 入力 (contractId 単位で一意) */
+export type ChurnRecordUpsertInput = {
+  contractId: string;
+  organizationId?: string;
+  churnedAt: string;
+  reasonCategory: ChurnReasonCategory;
+  reasonNote?: string;
+  nextActionDate?: string;
+  nextActionNote?: string;
+  notified?: boolean;
+  /**
+   * TODO: DB schema (churn_events) に verifiedByCustomer / verifiedAt /
+   * verificationNote 列が無いため、現状は無視される。
+   * 将来 migration で列追加するか、jsonb 列に格納するかを別途検討。
+   */
+  verifiedByCustomer?: boolean;
+  verifiedAt?: string;
+  verificationNote?: string;
+};
+
+export interface ChurnRecordRepo {
+  listByCompany(companyId: string): Promise<ChurnRecord[]>;
+  getByContract(contractId: string): Promise<ChurnRecord | null>;
+  /** 解約決定時に呼び出される (contractId で upsert) */
+  upsert(input: ChurnRecordUpsertInput): Promise<ChurnRecord>;
+  /** 顧客に確認した内容を更新
+   *  TODO: 現状 DB 列が無いため値は永続化されず、in-memory レイヤでのみ反映される
+   */
+  setVerification(
+    contractId: string,
+    input: { verificationNote?: string; verifiedAt?: string }
+  ): Promise<ChurnRecord>;
 }
 
 // ─────────────────────────────────────────────
@@ -1253,6 +1306,145 @@ export interface ContractLifecycleRepo {
   unfreeze(contractId: string): Promise<void>;
 }
 
+// ─────────────────────────────────────────────
+// 派遣者 / セッション / 出席 / アンケート
+// マイグレーション: 0001_init.sql の participants / sessions / attendance_events
+// surveys / survey_responses
+//
+// mock の型 (lib/mock/participants.ts, lib/mock/surveys.ts) を正本とし、
+// Supabase 実装側で列名 (snake_case) を camelCase に変換する。
+// 一部 mock 拡張フィールド (Survey.templateIds 等) は DB スキーマに対応列が
+// ないため空配列 / undefined で返す (将来 join テーブル拡張で対応予定)。
+// ─────────────────────────────────────────────
+export type Participant = MockParticipant & { organizationId: string };
+export type Session = MockSession & { organizationId: string };
+export type AttendanceEvent = MockAttendanceRecord & { organizationId: string };
+export type Survey = MockSurvey & { organizationId: string };
+export type SurveyResponse = MockSurveyResponse & { organizationId: string };
+
+export interface SurveyRepo {
+  list(opts?: { productCode?: ProductCode; organizationId?: string }): Promise<Survey[]>;
+  getById(id: string): Promise<Survey | null>;
+  listResponses(surveyId: string): Promise<SurveyResponse[]>;
+}
+
+export interface ParticipantRepo {
+  listByContract(contractId: string): Promise<Participant[]>;
+  list(opts?: { productCode?: ProductCode; organizationId?: string }): Promise<Participant[]>;
+}
+
+export interface SessionRepo {
+  listByContract(contractId: string): Promise<Session[]>;
+}
+
+export interface AttendanceRepo {
+  listByContract(contractId: string): Promise<AttendanceEvent[]>;
+}
+
+// ─────────────────────────────────────────────
+// Email スレッド / メッセージ / AI 抽出
+// マイグレーション: supabase/migrations/0031_email.sql
+// 関連 mock: lib/mock/email.ts
+// ─────────────────────────────────────────────
+export type EmailThreadStatus =
+  | "new"
+  | "in_progress"
+  | "replied"
+  | "waiting"
+  | "closed";
+
+export type EmailAssigneeReason = "received" | "program" | "manual";
+
+export type EmailDirection = "inbound" | "outbound";
+
+export type EmailThread = {
+  id: string;
+  organizationId: string;
+  companyId?: string;
+  subject: string;
+  status: EmailThreadStatus;
+  /** 担当 CS の app_users.id */
+  assigneeUserId?: string;
+  assigneeReason?: EmailAssigneeReason;
+  lastInboundAt?: string;
+  lastOutboundAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EmailMessage = {
+  id: string;
+  threadId: string;
+  direction: EmailDirection;
+  body: string;
+  senderEmail: string;
+  recipientEmails: string[];
+  sentAt: string;
+  aiSummary?: string;
+  createdAt: string;
+};
+
+export type EmailMessageCreateInput = {
+  id?: string;
+  threadId: string;
+  direction: EmailDirection;
+  body: string;
+  senderEmail: string;
+  recipientEmails?: string[];
+  sentAt?: string;
+  aiSummary?: string;
+};
+
+export type AiExtractionSourceType = "email" | "meeting_log" | "survey";
+
+export type AiExtractionType =
+  | "progress_signal"
+  | "risk_signal"
+  | "churn_signal"
+  | "expansion_signal"
+  | "meeting_request";
+
+export type AiExtraction = {
+  id: string;
+  organizationId: string;
+  sourceType: AiExtractionSourceType;
+  sourceId: string;
+  companyId?: string;
+  extractionType: AiExtractionType;
+  excerpt: string;
+  confidence?: number;
+  suggestedAction?: string;
+  reviewed: boolean;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  createdAt: string;
+};
+
+export type AiExtractionListOpts = {
+  unreviewedOnly?: boolean;
+  limit?: number;
+};
+
+export interface EmailRepo {
+  listThreads(opts?: { companyId?: string; organizationId?: string }): Promise<EmailThread[]>;
+  getThread(id: string): Promise<EmailThread | null>;
+  listMessages(threadId: string): Promise<EmailMessage[]>;
+  createMessage(input: EmailMessageCreateInput): Promise<EmailMessage>;
+  setStatus(threadId: string, status: EmailThreadStatus): Promise<void>;
+  setAssignee(
+    threadId: string,
+    userId: string,
+    reason: EmailAssigneeReason
+  ): Promise<void>;
+}
+
+export interface AiExtractionRepo {
+  listByCompany(companyId: string, opts?: AiExtractionListOpts): Promise<AiExtraction[]>;
+  /** 担当する email_threads (assignee_user_id) 経由の email source 抽出を集める */
+  listByMe(userId: string, opts?: AiExtractionListOpts): Promise<AiExtraction[]>;
+  markReviewed(id: string, userId: string): Promise<void>;
+}
+
 export interface Repository {
   companies: CompanyRepo;
   contracts: ContractRepo;
@@ -1265,6 +1457,7 @@ export interface Repository {
   assignments: AssignmentRepo;
   oneOnOneLogs: OneOnOneLogRepo;
   churnSignals: ChurnSignalRepo;
+  churnRecords: ChurnRecordRepo;
   expansionOpportunities: ExpansionOpportunityRepo;
   vocItems: VocItemRepo;
   productCourses: ProductCourseRepo;
@@ -1294,4 +1487,12 @@ export interface Repository {
   userCompanyAccess: UserCompanyAccessRepo;
   // チャット (DM / 事業部 / メールスレッド統合)
   chats: ChatRepo;
+  // アンケート / 派遣者 / セッション / 出席
+  surveys: SurveyRepo;
+  participants: ParticipantRepo;
+  sessions: SessionRepo;
+  attendance: AttendanceRepo;
+  // メール (スレッド / メッセージ / AI 抽出)
+  emails: EmailRepo;
+  aiExtractions: AiExtractionRepo;
 }

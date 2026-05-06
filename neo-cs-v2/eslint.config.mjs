@@ -13,6 +13,39 @@ export default [
     ignores: [".next/**", "node_modules/**", "next-env.d.ts"]
   },
   {
+    // クライアントコンポーネント (app/, components/) で `@/lib/mock/*` から
+    // **値** (オブジェクト・配列・関数) を import するのを禁止する。
+    // 型 import (`import type {...}`) は OK。
+    //
+    // 背景: 本番 (REPO_DRIVER=supabase) でも mock データが画面に表示される
+    // 不具合の再発を防止する。データは Server Component で repo から fetch して
+    // props 経由で渡すこと。
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "warn",
+        {
+          patterns: [
+            {
+              group: ["@/lib/mock/*"],
+              importNames: [
+                "companies", "onboardingTasks", "activeContracts", "allContracts",
+                "contractOnboardingItems", "seedCompanyJourneys", "seedBusinessJourneys",
+                "weeklyReviews", "emailThreads", "emailMessages",
+                "surveys", "surveyInsights", "surveySchedules", "surveyResponses",
+                "participants", "sessions", "attendanceRecords",
+                "churnRecords", "vocItems",
+                "mockHealthSnapshots", "mockChurnSignals", "mockExpansionOpportunities"
+              ],
+              message: "クライアント側で @/lib/mock/* のデータ values を import しないでください。Server Component で `@/lib/repository/server` から fetch して props で渡すこと。"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
     files: ["**/*.{ts,tsx,js,jsx}"],
     rules: {
       // a11y は段階対応のため warn に統一

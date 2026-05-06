@@ -383,14 +383,10 @@ export const supabaseOnboardingItemRepo: OnboardingItemRepo = {
   async update(id, patch) {
     const sb = getServiceClient();
     const row: Record<string, unknown> = {};
-    if (patch.status !== undefined) {
-      // DB CHECK は ('todo','doing','done','overdue')。'not_applicable' は
-      // 未対応 (列拡張は別マイグレで対応予定) のため一旦 'todo' に倒す。
-      row.status = patch.status === "not_applicable" ? "todo" : patch.status;
-    }
+    if (patch.status !== undefined) row.status = patch.status;
     if (patch.dueDate !== undefined) row.due_date = patch.dueDate;
     if (patch.assignee !== undefined) row.assignee_user_id = patch.assignee;
-    // note は DB に列が無いため未対応 (別マイグレで列追加後に対応)。
+    if (patch.note !== undefined) row.note = patch.note;
     if (patch.status === "done") row.completed_at = new Date().toISOString();
     const { data, error } = await sb
       .from("onboarding_tasks")
