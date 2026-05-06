@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ProductBadge } from "@/components/ProductBadge";
 import { WeeklyReviewPanel } from "./WeeklyReviewPanel";
+import { AddLogModal } from "./AddLogModal";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { CompanyTasksSection } from "@/components/CompanyTasksSection";
 import type { CompanyTask } from "@/lib/repository/types";
 import type {
@@ -20,13 +22,10 @@ import type {
 } from "@/lib/mock/entities";
 // コース表示に対応
 import { ProductCode, productByCode, yen, hasMultipleCourses, courseShortName, courseName, cycleLabel } from "@/lib/mock/data";
-import type {
-  ActiveContract,
-  ContractOnboardingItem
-} from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/mock/onboarding";
+import type { ContractOnboardingItem } from "@/lib/repository/types";
 import {
   productOnboardingTemplates,
-  productJourney,
   categoryProgress,
   contractProgress
 } from "@/lib/mock/onboarding";
@@ -38,18 +37,49 @@ import type {
 import {
   stakeholderTypeLabel,
   journeyStageLabel,
-  journeyStageOrder,
-  generateRenewalMilestones,
-  renewalMilestoneSpec
+  journeyStageOrder
 } from "@/lib/mock/cycles";
 import type {
   CompanyJourney,
   BusinessJourney,
-  JourneyStageDefinition
+  JourneyStageDefinition,
+  JourneyCheckpointStatus,
+  ContractLifecycleSnapshot,
+  CompanyVision,
+  CompanyVisionLog,
+  WeeklyReview,
+  ProgramTerm,
+  ProgramTaskTemplate,
+  ProgramCompanyTask
 } from "@/lib/repository/types";
+
+export type ProgramBundle = {
+  term: ProgramTerm;
+  templates: ProgramTaskTemplate[];
+  cells: ProgramCompanyTask[];
+};
 import type { JourneySuggestion } from "@/lib/domain/journey";
 import { JourneyStageBar } from "@/components/JourneyStageBar";
+import { JourneyCheckpointPanel } from "@/components/JourneyCheckpointPanel";
+import { BusinessLifecyclePanel } from "@/components/BusinessLifecyclePanel";
+import { ContractHistorySection } from "@/components/ContractHistorySection";
+import { CompanyWeatherPicker } from "@/components/CompanyWeatherPicker";
+import { CompanyHealthBadge } from "@/components/CompanyHealthBadge";
+import type { CompanyWeather } from "@/lib/domain/weather";
+import { NextCycleModal, type NextCycleDefaults } from "@/components/NextCycleModal";
+import { CompanyVisionSection } from "@/components/CompanyVisionSection";
+import { ChecklistView } from "@/app/onboarding/[contractId]/ChecklistView";
+import { CompanyEditDialog } from "./CompanyEditDialog";
+import { setProgramCellStatus } from "@/app/programs/[termId]/cellActions";
+import {
+  PROGRAM_TASK_CATEGORY_LABEL,
+  PROGRAM_CELL_STATUS_LABEL,
+  type ProgramTaskCategory,
+  type ProgramCellStatus
+} from "@/lib/domain/program";
 import { KaruteNoBadge } from "@/components/KaruteNoBadge";
+import { CompletenessChecklistCard } from "@/components/CompletenessChecklistCard";
+import type { CompletenessResult } from "@/lib/domain/completeness";
 import { HyogikaiMembershipBadge } from "@/components/HyogikaiMembershipBadge";
 import {
   getHyogikaiMembership,
@@ -65,7 +95,6 @@ import { HealthExplain } from "@/components/HealthExplain";
 import { HealthSparkline } from "@/components/HealthSparkline";
 import { ContractChurnSignals } from "@/components/ContractChurnSignals";
 import { ContractExpansionOpportunities } from "@/components/ContractExpansionOpportunities";
-import { RenewalMilestoneList } from "@/components/RenewalMilestoneList";
 import { CompanyVocList } from "@/components/CompanyVocList";
 import {
   StakeholderEngagementBlock,
@@ -89,44 +118,86 @@ import {
   sessions as allSessionsData,
   attendanceRecords as allAttendance,
   participantEngagement,
-  participantSurveyResponseRate
+  participantSurveyResponseRate,
+  participantFieldSchemas,
+  participantTermByProduct
 } from "@/lib/mock/participants";
+import type { Participant } from "@/lib/mock/participants";
 
 type HealthColor = "green" | "yellow" | "red";
 
-type Tab = "overview" | "tasks" | "weekly" | "contracts" | "logs" | "onboarding" | "surveys" | "engagement" | "mail";
+type Tab = "overview" | "tasks" | "weekly" | "contracts" | "logs" | "surveys" | "engagement" | "mail" | "org_chart";
 
 /**
  * 進捗系タブ（担当事業の契約がない or 担当外事業のみの企業では非表示にする）
- * 概要 / 契約・更新 / メール は常に表示（基本情報や閲覧用途）
+ * 概要 / 契約・更新 / メール / 組織図 は常に表示（基本情報や閲覧用途）
  */
 const PROGRESS_TABS: ReadonlySet<Tab> = new Set([
   "tasks",
   "weekly",
   "logs",
-  "onboarding",
   "surveys",
   "engagement"
 ]);
 
 const tabs: { key: Tab; label: string }[] = [
   { key: "overview", label: "概要" },
-  { key: "tasks", label: "業務ToDo" },
-  { key: "weekly", label: "週次レビュー" },
   { key: "contracts", label: "契約・更新" },
-  { key: "logs", label: "面談ログ" },
-  { key: "onboarding", label: "オンボ" },
+  { key: "tasks", label: "ToDo" },
+  { key: "weekly", label: "週次レビュー" },
   { key: "surveys", label: "アンケート" },
-  { key: "engagement", label: "エンゲージメント" },
-  { key: "mail", label: "メール" }
+  { key: "engagement", label: "出席・参加状況" },
+  { key: "logs", label: "ログ" },
+  { key: "mail", label: "メール" },
+  { key: "org_chart", label: "組織図" }
 ];
 
 function healthBg(color: HealthColor) {
   return color === "green" ? "#10B981" : color === "yellow" ? "#F59E0B" : "#EF4444";
 }
 
-function healthLabel(color: HealthColor) {
-  return color === "green" ? "Green" : color === "yellow" ? "Yellow" : "Red";
+/* 商材切替タブ (segmented control) — 契約・更新 / ToDo タブで共用 */
+function ProductTabs({
+  codes,
+  selected,
+  onChange
+}: {
+  codes: ProductCode[];
+  selected: ProductCode;
+  onChange: (code: ProductCode) => void;
+}) {
+  return (
+    <div
+      className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-100/70 border border-ink-100"
+      role="tablist"
+    >
+      {codes.map((code) => {
+        const p = productByCode[code];
+        const active = code === selected;
+        return (
+          <button
+            key={code}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(code)}
+            className={[
+              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs transition",
+              active
+                ? "bg-white shadow-sm font-semibold text-ink-900"
+                : "text-ink-500 hover:text-ink-700"
+            ].join(" ")}
+          >
+            <span
+              className="inline-block w-2 h-2 rounded-full shrink-0"
+              style={{ background: p.accent }}
+            />
+            <span>{p.shortName}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function CompanyDetail({
@@ -143,13 +214,22 @@ export function CompanyDetail({
   journeys,
   tasks = [],
   members = [],
+  assignments = [],
+  completeness,
   engagementByStakeholder = {},
   companyJourney = null,
   businessJourneys = [],
   companyStageDefs = [],
   businessStageDefs = [],
   companySuggestion,
-  businessSuggestions = {}
+  businessSuggestions = {},
+  checkpointStatusesByContract = {},
+  lifecycleSnapshots = [],
+  weatherOverride,
+  companyVision = null,
+  companyVisionLogs = [],
+  weeklyReviews = [],
+  programData = []
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -166,6 +246,10 @@ export function CompanyDetail({
   journeys: AccountJourney[];
   tasks?: CompanyTask[];
   members?: { id: string; name: string }[];
+  /** CS 側のアサインメント (現状未使用 — 必要なら左サイドに復活) */
+  assignments?: { userId: string; role: "primary" | "secondary" | "observer" | "sales_owner" }[];
+  /** 未入力チェックリスト結果 (左サイドの最上段に折りたたみで表示) */
+  completeness?: CompletenessResult;
   engagementByStakeholder?: Record<string, StakeholderEngagementMetrics>;
   companyJourney?: CompanyJourney | null;
   businessJourneys?: BusinessJourney[];
@@ -173,6 +257,18 @@ export function CompanyDetail({
   businessStageDefs?: JourneyStageDefinition[];
   companySuggestion?: JourneySuggestion;
   businessSuggestions?: Record<string, JourneySuggestion>;
+  checkpointStatusesByContract?: Record<string, JourneyCheckpointStatus[]>;
+  lifecycleSnapshots?: ContractLifecycleSnapshot[];
+  /** 手動設定された天気 (未設定なら undefined) */
+  weatherOverride?: CompanyWeather;
+  /** 企業ビジョン (NEO参画動機 / 目標 / 活用方針) */
+  companyVision?: CompanyVision | null;
+  /** 企業ビジョンの改訂履歴 */
+  companyVisionLogs?: CompanyVisionLog[];
+  /** 直近の動きセクション用 — 週次レビュー一覧 */
+  weeklyReviews?: WeeklyReview[];
+  /** 事業別ToDo (program_company_tasks) を term ごとに事前ロードしたバンドル */
+  programData?: ProgramBundle[];
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -191,457 +287,849 @@ export function CompanyDetail({
 
   const [tab, setTab] = useState<Tab>(visibleTabs[0]?.key ?? "overview");
   const [contactList, setContactList] = useState<Contact[]>(contacts);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [editCompanyOpen, setEditCompanyOpen] = useState(false);
+  // ContactEditDialog の availableScopes を contacts から導出 (OrgChartTab と同等のロジック)
+  const availableScopes: ContactRoleScope[] = (() => {
+    const seen = new Set<ContactRoleScope>();
+    const list: ContactRoleScope[] = [];
+    for (const c of contactList) {
+      for (const r of c.roles ?? []) {
+        if (!seen.has(r.scope)) {
+          seen.add(r.scope);
+          list.push(r.scope);
+        }
+      }
+    }
+    list.sort((a, b) => (a === "overall" ? -1 : b === "overall" ? 1 : 0));
+    return list.length > 0 ? list : ["overall"];
+  })();
   const updateContact = (next: Contact) =>
     setContactList((prev) => prev.map((c) => (c.id === next.id ? next : c)));
   const healthColor: HealthColor = companyHealthColor(company.id);
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
-      {/* パンくず */}
-      <div className="text-xs text-ink-500">
-        <Link href="/companies" className="hover:text-ink-700">
-          企業
-        </Link>
-        <span className="mx-1.5">/</span>
-        <span className="text-ink-700">{company.name}</span>
+    <main className="mx-auto max-w-[1720px] px-6 pt-0 pb-8">
+      {/* 上部固定領域 (パンくず + ヘッダーバー)。グローバル TopNav (h-14) の直下に固定 */}
+      <div className="sticky top-14 z-30 -mx-6 px-6 bg-white/85 backdrop-blur border-b border-ink-100">
+        <div className="text-xs text-ink-500 pt-3 pb-1">
+          <Link href="/companies" className="hover:text-ink-700">
+            企業
+          </Link>
+          <span className="mx-1.5">/</span>
+          <span className="text-ink-700">{company.name}</span>
+        </div>
+      <header className="h-14 flex items-center gap-3">
+        {company.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={company.logoUrl}
+            alt=""
+            className="w-9 h-9 rounded-lg border border-ink-100 bg-white object-cover shrink-0"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-lg bg-ink-100 flex items-center justify-center text-ink-500 text-xs font-semibold shrink-0">
+            {company.name.charAt(0)}
+          </div>
+        )}
+        <KaruteNoBadge companyId={company.id} karuteNo={company.karuteNo} />
+        <h1 className="text-base font-semibold text-ink-900 truncate min-w-0">
+          {company.name}
+        </h1>
+        {(company.isDemo ?? true) && (
+          <span
+            title="デモデータ (is_demo=true)"
+            className="hidden lg:inline-flex shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
+          >
+            🚧 デモ
+          </span>
+        )}
+        <div className="flex items-center gap-2 ml-auto shrink-0">
+          <CompanyWeatherPicker companyId={company.id} weather={weatherOverride} />
+          <HealthWithTrend
+            companyId={company.id}
+            color={healthColor}
+            contracts={contracts}
+          />
+          {company.driveFolderUrl ? (
+            <a
+              href={company.driveFolderUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-full border border-ink-100 bg-white px-2.5 py-1 text-xs text-ink-700 hover:bg-ink-50"
+              title="Google Drive 顧客フォルダを開く"
+            >
+              <span aria-hidden>📁</span>
+              <span className="hidden md:inline">Drive</span>
+            </a>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-700">
+              <span aria-hidden>📁</span>
+              <span className="hidden md:inline">未作成</span>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditCompanyOpen(true)}
+            title="企業情報を編集"
+            className="px-3 py-1.5 rounded-full bg-white border border-ink-100 text-xs text-ink-700 hover:bg-ink-50"
+          >
+            編集
+          </button>
+          <button
+            type="button"
+            disabled
+            title="準備中: 接点ログ追加は別途実装予定"
+            className="px-3 py-1.5 rounded-full bg-ink-300 text-white text-xs cursor-not-allowed"
+          >
+            + ログ
+          </button>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-md border border-ink-100 text-ink-700 hover:bg-ink-50"
+            aria-label="メニュー"
+          >
+            <span aria-hidden>☰</span>
+          </button>
+        </div>
+      </header>
       </div>
 
-      {/* ヘッダ */}
-      <section className="liquid-surface relative overflow-hidden p-6">
-        <div
-          className="liquid-blob"
-          style={{
-            top: -80,
-            right: -40,
-            width: 220,
-            height: 220,
-            background: healthBg(healthColor),
-            opacity: 0.12
-          }}
-        />
-        <div className="relative flex items-start justify-between gap-6">
-          <div className="min-w-0">
-            <div className="flex items-center flex-wrap gap-2 text-xs text-ink-500">
-              <KaruteNoBadge companyId={company.id} karuteNo={company.karuteNo} />
-              <HyogikaiMembershipBadge
-                membership={getHyogikaiMembership(allCycles)}
-                memberSince={getHyogikaiMemberSince(allCycles)}
-              />
-              <span>{company.industry}</span>
-              {company.group && (
-                <>
-                  <span>・</span>
-                  <span>{company.group}</span>
-                </>
-              )}
-            </div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink-900 flex items-center gap-2">
-              <span>{company.name}</span>
-              {(company.isDemo ?? true) && (
-                <span
-                  title="デモデータ (is_demo=true) — /settings/demo-data で管理"
-                  className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
-                >
-                  🚧 デモデータ
-                </span>
-              )}
-            </h1>
-            <div className="mt-3 flex items-center gap-3 text-sm">
-              <span className="inline-flex items-center gap-1.5 liquid-chip">
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: healthBg(healthColor) }}
-                />
-                Health: {healthLabel(healthColor)}
-              </span>
-              <span className="text-ink-500">MRR</span>
-              <span className="text-ink-900 font-semibold">{yen(company.mrr)}</span>
-              <span className="text-ink-500">最終接点</span>
-              <span className="text-ink-700">{company.lastTouchDays}日前</span>
-              {company.driveFolderUrl ? (
-                <a
-                  href={company.driveFolderUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full border border-ink-100 bg-white/70 px-3 py-1 text-xs text-ink-700 hover:bg-ink-50"
-                  title="Google Drive 顧客フォルダを開く"
-                >
-                  <span aria-hidden>📁</span>
-                  <span>Driveフォルダ</span>
-                </a>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700">
-                  <span aria-hidden>📁</span>
-                  <span>フォルダ未作成</span>
-                </span>
-              )}
-            </div>
+      {/* メイン: 左サイド + コンテンツ */}
+      <div className="flex gap-6 mt-4">
+        <aside className="hidden md:block w-[280px] shrink-0">
+          {/* sticky 単独。外側の overflow を持たせず、ページスクロールで動かないようにする
+             (担当者一覧など各カード内部で必要に応じてスクロール) */}
+          <div className="sticky top-[156px] space-y-5">
+            <CompanySidebarPanel
+              company={company}
+              allCycles={allCycles}
+              contacts={contactList}
+              completeness={completeness}
+              onEditContact={setEditingContact}
+              onEditCompany={() => setEditCompanyOpen(true)}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled
-              title="準備中: 企業情報の編集機能は別途実装予定"
-              className="px-4 py-2 rounded-full bg-white border border-ink-100 text-sm text-ink-400 cursor-not-allowed"
-            >
-              編集（準備中）
-            </button>
-            <button
-              type="button"
-              disabled
-              title="準備中: 接点ログ追加は別途実装予定"
-              className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
-            >
-              + ログ追加（準備中）
-            </button>
-          </div>
-        </div>
-      </section>
+        </aside>
 
-      {/* タブ */}
-      <nav className="flex items-center gap-1 border-b border-ink-100">
-        {visibleTabs.map((t) => {
-          const active = tab === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={[
-                "px-4 py-2.5 text-sm transition relative -mb-px",
-                active
-                  ? "text-ink-900 font-semibold border-b-2 border-ink-900"
-                  : "text-ink-500 hover:text-ink-700"
-              ].join(" ")}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </nav>
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-40 md:hidden">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <div className="absolute left-0 top-0 bottom-0 w-[280px] bg-white p-4 shadow-xl overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="mb-3 text-sm text-ink-500"
+              >
+                ← 閉じる
+              </button>
+              <CompanySidebarPanel
+                company={company}
+                allCycles={allCycles}
+                contacts={contactList}
+                completeness={completeness}
+                onEditContact={setEditingContact}
+                onEditCompany={() => setEditCompanyOpen(true)}
+              />
+            </div>
+          </div>
+        )}
+
+        <section className="flex-1 min-w-0 space-y-6">
+          {/* タブ (上部固定: ヘッダー(56px)直下) */}
+          <nav className="sticky top-[146px] z-20 -mx-2 px-2 bg-white/90 backdrop-blur flex items-center gap-1 border-b border-ink-100 overflow-x-auto">
+            {visibleTabs.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={[
+                    "px-4 py-2.5 text-sm transition relative -mb-px whitespace-nowrap",
+                    active
+                      ? "text-ink-900 font-semibold border-b-2 border-ink-900"
+                      : "text-ink-500 hover:text-ink-700"
+                  ].join(" ")}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </nav>
 
       {/* タブコンテンツ */}
       {tab === "overview" && (
         <OverviewTab
           company={company}
-          contacts={contactList}
-          onUpdateContact={updateContact}
-          contracts={contracts}
-          journeys={journeys}
-          stakeholders={stakeholders}
-          engagementByStakeholder={engagementByStakeholder}
           companyId={company.id}
           companyJourney={companyJourney}
-          businessJourneys={businessJourneys}
           companyStageDefs={companyStageDefs}
-          businessStageDefs={businessStageDefs}
           companySuggestion={companySuggestion}
-          businessSuggestions={businessSuggestions}
+          contracts={contracts}
+          logs={logs}
+          weeklyReviews={weeklyReviews}
+          lifecycleSnapshots={lifecycleSnapshots}
+          pastContracts={allCycles}
+          companyVision={companyVision}
+          companyVisionLogs={companyVisionLogs}
         />
       )}
       {tab === "tasks" && (
-        <CompanyTasksSection
+        <TodoTab
           companyId={company.id}
-          initialTasks={tasks}
-          contracts={allCycles.map((c) => ({
-            id: c.id,
-            label: `${c.product} / ${c.courseKey ?? "-"} (${cycleLabel(c.product, c.cycleNumber)})`
-          }))}
+          companyName={company.name}
+          contracts={contracts}
+          allCycles={allCycles}
+          items={items}
+          tasks={tasks}
           members={members}
+          programData={programData}
         />
       )}
       {tab === "weekly" && <WeeklyReviewPanel companyId={company.id} />}
-      {tab === "contracts" && <ContractsTab allCycles={allCycles} successPlans={successPlans} />}
+      {tab === "contracts" && (
+        <ContractsTab
+          allCycles={allCycles}
+          successPlans={successPlans}
+          businessJourneys={businessJourneys}
+          businessStageDefs={businessStageDefs}
+          businessSuggestions={businessSuggestions}
+          checkpointStatusesByContract={checkpointStatusesByContract}
+          companyId={company.id}
+        />
+      )}
       {/* 解約モーダルの管理は ContractsTab 内で完結 */}
-      {tab === "logs" && <LogsTab logs={logs} />}
-      {tab === "onboarding" && (
-        <OnboardingTab contracts={contracts} items={items} />
+      {tab === "logs" && (
+        <LogsTab
+          logs={logs}
+          companyId={company.id}
+          contacts={contacts}
+          members={members ?? []}
+        />
       )}
       {tab === "surveys" && <SurveysTab companyId={company.id} contracts={allCycles} />}
       {tab === "engagement" && <EngagementTab companyId={company.id} contracts={allCycles} />}
       {tab === "mail" && <MailTab companyId={company.id} />}
+      {tab === "org_chart" && (
+        <OrgChartTab
+          companyId={company.id}
+          contacts={contactList}
+          allCycles={allCycles}
+          onUpdateContact={updateContact}
+        />
+      )}
+        </section>
+      </div>
+
+      {editingContact && (
+        <ContactEditDialog
+          contact={editingContact}
+          availableScopes={availableScopes}
+          onClose={() => setEditingContact(null)}
+          onSave={(next) => {
+            updateContact(next);
+            setEditingContact(null);
+          }}
+        />
+      )}
+
+      {editCompanyOpen && (
+        <CompanyEditDialog
+          company={company}
+          onClose={() => setEditCompanyOpen(false)}
+        />
+      )}
     </main>
   );
 }
 
-/* ──────────────── 概要タブ ──────────────── */
-function OverviewTab({
+/* ──────────────── 左サイドバー: 未入力チェック / 累計売上 / 企業情報 / 担当者一覧 ──────────────── */
+function CompanySidebarPanel({
   company,
+  allCycles,
   contacts,
-  onUpdateContact,
-  contracts,
-  journeys,
-  stakeholders,
-  engagementByStakeholder,
-  companyId,
-  companyJourney,
-  businessJourneys,
-  companyStageDefs,
-  businessStageDefs,
-  companySuggestion,
-  businessSuggestions
+  completeness,
+  onEditContact,
+  onEditCompany
 }: {
   company: Company;
+  allCycles: ActiveContract[];
   contacts: Contact[];
-  onUpdateContact: (next: Contact) => void;
+  completeness?: CompletenessResult;
+  onEditContact: (c: Contact) => void;
+  onEditCompany?: () => void;
+}) {
+  // 累計売上 + 事業別ブレイクダウン (revenue × cycles)
+  const total = allCycles.reduce((s, c) => s + (c.revenue ?? 0), 0);
+  const breakdown = new Map<ProductCode, { amount: number; cycles: number }>();
+  for (const c of allCycles) {
+    const code = c.product as ProductCode;
+    const prev = breakdown.get(code) ?? { amount: 0, cycles: 0 };
+    breakdown.set(code, {
+      amount: prev.amount + (c.revenue ?? 0),
+      cycles: prev.cycles + 1
+    });
+  }
+  const breakdownEntries = Array.from(breakdown.entries()).sort(
+    (a, b) => b[1].amount - a[1].amount
+  );
+
+  // 担当者一覧 = 顧客企業の組織図 (contacts) — primary→役職レベル→名前順
+  const ROLE_LEVEL_RANK: Record<ContactRoleLevel, number> = {
+    executive: 0,
+    approver: 1,
+    lead: 2,
+    member: 3
+  };
+  const highestLevel = (c: Contact): ContactRoleLevel | null => {
+    if (!c.roles || c.roles.length === 0) return null;
+    return [...c.roles].sort(
+      (a, b) => ROLE_LEVEL_RANK[a.level] - ROLE_LEVEL_RANK[b.level]
+    )[0].level;
+  };
+  const sortedContacts = [...contacts].sort((a, b) => {
+    if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+    const la = highestLevel(a);
+    const lb = highestLevel(b);
+    const ra = la ? ROLE_LEVEL_RANK[la] : 99;
+    const rb = lb ? ROLE_LEVEL_RANK[lb] : 99;
+    if (ra !== rb) return ra - rb;
+    return a.name.localeCompare(b.name, "ja");
+  });
+
+  return (
+    <>
+      {/* 未入力チェック (折りたたみ) */}
+      {completeness && (
+        <CompletenessChecklistCard
+          result={completeness}
+          defaultOpen={false}
+          compact
+        />
+      )}
+
+      {/* 累計売上 */}
+      <div className="rounded-2xl border border-ink-100 bg-white p-4">
+        <div className="text-[11px] font-medium text-ink-500">累計売上</div>
+        <div className="mt-1 text-xl font-bold text-ink-900 tabular-nums">
+          {yen(total)}
+        </div>
+        {breakdownEntries.length > 0 && (
+          <ul className="mt-2 space-y-0.5 text-[11px] text-ink-400">
+            {breakdownEntries.map(([code, v]) => {
+              const p = productByCode[code];
+              if (!p) return null;
+              const cycleSuffix = `${v.cycles}${p.cycleUnit}分`;
+              return (
+                <li key={code} className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: p.accent }}
+                    />
+                    <span className="truncate">{p.shortName}</span>
+                  </span>
+                  <span className="tabular-nums">
+                    {yen(v.amount)}{" "}
+                    <span className="text-ink-300">({cycleSuffix})</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* 企業情報 */}
+      <div className="rounded-2xl border border-ink-100 bg-white p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[11px] font-medium text-ink-500">企業情報</div>
+          {onEditCompany && (
+            <button
+              type="button"
+              onClick={onEditCompany}
+              title="企業情報を編集"
+              aria-label="企業情報を編集"
+              className="w-6 h-6 rounded-full text-ink-400 hover:text-ink-700 hover:bg-ink-50 flex items-center justify-center text-xs"
+            >
+              ✎
+            </button>
+          )}
+        </div>
+        <dl className="space-y-1.5 text-xs">
+          <SidebarField label="業種" value={company.industry} />
+          {company.kana && <SidebarField label="カナ" value={company.kana} />}
+          {company.group && <SidebarField label="グループ" value={company.group} />}
+          {company.address && <SidebarField label="所在地" value={company.address} />}
+          <SidebarField label="MRR" value={yen(company.mrr)} />
+          <SidebarField label="最終接点" value={`${company.lastTouchDays}日前`} />
+          {company.domains && company.domains.length > 0 && (
+            <SidebarField
+              label="ドメイン"
+              value={company.domains.join(", ")}
+            />
+          )}
+        </dl>
+      </div>
+
+      {/* 担当者一覧 — 顧客企業 (組織図) の連絡先。5名まで常時表示, それ以降スクロール */}
+      <div className="rounded-2xl border border-ink-100 bg-white p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[11px] font-medium text-ink-500">担当者一覧</div>
+          <div className="text-[11px] text-ink-400 tabular-nums">
+            {sortedContacts.length}名
+          </div>
+        </div>
+        {sortedContacts.length === 0 ? (
+          <div className="text-xs text-ink-400">未登録</div>
+        ) : (
+          <ul className="max-h-[360px] overflow-y-auto pr-1 -mr-1">
+            {sortedContacts.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-start gap-2 py-1.5 text-xs"
+              >
+                <div className="w-6 h-6 rounded-full bg-ink-100 flex items-center justify-center text-[10px] text-ink-700 shrink-0 mt-0.5">
+                  {c.name.charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-ink-900 truncate flex-1">{c.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => onEditContact(c)}
+                      className="shrink-0 text-ink-400 hover:text-ink-700 px-1"
+                      title="編集"
+                      aria-label={`${c.name} を編集`}
+                    >
+                      <span aria-hidden>✎</span>
+                    </button>
+                    {c.email ? (
+                      <a
+                        href={`mailto:${c.email}`}
+                        className="shrink-0 text-ink-400 hover:text-ink-700 px-1"
+                        title={`メール: ${c.email}`}
+                        aria-label={`${c.name} へメール送信`}
+                      >
+                        <span aria-hidden>✉</span>
+                      </a>
+                    ) : (
+                      <span
+                        className="shrink-0 text-ink-200 px-1 cursor-not-allowed"
+                        title="メールアドレス未登録"
+                        aria-hidden
+                      >
+                        ✉
+                      </span>
+                    )}
+                  </div>
+                  {c.title && (
+                    <div className="text-[10px] text-ink-400 truncate">
+                      {c.title}
+                    </div>
+                  )}
+                  {(() => {
+                    const lvl = highestLevel(c);
+                    if (!lvl) return null;
+                    const m = ROLE_LEVEL_META[lvl];
+                    return (
+                      <div className="mt-1">
+                        <span
+                          className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full border ${m.tone}`}
+                        >
+                          {m.label}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                  {((c.products && c.products.length > 0) ||
+                    (c.functions && c.functions.length > 0)) && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {c.products?.map((code) => {
+                        const p = productByCode[code as ProductCode];
+                        if (!p) return null;
+                        return (
+                          <span
+                            key={`prod-${code}`}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-ink-50 border border-ink-100 text-ink-700"
+                            title={p.name}
+                          >
+                            <span
+                              className="inline-block w-1.5 h-1.5 rounded-full"
+                              style={{ background: p.accent }}
+                            />
+                            {p.shortName}
+                          </span>
+                        );
+                      })}
+                      {c.functions?.map((fn) => (
+                        <FunctionBadge key={`fn-${fn}`} fn={fn} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+function SidebarField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <dt className="text-ink-400 w-16 shrink-0">{label}</dt>
+      <dd className="text-ink-800 break-words flex-1">{value}</dd>
+    </div>
+  );
+}
+
+/* ──────────────── ヘルススコア + 30日トレンド ──────────────── */
+//   30日トレンドは companyId からの決定的ハッシュで -10..+10 の差分を生成。
+//   将来 health_snapshots の集計に置換予定。現在値は色のみ既存ロジック準拠。
+function HealthWithTrend({
+  companyId,
+  color,
+  contracts
+}: {
+  companyId: string;
+  color: HealthColor;
   contracts: ActiveContract[];
-  journeys: AccountJourney[];
-  stakeholders: Stakeholder[];
-  engagementByStakeholder: Record<string, StakeholderEngagementMetrics>;
+}) {
+  // 簡易ハッシュ → -10..+10
+  let h = 0;
+  for (let i = 0; i < companyId.length; i++) {
+    h = (h * 31 + companyId.charCodeAt(i)) | 0;
+  }
+  const delta30 = ((Math.abs(h) % 21) - 10);
+  const arrow = delta30 > 1 ? "↑" : delta30 < -1 ? "↓" : "→";
+  const tone =
+    delta30 > 1 ? "text-emerald-600" : delta30 < -1 ? "text-red-600" : "text-ink-400";
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      <CompanyHealthBadge color={color} contracts={contracts} />
+      <span
+        className={`inline-flex items-center text-[11px] tabular-nums ${tone}`}
+        title="直近30日の変化"
+      >
+        <span aria-hidden>{arrow}</span>
+        <span>
+          {delta30 > 0 ? "+" : ""}
+          {delta30}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/* ──────────────── 概要タブ ──────────────── */
+//   ビジョン / 企業ジャーニー / 直近の動き / 健康スコア / 過去契約事業 のみに整理。
+//   事業ジャーニーは契約・更新タブに移管。組織図・契約中研修・企業情報は別タブ/削除。
+function OverviewTab({
+  company,
+  companyId,
+  companyJourney,
+  companyStageDefs,
+  companySuggestion,
+  contracts,
+  logs,
+  weeklyReviews,
+  lifecycleSnapshots,
+  pastContracts,
+  companyVision,
+  companyVisionLogs
+}: {
+  company: Company;
   companyId: string;
   companyJourney: CompanyJourney | null;
-  businessJourneys: BusinessJourney[];
   companyStageDefs: JourneyStageDefinition[];
-  businessStageDefs: JourneyStageDefinition[];
   companySuggestion?: JourneySuggestion;
-  businessSuggestions: Record<string, JourneySuggestion>;
+  contracts: ActiveContract[];
+  logs: MeetingLog[];
+  weeklyReviews: WeeklyReview[];
+  lifecycleSnapshots: ContractLifecycleSnapshot[];
+  pastContracts: ActiveContract[];
+  companyVision?: CompanyVision | null;
+  companyVisionLogs?: CompanyVisionLog[];
 }) {
+  // 直近の動き: 面談ログ + 週次レビューを時系列でマージ
+  const recentActivity = buildRecentActivity(logs, weeklyReviews, 6);
+
   return (
     <section className="space-y-4">
+      {/* 1. 企業ビジョン */}
+      <CompanyVisionSection
+        companyId={companyId}
+        vision={companyVision ?? null}
+        logs={companyVisionLogs ?? []}
+      />
+
+      {/* 2. 企業ジャーニー */}
       <CompanyJourneySection
         companyId={companyId}
         companyJourney={companyJourney}
         stageDefs={companyStageDefs}
         suggestion={companySuggestion}
       />
-      <BusinessJourneyGroupSection
-        companyId={companyId}
-        contracts={contracts}
-        businessJourneys={businessJourneys}
-        stageDefs={businessStageDefs}
-        suggestions={businessSuggestions}
-      />
-      {/* 関係者マップは「企業側の担当者」組織図に統合 */}
-      <CustomerJourneySection contracts={contracts} />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      {/* 左: 企業情報 */}
-      <div className="liquid-surface p-5 space-y-4">
-        <div className="text-sm font-semibold text-ink-700">企業情報</div>
-        <dl className="space-y-3 text-sm">
-          <Row label="住所" value={company.address} />
-          <Row label="業種" value={company.industry} />
-          {company.group && <Row label="グループ" value={company.group} />}
-          <Row label="主担当" value={company.ownerName} />
-          <Row label="最終接点" value={`${company.lastTouchDays}日前`} />
-        </dl>
-        {company.memo && (
-          <div className="mt-4 rounded-xl bg-ink-50 p-3">
-            <div className="text-[11px] text-ink-500 font-medium mb-1">メモ</div>
-            <div className="text-sm text-ink-700 leading-relaxed">
-              {company.memo}
+
+      {/* 3. 直近の動き + 4. 健康スコア (2カラム) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RecentActivitySection items={recentActivity} />
+        <CompanyHealthSection contracts={contracts} />
+      </div>
+
+      {/* 5. 過去契約事業 */}
+      {lifecycleSnapshots.length > 0 && (
+        <section className="liquid-surface p-5 space-y-3">
+          <div>
+            <div className="text-sm font-semibold text-ink-700">過去契約事業</div>
+            <div className="mt-0.5 text-[11px] text-ink-500">
+              解約・更新成功・期満了の時点で凍結された記録 (改変不可)
             </div>
           </div>
-        )}
-      </div>
-
-      {/* 中央: 契約中研修サマリー */}
-      <div className="space-y-3">
-        <div className="text-sm font-semibold text-ink-700">契約中の研修</div>
-        <div className="space-y-3">
-          {company.contracts.map((code) => (
-            <ContractMiniCard
-              key={code}
-              code={code}
-              contracts={contracts.filter((c) => c.product === code)}
-            />
-          ))}
-          {company.contracts.length === 0 && (
-            <div className="liquid-surface p-4 text-sm text-ink-500">
-              契約中の研修はありません
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 右: 担当者 */}
-      <div className="liquid-surface p-5 space-y-4">
-        <div className="text-sm font-semibold text-ink-700">企業側の担当者</div>
-        {contacts.length === 0 && (
-          <div className="text-sm text-ink-500">登録された担当者はいません</div>
-        )}
-        {contacts.length > 0 && (
-          <ContactOrgTree contacts={contacts} onUpdate={onUpdateContact} />
-        )}
-        {contacts.length > 0 && (
-          <details className="group">
-            <summary className="cursor-pointer text-[11px] text-ink-500 hover:text-ink-700 select-none">
-              ▸ 一覧表示（{contacts.length}名）
-            </summary>
-            <div className="mt-3 space-y-3">
-              {contacts.map((c) => (
-                <div
-                  key={c.id}
-                  className="rounded-xl border border-ink-100 p-3 bg-white"
-                >
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="text-sm font-semibold text-ink-900">{c.name}</div>
-                    {c.isPrimary && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
-                        主担当
-                      </span>
-                    )}
-                    {(c.functions ?? []).map((f) => (
-                      <FunctionBadge key={f} fn={f} />
-                    ))}
-                  </div>
-                  <div className="text-[11px] text-ink-500 mt-0.5">
-                    {c.department} ・ {c.title}
-                  </div>
-                  <div className="text-xs text-ink-700 mt-1.5">{c.email}</div>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {c.products.map((p) => (
-                      <ProductBadge key={p} code={p} size="sm" />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-      </div>
+          <ContractHistorySection
+            snapshots={lifecycleSnapshots}
+            contracts={pastContracts}
+          />
+        </section>
+      )}
     </section>
   );
 }
 
-function CustomerJourneySection({ contracts }: { contracts: ActiveContract[] }) {
-  const inProgress = contracts.filter((c) => c.status === "onboarding").length;
-  const running = contracts.filter((c) => c.status !== "onboarding" && c.status !== "handoff").length;
+/* ──────────────── 直近の動き ──────────────── */
+type RecentActivityItem = {
+  id: string;
+  date: string;
+  kind: "meeting" | "weekly";
+  label: string;
+  summary?: string;
+  authorName?: string;
+};
 
-  if (contracts.length === 0) return null;
-
-  return (
-    <div className="liquid-surface p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <div className="text-sm font-semibold text-ink-700">カスタマージャーニー</div>
-          <div className="mt-0.5 text-[11px] text-ink-500">
-            契約ごとの運用フェーズ進捗
-          </div>
-        </div>
-        <div className="text-xs text-ink-500">
-          進行中契約 <span className="text-ink-900 font-semibold">{running}</span> 件 / オンボ中{" "}
-          <span className="text-ink-900 font-semibold">{inProgress}</span> 件
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {contracts.map((contract) => (
-          <JourneyContractCard key={contract.id} contract={contract} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function JourneyContractCard({ contract }: { contract: ActiveContract }) {
-  const p = productByCode[contract.product];
-  const phases = productJourney[contract.product];
-  const isOnboarding = contract.status === "onboarding";
-  const currentIdx = isOnboarding
-    ? -1 // オンボ中は phases の前段
-    : phases.findIndex((ph) => ph.key === contract.currentPhase);
-
-  // 表示ステップ: オンボ中の場合は先頭に「オンボ」ステップを付ける
-  const steps: { key: string; label: string; state: "done" | "current" | "todo" }[] = [];
-  if (isOnboarding) {
-    steps.push({ key: "onboarding", label: "オンボ中", state: "current" });
-    phases.forEach((ph) => steps.push({ key: ph.key, label: ph.label, state: "todo" }));
-  } else {
-    phases.forEach((ph, i) => {
-      steps.push({
-        key: ph.key,
-        label: ph.label,
-        state: i < currentIdx ? "done" : i === currentIdx ? "current" : "todo"
-      });
+function buildRecentActivity(
+  logs: MeetingLog[],
+  weeklyReviews: WeeklyReview[],
+  limit: number
+): RecentActivityItem[] {
+  const items: RecentActivityItem[] = [];
+  for (const l of logs) {
+    items.push({
+      id: l.id,
+      date: l.date,
+      kind: "meeting",
+      label: l.title,
+      summary: l.summary,
+      authorName: l.authorName
     });
   }
+  for (const w of weeklyReviews) {
+    items.push({
+      id: w.id,
+      date: w.weekStart,
+      kind: "weekly",
+      label: `週次レビュー ${w.weekLabel} (${w.weekStart})`,
+      summary: [w.good, w.more].filter(Boolean).join(" / ") || undefined,
+      authorName: w.authorName
+    });
+  }
+  return items
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, limit);
+}
 
-  const currentLabel = isOnboarding
-    ? "オンボ中"
-    : phases.find((ph) => ph.key === contract.currentPhase)?.label ?? "—";
-
+function RecentActivitySection({ items }: { items: RecentActivityItem[] }) {
   return (
-    <div className="rounded-xl border border-ink-100 p-4 bg-white">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <ProductBadge code={contract.product} size="sm" />
-          {hasMultipleCourses(contract.product) && (
-            <span className="text-xs text-ink-700 truncate">
-              {courseName(contract.product, contract.courseKey)}
-            </span>
-          )}
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-50 text-ink-600 border border-ink-100">
-            {cycleLabel(contract.product, contract.cycleNumber)}
-          </span>
+    <section className="liquid-surface p-5 space-y-3">
+      <div>
+        <div className="text-sm font-semibold text-ink-700">直近の動き</div>
+        <div className="mt-0.5 text-[11px] text-ink-500">
+          ログ・週次レビュー（直近）
         </div>
-        <span
-          className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
-          style={{ background: `${p.accent}14`, color: p.accent }}
-        >
-          {currentLabel}
-        </span>
       </div>
-
-      {/* ステップUI */}
-      <div className="mt-4 flex items-center">
-        {steps.map((step, i) => (
-          <div key={step.key} className="flex-1 flex items-center last:flex-none">
-            <div className="flex flex-col items-center gap-1">
-              {step.state === "done" && (
+      {items.length === 0 ? (
+        <div className="text-[12px] text-ink-500 py-4 text-center bg-ink-50/40 rounded-md border border-dashed border-ink-200">
+          直近の記録はまだありません
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((it) => (
+            <li
+              key={it.id}
+              className="rounded-md border border-ink-100 bg-white p-2.5"
+            >
+              <div className="flex items-center gap-2">
                 <span
-                  className="w-3 h-3 rounded-full"
-                  style={{ background: p.accent }}
-                />
+                  className={[
+                    "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                    it.kind === "meeting"
+                      ? "bg-sky-50 text-sky-700 border border-sky-100"
+                      : "bg-violet-50 text-violet-700 border border-violet-100"
+                  ].join(" ")}
+                >
+                  {it.kind === "meeting" ? "ログ" : "週次"}
+                </span>
+                <span className="text-[11px] text-ink-500">
+                  {it.date}
+                </span>
+                {it.authorName && (
+                  <span className="text-[10px] text-ink-400 ml-auto">
+                    {it.authorName}
+                  </span>
+                )}
+              </div>
+              <div className="text-sm font-medium text-ink-900 mt-1">
+                {it.label}
+              </div>
+              {it.summary && (
+                <p className="text-[11px] text-ink-700 mt-0.5 leading-relaxed line-clamp-2">
+                  {it.summary}
+                </p>
               )}
-              {step.state === "current" && (
-                <span
-                  className="w-4 h-4 rounded-full ring-4 ring-offset-0"
-                  style={{
-                    background: p.accent,
-                    boxShadow: `0 0 0 4px ${p.accent}22`
-                  }}
-                />
-              )}
-              {step.state === "todo" && (
-                <span className="w-3 h-3 rounded-full bg-white border border-ink-200" />
-              )}
-              <span
-                className={[
-                  "text-[10px] whitespace-nowrap",
-                  step.state === "current"
-                    ? "font-semibold text-ink-900"
-                    : step.state === "done"
-                    ? "text-ink-700"
-                    : "text-ink-500"
-                ].join(" ")}
-              >
-                {step.label}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <div
-                className="h-px flex-1 mx-1 mb-4"
-                style={{
-                  background:
-                    step.state === "done" ? p.accent : "#E5E7EB"
-                }}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {isOnboarding && (
-        <Link
-          href={`/onboarding/${contract.id}`}
-          className="mt-3 inline-block text-[11px] text-ink-700 hover:underline"
-        >
-          → オンボチェックリストを見る
-        </Link>
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
+    </section>
   );
 }
+
+/* ──────────────── 健康スコア（契約ごと） ──────────────── */
+function CompanyHealthSection({ contracts }: { contracts: ActiveContract[] }) {
+  return (
+    <section className="liquid-surface p-5 space-y-3">
+      <div>
+        <div className="text-sm font-semibold text-ink-700">健康スコア</div>
+        <div className="mt-0.5 text-[11px] text-ink-500">
+          契約 (商材×期) ごとの Health 状況
+        </div>
+      </div>
+      {contracts.length === 0 ? (
+        <div className="text-[12px] text-ink-500 py-4 text-center bg-ink-50/40 rounded-md border border-dashed border-ink-200">
+          現行契約なし
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {contracts.map((c) => {
+            const breakdown = computeFromContract(c);
+            return (
+              <div
+                key={c.id}
+                className="rounded-md border border-ink-100 bg-white p-3 space-y-2"
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <ProductBadge code={c.product} size="sm" />
+                  {hasMultipleCourses(c.product) && (
+                    <span className="text-[10px] text-ink-500">
+                      {courseShortName(c.product, c.courseKey)}
+                    </span>
+                  )}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-ink-50 text-ink-700 border border-ink-100">
+                    {cycleLabel(c.product, c.cycleNumber)}
+                  </span>
+                  <span
+                    className={[
+                      "ml-auto text-[10px] px-2 py-0.5 rounded-full font-semibold",
+                      breakdown.color === "green"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                        : breakdown.color === "yellow"
+                        ? "bg-amber-50 text-amber-700 border border-amber-100"
+                        : "bg-rose-50 text-rose-700 border border-rose-100"
+                    ].join(" ")}
+                  >
+                    {breakdown.color.toUpperCase()} ({breakdown.score})
+                  </span>
+                </div>
+                <HealthExplain breakdown={breakdown} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ──────────────── 組織図タブ ──────────────── */
+function OrgChartTab({
+  companyId,
+  contacts,
+  allCycles,
+  onUpdateContact
+}: {
+  companyId: string;
+  contacts: Contact[];
+  allCycles: ActiveContract[];
+  onUpdateContact: (next: Contact) => void;
+}) {
+  // 担当者ゼロでも参加者の追加導線を残すため早期 return しない
+  return (
+    <section className="space-y-4">
+      <ContactOrgTree
+        companyId={companyId}
+        contacts={contacts}
+        allCycles={allCycles}
+        onUpdate={onUpdateContact}
+      />
+
+      {contacts.length > 0 && (
+      <details className="liquid-surface p-5 group">
+        <summary className="cursor-pointer text-sm font-semibold text-ink-700 hover:text-ink-900 select-none">
+          カード一覧表示（{contacts.length}名）
+        </summary>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          {contacts.map((c) => (
+            <div
+              key={c.id}
+              className="rounded-xl border border-ink-100 p-3 bg-white"
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="text-sm font-semibold text-ink-900">
+                  {c.name}
+                </div>
+                {c.isPrimary && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
+                    主担当
+                  </span>
+                )}
+                {(c.functions ?? []).map((f) => (
+                  <FunctionBadge key={f} fn={f} />
+                ))}
+              </div>
+              <div className="text-[11px] text-ink-500 mt-0.5">
+                {c.department} ・ {c.title}
+              </div>
+              <div className="text-xs text-ink-700 mt-1.5">{c.email}</div>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {c.products.map((p) => (
+                  <ProductBadge key={p} code={p} size="sm" />
+                ))}
+              </div>
+              {c.note && (
+                <div className="mt-2 text-[11px] text-ink-700 bg-ink-50/70 border border-ink-100 rounded-lg px-2 py-1.5 whitespace-pre-wrap">
+                  <span className="text-[10px] text-ink-500 font-semibold">
+                    備考:{" "}
+                  </span>
+                  {c.note}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </details>
+      )}
+    </section>
+  );
+}
+
+// 旧 CustomerJourneySection / JourneyContractCard は廃止 (事業ジャーニーに統合)
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -710,33 +1198,55 @@ function ContractMiniCard({ code, contracts }: { code: ProductCode; contracts: A
   );
 }
 
-/* ──────────────── 面談ログタブ ──────────────── */
-function LogsTab({ logs }: { logs: MeetingLog[] }) {
+/* ──────────────── ログタブ (メール / 電話 / 面談・商談) ──────────────── */
+function LogsTab({
+  logs,
+  companyId,
+  contacts,
+  members
+}: {
+  logs: MeetingLog[];
+  companyId: string;
+  contacts: Contact[];
+  members: { id: string; name: string }[];
+}) {
   const typeLabel: Record<MeetingLog["type"], string> = {
-    mtg: "MTG",
+    mtg: "面談",
     mail: "メール",
-    call: "コール"
+    call: "電話"
   };
+  const { user: currentUser, name: currentUserName } = useCurrentUser();
+  const currentUserId = currentUser?.id;
+  const [addOpen, setAddOpen] = useState(false);
 
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-sm text-ink-500">
-          全 {logs.length} 件の接点ログ
+          全 {logs.length} 件のログ（電話 / 面談）
         </div>
         <button
           type="button"
-          disabled
-          title="準備中"
-          className="px-4 py-2 rounded-full bg-ink-300 text-white text-sm cursor-not-allowed"
+          onClick={() => setAddOpen(true)}
+          className="px-4 py-2 rounded-full bg-ink-900 hover:bg-ink-800 text-white text-sm"
         >
-          + ログ追加（準備中）
+          ＋ ログを追加
         </button>
       </div>
 
+      <AddLogModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        companyId={companyId}
+        defaultAuthor={currentUserName ?? "自分"}
+        defaultAuthorId={currentUserId ?? undefined}
+        contacts={contacts}
+        members={members}
+      />
+
       {logs.length === 0 && (
         <div className="liquid-surface p-8 text-center text-sm text-ink-500">
-          面談ログはまだありません
+          ログはまだありません。右上の「＋ ログを追加」から記録できます。
         </div>
       )}
 
@@ -778,9 +1288,20 @@ function LogsTab({ logs }: { logs: MeetingLog[] }) {
             <div className="mt-2 text-sm font-semibold text-ink-900">
               {l.title}
             </div>
-            <p className="mt-1.5 text-sm text-ink-700 leading-relaxed">
+            <p className="mt-1.5 text-sm text-ink-700 leading-relaxed whitespace-pre-line">
               {l.summary}
             </p>
+            {l.notionUrl && (
+              <a
+                href={l.notionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-600 hover:text-ink-900 underline"
+              >
+                <span>📝</span>
+                Notion 議事録を開く
+              </a>
+            )}
 
             {(l.good || l.more || l.next) && (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -840,12 +1361,463 @@ function LogSection({
 }
 
 /* ──────────────── オンボタブ ──────────────── */
+/* ──────────────── ToDo タブ ────────────────
+   3 サブカテゴリ:
+     - オンボ: contractOnboardingItems (productOnboardingTemplates から展開)
+     - 事業別ToDo: program_company_tasks (Phase 2 後半で repo 連携。現状は placeholder)
+     - 個社ToDo: CompanyTasksSection (既存)
+   右上: 契約中事業の切替タブ */
+function TodoTab({
+  companyId,
+  companyName,
+  contracts,
+  allCycles,
+  items,
+  tasks,
+  members,
+  programData
+}: {
+  companyId: string;
+  companyName: string;
+  contracts: ActiveContract[];
+  allCycles: ActiveContract[];
+  items: ContractOnboardingItem[];
+  tasks: CompanyTask[];
+  members: { id: string; name: string }[];
+  programData: ProgramBundle[];
+}) {
+  const productCodes = Array.from(new Set(contracts.map((c) => c.product)));
+  const [selectedCode, setSelectedCode] = useState<ProductCode | "all">("all");
+  const [subcat, setSubcat] = useState<"onboarding" | "program" | "company">(
+    "onboarding"
+  );
+
+  const filteredContracts =
+    selectedCode === "all"
+      ? contracts
+      : contracts.filter((c) => c.product === selectedCode);
+  const filteredItems = items.filter((it) =>
+    filteredContracts.some((c) => c.id === it.contractId)
+  );
+
+  return (
+    <section className="space-y-4">
+      {/* ヘッダ: サブカテゴリタブ + 事業切替 (上部のメインタブ直下に固定) */}
+      <div className="sticky top-[190px] z-10 -mx-2 px-2 py-2 bg-white/90 backdrop-blur flex items-center justify-between flex-wrap gap-3 border-b border-ink-100">
+        <div className="inline-flex items-center gap-1 p-1 rounded-md bg-ink-100/70 border border-ink-100">
+          {([
+            { key: "onboarding", label: "オンボ" },
+            { key: "program", label: "事業別ToDo" },
+            { key: "company", label: "個社ToDo" }
+          ] as const).map((s) => {
+            const active = subcat === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSubcat(s.key)}
+                className={[
+                  "px-3 py-1 rounded text-xs transition",
+                  active
+                    ? "bg-white shadow-sm font-semibold text-ink-900"
+                    : "text-ink-500 hover:text-ink-700"
+                ].join(" ")}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {productCodes.length > 0 && (
+          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-100/70 border border-ink-100">
+            <button
+              type="button"
+              onClick={() => setSelectedCode("all")}
+              className={[
+                "px-3 py-1 rounded-full text-xs transition",
+                selectedCode === "all"
+                  ? "bg-white shadow-sm font-semibold text-ink-900"
+                  : "text-ink-500 hover:text-ink-700"
+              ].join(" ")}
+            >
+              すべて
+            </button>
+            {productCodes.map((code) => {
+              const p = productByCode[code];
+              const active = selectedCode === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setSelectedCode(code)}
+                  className={[
+                    "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs transition",
+                    active
+                      ? "bg-white shadow-sm font-semibold text-ink-900"
+                      : "text-ink-500 hover:text-ink-700"
+                  ].join(" ")}
+                >
+                  <span
+                    className="inline-block w-2 h-2 rounded-full"
+                    style={{ background: p.accent }}
+                  />
+                  {p.shortName}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* サブカテゴリ別本体 */}
+      {subcat === "onboarding" && (
+        <OnboardingTab
+          contracts={filteredContracts}
+          items={filteredItems}
+          members={members}
+          today={new Date().toISOString().slice(0, 10)}
+        />
+      )}
+      {subcat === "program" && (
+        <ProgramSubTab
+          companyId={companyId}
+          companyName={companyName}
+          programData={programData}
+          selectedCode={selectedCode}
+          members={members}
+        />
+      )}
+      {subcat === "company" && (
+        <CompanyTasksSection
+          companyId={companyId}
+          initialTasks={tasks}
+          contracts={(selectedCode === "all"
+            ? allCycles
+            : allCycles.filter((c) => c.product === selectedCode)
+          ).map((c) => ({
+            id: c.id,
+            label: `${c.product} / ${c.courseKey ?? "-"} (${cycleLabel(c.product, c.cycleNumber)})`
+          }))}
+          members={members}
+        />
+      )}
+    </section>
+  );
+}
+
+/* オンボサブカテゴリ — /onboarding/[contractId] と同等の ChecklistView を契約ごとに描画 */
+/* 事業別ToDo サブカテゴリ — 該当 term ごとに ProgramMatrix を当社 1 行で表示 */
+function ProgramSubTab({
+  companyId,
+  companyName,
+  programData,
+  selectedCode,
+  members
+}: {
+  companyId: string;
+  companyName: string;
+  programData: ProgramBundle[];
+  selectedCode: ProductCode | "all";
+  members: { id: string; name: string }[];
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const filtered = selectedCode === "all"
+    ? programData
+    : programData.filter((b) => b.term.productCode === selectedCode);
+
+  if (filtered.length === 0) {
+    return (
+      <section className="liquid-surface p-10 text-center text-sm text-ink-500">
+        この企業に紐づく事業別ToDo はありません
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-5">
+      {filtered.map((b) => (
+        <ProgramChecklistCard
+          key={b.term.id}
+          bundle={b}
+          companyId={companyId}
+          members={members}
+          today={today}
+        />
+      ))}
+    </section>
+  );
+}
+
+/* 事業別ToDo を オンボ仕様 (カテゴリ別アコーディオン + チェックリスト) で描画 */
+function ProgramChecklistCard({
+  bundle,
+  companyId,
+  members,
+  today
+}: {
+  bundle: ProgramBundle;
+  companyId: string;
+  members: { id: string; name: string }[];
+  today: string;
+}) {
+  const p = productByCode[bundle.term.productCode as ProductCode];
+  const accent = p?.accent ?? "#3D9EFF";
+
+  // この企業のセルだけ抽出 (programData は対象企業の cells が前提だが念のため)
+  const myCells = bundle.cells.filter((c) => c.companyId === companyId);
+  const cellByTemplate = new Map(myCells.map((c) => [c.templateId, c]));
+
+  const userMap = new Map(members.map((m) => [m.id, m.name]));
+
+  const [cells, setCells] = useState(myCells);
+  const [, startTransition] = useTransition();
+
+  const cellByTemplateState = new Map(cells.map((c) => [c.templateId, c]));
+
+  // 集計
+  let total = 0;
+  let done = 0;
+  let overdue = 0;
+  for (const t of bundle.templates) {
+    const cell = cellByTemplateState.get(t.id) ?? cellByTemplate.get(t.id);
+    if (!cell || cell.status === "not_applicable" || cell.status === "skipped") continue;
+    total++;
+    if (cell.status === "done") done++;
+    if (
+      (cell.status === "pending" || cell.status === "in_progress") &&
+      cell.dueDate &&
+      cell.dueDate < today
+    )
+      overdue++;
+  }
+
+  // カテゴリ別グルーピング (templateの順に並んでいる前提を維持)
+  const grouped = new Map<ProgramTaskCategory | "uncategorized", typeof bundle.templates>();
+  for (const t of bundle.templates) {
+    const key = (t.category ?? "uncategorized") as ProgramTaskCategory | "uncategorized";
+    const arr = grouped.get(key) ?? [];
+    arr.push(t);
+    grouped.set(key, arr);
+  }
+
+  const [openCats, setOpenCats] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(Array.from(grouped.keys()).map((k) => [k, true]))
+  );
+
+  function toggleStatus(cellId: string, current: ProgramCellStatus) {
+    const next: ProgramCellStatus = current === "done" ? "pending" : "done";
+    setCells((prev) =>
+      prev.map((c) =>
+        c.id === cellId
+          ? {
+              ...c,
+              status: next,
+              completedAt: next === "done" ? new Date().toISOString() : undefined
+            }
+          : c
+      )
+    );
+    startTransition(async () => {
+      try {
+        await setProgramCellStatus(cellId, bundle.term.id, next);
+      } catch (e) {
+        console.error(e);
+        // ロールバック
+        setCells((prev) =>
+          prev.map((c) => (c.id === cellId ? { ...c, status: current } : c))
+        );
+      }
+    });
+  }
+
+  return (
+    <div className="liquid-surface p-5 space-y-4">
+      {/* ヘッダ — オンボ仕様に揃える */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <ProductBadge code={bundle.term.productCode as ProductCode} />
+            {bundle.term.courseKey && (
+              <span
+                className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                style={{
+                  color: accent,
+                  background: `${accent}14`,
+                  border: `1px solid ${accent}33`
+                }}
+              >
+                {courseShortName(
+                  bundle.term.productCode as ProductCode,
+                  bundle.term.courseKey
+                )}
+              </span>
+            )}
+            <span className="text-sm font-semibold text-ink-900">
+              {bundle.term.label}
+            </span>
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-[11px] text-ink-500">全体</div>
+          <div className="text-base font-bold text-ink-900 tabular-nums">
+            {done}/{total}
+          </div>
+          {overdue > 0 && (
+            <div className="text-[11px] text-rose-500">期日超過 {overdue}件</div>
+          )}
+        </div>
+      </div>
+
+      {/* 進捗バー */}
+      <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${total > 0 ? (done / total) * 100 : 0}%`,
+            background: accent
+          }}
+        />
+      </div>
+
+      {/* カテゴリ別アコーディオン */}
+      <div className="space-y-2">
+        {Array.from(grouped.entries()).map(([cat, tpls]) => {
+          let catDone = 0;
+          let catTotal = 0;
+          for (const t of tpls) {
+            const cell = cellByTemplateState.get(t.id);
+            if (!cell || cell.status === "not_applicable" || cell.status === "skipped")
+              continue;
+            catTotal++;
+            if (cell.status === "done") catDone++;
+          }
+          const catLabel =
+            cat === "uncategorized"
+              ? "未分類"
+              : PROGRAM_TASK_CATEGORY_LABEL[cat as ProgramTaskCategory];
+          const open = openCats[cat] ?? true;
+          return (
+            <div key={cat} className="rounded-xl border border-ink-100 bg-white">
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenCats((prev) => ({ ...prev, [cat]: !open }))
+                }
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-ink-50 rounded-xl"
+              >
+                <span className="text-xs text-ink-500">{open ? "▼" : "▶"}</span>
+                <span className="text-sm font-semibold text-ink-800">
+                  {catLabel}
+                </span>
+                <span className="text-[11px] text-ink-500 tabular-nums">
+                  {catDone}/{catTotal}
+                </span>
+                <div className="ml-auto w-32 h-1 rounded-full bg-ink-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${catTotal > 0 ? (catDone / catTotal) * 100 : 0}%`,
+                      background: accent
+                    }}
+                  />
+                </div>
+              </button>
+              {open && (
+                <ul className="border-t border-ink-100 divide-y divide-ink-100">
+                  {tpls.map((t) => {
+                    const cell = cellByTemplateState.get(t.id);
+                    const status: ProgramCellStatus = cell?.status ?? "pending";
+                    const isDone = status === "done";
+                    const isOverdue =
+                      cell?.dueDate &&
+                      cell.dueDate < today &&
+                      (status === "pending" || status === "in_progress");
+                    const ownerId = cell?.assignedTo ?? t.defaultAssigneeTo;
+                    const ownerName = ownerId ? userMap.get(ownerId) : undefined;
+                    const due = cell?.dueDate ?? t.defaultDueDate;
+                    return (
+                      <li
+                        key={t.id}
+                        className={[
+                          "flex items-start gap-3 px-4 py-2.5 text-xs",
+                          isOverdue ? "bg-rose-50/40" : ""
+                        ].join(" ")}
+                      >
+                        <button
+                          type="button"
+                          disabled={!cell}
+                          onClick={() => cell && toggleStatus(cell.id, status)}
+                          aria-label={`${t.label} を ${
+                            isDone ? "未完了" : "完了"
+                          } にする`}
+                          className={[
+                            "mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center text-white text-[11px] shrink-0 transition",
+                            isDone
+                              ? "border-transparent"
+                              : "bg-white border-ink-300 hover:border-ink-500",
+                            !cell ? "opacity-50 cursor-not-allowed" : ""
+                          ].join(" ")}
+                          style={isDone ? { background: accent } : undefined}
+                        >
+                          {isDone ? "✓" : ""}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={[
+                                "text-sm",
+                                isDone
+                                  ? "line-through text-ink-400"
+                                  : "text-ink-900"
+                              ].join(" ")}
+                            >
+                              {t.label}
+                            </span>
+                            {status !== "pending" && status !== "done" && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-50 border border-ink-200 text-ink-600">
+                                {PROGRAM_CELL_STATUS_LABEL[status]}
+                              </span>
+                            )}
+                            {isOverdue && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-semibold">
+                                期限切れ
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-3 text-[11px] text-ink-500">
+                            {due && <span>期日 {due.replace(/-/g, "/")}</span>}
+                            {ownerName && <span>担当 {ownerName}</span>}
+                            {cell?.completedAt && (
+                              <span className="text-emerald-600">
+                                完了日 {cell.completedAt.slice(0, 10).replace(/-/g, "/")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function OnboardingTab({
   contracts,
-  items
+  items,
+  members,
+  today
 }: {
   contracts: ActiveContract[];
   items: ContractOnboardingItem[];
+  members: { id: string; name: string }[];
+  today: string;
 }) {
   if (contracts.length === 0) {
     return (
@@ -856,16 +1828,31 @@ function OnboardingTab({
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       {contracts.map((contract) => {
         const p = productByCode[contract.product];
-        const prog = contractProgress(contract.id);
-        const cats = productOnboardingTemplates[contract.product]
-          .slice()
-          .sort((a, b) => a.order - b.order);
+        const template = productOnboardingTemplates[contract.product];
         const contractItems = items.filter((i) => i.contractId === contract.id);
+        // 進捗集計
+        let done = 0;
+        let overdue = 0;
+        let total = 0;
+        for (const i of contractItems) {
+          if (i.status === "not_applicable") continue;
+          total++;
+          if (i.status === "done") done++;
+          if (
+            (i.status === "todo" || i.status === "doing" || i.status === "overdue") &&
+            i.dueDate &&
+            i.dueDate < today
+          ) {
+            overdue++;
+          }
+        }
+
         return (
-          <div key={contract.id} className="liquid-surface p-5">
+          <div key={contract.id} className="liquid-surface p-5 space-y-4">
+            {/* ヘッダ */}
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -882,6 +1869,9 @@ function OnboardingTab({
                       {courseShortName(contract.product, contract.courseKey)}
                     </span>
                   )}
+                  <span className="text-[11px] text-ink-500">
+                    {cycleLabel(contract.product, contract.cycleNumber)}
+                  </span>
                   <span
                     className={[
                       "text-[11px] px-2 py-0.5 rounded-full border",
@@ -895,99 +1885,49 @@ function OnboardingTab({
                       : "オンボ進行中"}
                   </span>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-500">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-500">
                   <span>
-                    開始日{" "}
-                    <span className="text-ink-700 font-medium">
-                      {contract.startDate.replace(/-/g, "/")}
-                    </span>
+                    開始 <span className="text-ink-700">{contract.startDate.replace(/-/g, "/")}</span>
                   </span>
                   <span>
-                    担当{" "}
-                    <span className="text-ink-700 font-medium">
-                      {contract.ownerName}
-                    </span>
+                    担当 <span className="text-ink-700">{contract.ownerName}</span>
                   </span>
                   <span>
-                    参加者{" "}
-                    <span className="text-ink-700 font-medium">
-                      {contract.participants}名
-                    </span>
+                    参加者 <span className="text-ink-700">{contract.participants}名</span>
                   </span>
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <div className="text-[11px] text-ink-500">全体</div>
-                <div className="text-base font-bold text-ink-900">
-                  {prog.done}/{prog.total}
+                <div className="text-base font-bold text-ink-900 tabular-nums">
+                  {done}/{total}
                 </div>
-                {prog.overdue > 0 && (
-                  <div className="text-[11px] text-rose-500">
-                    期日超過 {prog.overdue}件
-                  </div>
+                {overdue > 0 && (
+                  <div className="text-[11px] text-rose-500">期日超過 {overdue}件</div>
                 )}
-                <Link
-                  href={`/onboarding/${contract.id}`}
-                  className="mt-2 inline-block text-xs text-ink-500 hover:text-ink-700 underline"
-                >
-                  詳細 →
-                </Link>
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-              {cats.map((cat) => {
-                const cp = categoryProgress(contract.id, cat.key);
-                const od = contractItems.filter(
-                  (i) =>
-                    i.categoryKey === cat.key && i.status === "overdue"
-                ).length;
-                return (
-                  <div key={cat.key}>
-                    <div className="flex items-baseline justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-ink-700 font-medium">
-                          {cat.label}
-                        </span>
-                        {od > 0 && (
-                          <span className="text-[10px] text-rose-500">
-                            🔴{od}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[11px] text-ink-500">
-                        {cp.done}/{cp.total}
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1 rounded-full bg-ink-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${
-                            cp.total > 0 ? (cp.done / cp.total) * 100 : 0
-                          }%`,
-                          background: p.accent
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+            {/* 進捗バー */}
+            <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${total > 0 ? (done / total) * 100 : 0}%`,
+                  background: p.accent
+                }}
+              />
             </div>
 
-            <div className="mt-4">
-              <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${
-                      prog.total > 0 ? (prog.done / prog.total) * 100 : 0
-                    }%`,
-                    background: p.accent
-                  }}
-                />
-              </div>
-            </div>
+            {/* /onboarding/[contractId] と同じチェックリスト UI */}
+            <ChecklistView
+              contractId={contract.id}
+              template={template}
+              items={contractItems}
+              accent={p.accent}
+              users={members}
+              today={today}
+            />
           </div>
         );
       })}
@@ -1093,13 +2033,15 @@ function BusinessJourneyGroupSection({
   contracts,
   businessJourneys,
   stageDefs,
-  suggestions
+  suggestions,
+  checkpointStatusesByContract
 }: {
   companyId: string;
   contracts: ActiveContract[];
   businessJourneys: BusinessJourney[];
   stageDefs: JourneyStageDefinition[];
   suggestions: Record<string, JourneySuggestion>;
+  checkpointStatusesByContract: Record<string, JourneyCheckpointStatus[]>;
 }) {
   if (contracts.length === 0 || stageDefs.length === 0) return null;
   return (
@@ -1121,53 +2063,146 @@ function BusinessJourneyGroupSection({
       <div className="space-y-4">
         {contracts.map((c) => {
           const bj = businessJourneys.find((b) => b.contractId === c.id) ?? null;
-          const product = productByCode[c.product];
-          const cycle = cycleLabel(c.product, c.cycleNumber);
           return (
-            <div
+            <BusinessJourneyCard
               key={c.id}
-              className="rounded-xl border border-ink-100 bg-white p-3"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <ProductBadge code={c.product} size="sm" />
-                <span className="text-[12px] font-semibold text-ink-800">
-                  {product.name}
-                </span>
-                <span className="text-[11px] text-ink-500">
-                  {c.courseKey ? courseShortName(c.product, c.courseKey) : "-"}
-                </span>
-                <span className="ml-1 px-1.5 py-0.5 rounded bg-ink-50 text-[10px] text-ink-700 border border-ink-100">
-                  {cycle}
-                </span>
-                {c.endDate && (
-                  <span className="ml-auto text-[10px] text-ink-500">
-                    契約終了 {c.endDate}
-                  </span>
-                )}
-              </div>
-              <JourneyStageBar
-                title=""
-                customizeHref="/settings/journey-stages?type=business"
-                stages={stageDefs}
-                currentStageKey={bj?.currentStageKey ?? null}
-                stageEnteredAt={bj?.stageEnteredAt}
-                suggestion={suggestions[c.id]}
-                warnOnRegression={false}
-                onChangeStage={async (input) => {
-                  const r = await setBusinessJourneyStageAction({
-                    contractId: c.id,
-                    companyId,
-                    toStageKey: input.toStageKey,
-                    acknowledgeRegression: input.acknowledgeRegression,
-                    note: input.note
-                  });
-                  return r;
-                }}
-              />
-            </div>
+              contract={c}
+              businessJourney={bj}
+              stageDefs={stageDefs}
+              suggestion={suggestions[c.id]}
+              checkpointStatuses={checkpointStatusesByContract[c.id] ?? []}
+              companyId={companyId}
+            />
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* 個別 契約カード — 内諾遷移時に NextCycleModal をインターセプト */
+function BusinessJourneyCard({
+  contract,
+  businessJourney,
+  stageDefs,
+  suggestion,
+  checkpointStatuses,
+  companyId
+}: {
+  contract: ActiveContract;
+  businessJourney: BusinessJourney | null;
+  stageDefs: JourneyStageDefinition[];
+  suggestion?: JourneySuggestion;
+  checkpointStatuses: JourneyCheckpointStatus[];
+  companyId: string;
+}) {
+  const product = productByCode[contract.product];
+  const cycle = cycleLabel(contract.product, contract.cycleNumber);
+
+  // 次期作成モーダルの state
+  const [nextCycleDefaults, setNextCycleDefaults] = useState<NextCycleDefaults | null>(
+    null
+  );
+
+  const buildNextCycleDefaults = (): NextCycleDefaults => {
+    // 既存契約終了日 + 1日 を次期開始日のデフォルトに
+    const start = contract.endDate
+      ? new Date(new Date(contract.endDate).getTime() + 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    // 次期終了日 = 次期開始 + (現契約期間と同じ日数)
+    let endStr = "";
+    if (contract.startDate && contract.endDate) {
+      const span =
+        new Date(contract.endDate).getTime() -
+        new Date(contract.startDate).getTime();
+      const e = new Date(new Date(start).getTime() + span);
+      endStr = e.toISOString().slice(0, 10);
+    }
+    return {
+      currentContractId: contract.id,
+      companyId,
+      productCode: contract.product,
+      productLabel: product.name,
+      defaultStartDate: start,
+      defaultEndDate: endStr,
+      defaultMrr: contract.mrr ?? 0,
+      defaultOwnerName: contract.ownerName ?? "",
+      defaultParticipants: contract.participants ?? 0,
+      defaultCourseKey: contract.courseKey ?? "",
+      nextCycleNumber: contract.cycleNumber + 1,
+      cycleUnit: product.cycleUnit
+    };
+  };
+
+  return (
+    <div className="rounded-xl border border-ink-100 bg-white p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <ProductBadge code={contract.product} size="sm" />
+        <span className="text-[12px] font-semibold text-ink-800">
+          {product.name}
+        </span>
+        <span className="text-[11px] text-ink-500">
+          {contract.courseKey ? courseShortName(contract.product, contract.courseKey) : "-"}
+        </span>
+        <span className="ml-1 px-1.5 py-0.5 rounded bg-ink-50 text-[10px] text-ink-700 border border-ink-100">
+          {cycle}
+        </span>
+        {contract.endDate && (
+          <span className="ml-auto text-[10px] text-ink-500">
+            契約終了 {contract.endDate}
+          </span>
+        )}
+        <BusinessLifecyclePanel
+          contractId={contract.id}
+          companyId={companyId}
+          currentState={businessJourney?.lifecycleState ?? "active"}
+        />
+      </div>
+      <JourneyStageBar
+        title=""
+        customizeHref="/settings/journey-stages?type=business"
+        stages={stageDefs}
+        currentStageKey={businessJourney?.currentStageKey ?? null}
+        stageEnteredAt={businessJourney?.stageEnteredAt}
+        suggestion={suggestion}
+        warnOnRegression={false}
+        onChangeStage={async (input) => {
+          // 「8.内諾 (consent)」への遷移はモーダルでインターセプト
+          if (input.toStageKey === "consent") {
+            setNextCycleDefaults(buildNextCycleDefaults());
+            // ステージ自体の変更はモーダル確定時に createNextCycleAction が実施
+            return { ok: true };
+          }
+          const r = await setBusinessJourneyStageAction({
+            contractId: contract.id,
+            companyId,
+            toStageKey: input.toStageKey,
+            acknowledgeRegression: input.acknowledgeRegression,
+            note: input.note
+          });
+          return r;
+        }}
+      />
+      <div className="mt-3">
+        <JourneyCheckpointPanel
+          journeyType="business"
+          subjectId={contract.id}
+          companyId={companyId}
+          stage={
+            stageDefs.find((s) => s.stageKey === businessJourney?.currentStageKey) ??
+            null
+          }
+          statuses={checkpointStatuses}
+        />
+      </div>
+
+      <NextCycleModal
+        open={nextCycleDefaults !== null}
+        defaults={nextCycleDefaults}
+        onClose={() => setNextCycleDefaults(null)}
+      />
     </div>
   );
 }
@@ -1246,15 +2281,25 @@ function StakeholderSection({
 }
 
 /* ──────────────── 契約・更新タブ ──────────────── */
+//   契約中の事業ごとに右上ボタンで切り替え。
+//   各事業の事業ジャーニー + 既存の Cycle ブロック + 解約モーダル。
 function ContractsTab({
   allCycles,
-  successPlans
+  successPlans,
+  businessJourneys,
+  businessStageDefs,
+  businessSuggestions,
+  checkpointStatusesByContract,
+  companyId
 }: {
   allCycles: ActiveContract[];
   successPlans: SuccessPlan[];
+  businessJourneys: BusinessJourney[];
+  businessStageDefs: JourneyStageDefinition[];
+  businessSuggestions: Record<string, JourneySuggestion>;
+  checkpointStatusesByContract: Record<string, JourneyCheckpointStatus[]>;
+  companyId: string;
 }) {
-  // 解約レコード（モック state）
-  // ⚠️ 実際の Contract.status 更新は別実装。ここでは ChurnRecord のみを保持
   const cycleIds = new Set(allCycles.map((c) => c.id));
   const [records, setRecords] = useState<ChurnRecord[]>(
     initialChurnRecords.filter((r) => cycleIds.has(r.contractId))
@@ -1268,6 +2313,11 @@ function ContractsTab({
     arr.push(c);
     byProduct.set(c.product, arr);
   });
+
+  const productCodes = Array.from(byProduct.keys());
+  const [selectedCode, setSelectedCode] = useState<ProductCode | null>(
+    productCodes[0] ?? null
+  );
 
   if (allCycles.length === 0) {
     return (
@@ -1287,27 +2337,64 @@ function ContractsTab({
     setChurnTarget(null);
   };
 
+  const activeCode = selectedCode ?? productCodes[0];
+  const cycles = (byProduct.get(activeCode) ?? []).slice().sort(
+    (a, b) => a.cycleNumber - b.cycleNumber
+  );
+  const current =
+    cycles.find((c) => c.status !== "renewed" && c.status !== "churned") ??
+    cycles[cycles.length - 1];
+  const currentPlan = successPlans.find((sp) => sp.contractId === current.id);
+
+  // この事業の現行サイクルだけ事業ジャーニーカードを出す（過去サイクルは履歴セクションに）
+  const journeyContracts = cycles.filter(
+    (c) => c.status !== "renewed" && c.status !== "churned"
+  );
+
   return (
     <section className="space-y-4">
-      {Array.from(byProduct.entries()).map(([code, cycles]) => {
-        const sorted = cycles.slice().sort((a, b) => a.cycleNumber - b.cycleNumber);
-        const current = sorted.find((c) => c.status !== "renewed" && c.status !== "churned") ?? sorted[sorted.length - 1];
-        const currentPlan = successPlans.find((sp) => sp.contractId === current.id);
-        return (
-          <ProductCyclesBlock
-            key={code}
-            code={code}
-            cycles={sorted}
-            current={current}
-            plan={currentPlan}
-            churnRecords={records}
-            onChurnClick={(c) => setChurnTarget(c)}
+      {/* 事業切替 */}
+      {productCodes.length > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-ink-500">
+            契約中の事業を切替
+          </div>
+          <ProductTabs
+            codes={productCodes}
+            selected={activeCode}
+            onChange={setSelectedCode}
           />
-        );
-      })}
+        </div>
+      )}
 
-      {/* 解約履歴 */}
-      <ChurnHistorySection records={records} cycles={allCycles} />
+      {/* 事業ジャーニー (現行契約のみ) */}
+      <BusinessJourneyGroupSection
+        companyId={companyId}
+        contracts={journeyContracts}
+        businessJourneys={businessJourneys}
+        stageDefs={businessStageDefs}
+        suggestions={businessSuggestions}
+        checkpointStatusesByContract={checkpointStatusesByContract}
+      />
+
+      {/* 既存: 事業内サイクル + 解約モーダル */}
+      <ProductCyclesBlock
+        key={activeCode}
+        code={activeCode}
+        cycles={cycles}
+        current={current}
+        plan={currentPlan}
+        churnRecords={records}
+        onChurnClick={(c) => setChurnTarget(c)}
+      />
+
+      {/* 解約履歴 (この事業の) */}
+      <ChurnHistorySection
+        records={records.filter((r) =>
+          cycles.some((c) => c.id === r.contractId)
+        )}
+        cycles={cycles}
+      />
 
       {churnTarget && (
         <ChurnModal
@@ -1739,7 +2826,7 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
   const daysToEnd = endDate
     ? Math.ceil((new Date(endDate).getTime() - new Date("2026-04-24").getTime()) / (1000 * 60 * 60 * 24))
     : null;
-  const milestones = endDate ? generateRenewalMilestones(contract.id, endDate) : [];
+  // 旧 generateRenewalMilestones は廃止。期日付きToDoは事業別ToDoに統合済み
   const renewalColor: Record<"green" | "yellow" | "red", string> = {
     green: "#10B981",
     yellow: "#F59E0B",
@@ -1837,14 +2924,14 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
         </div>
       </div>
 
-      {/* 中央: 更新マイルストーン (G項: 自動done廃止 + 証跡入力UI) */}
+      {/* 中央: 更新タスクは事業別ToDo (program_company_tasks) に統合済み。
+          ステージ進捗は事業ジャーニー (BusinessJourneyCard) のチェックポイントで管理 */}
       <div className="space-y-3 lg:col-span-2">
-        <div className="text-caption font-semibold text-neutral-700">更新マイルストーン</div>
-        {milestones.length === 0 ? (
-          <div className="text-caption text-neutral-500">期末日なし（単発）</div>
-        ) : (
-          <RenewalMilestoneList contractId={contract.id} />
-        )}
+        <div className="text-caption font-semibold text-neutral-700">更新タスク</div>
+        <div className="text-caption text-neutral-500">
+          更新フェーズの期日付きToDoは「事業別ToDo」へ統合されました。
+          ステージ進捗は下部の事業ジャーニーのチェックポイントを参照してください。
+        </div>
       </div>
 
       {/* 右: Success Plan */}
@@ -2390,25 +3477,71 @@ function scopeAccent(scope: ContactRoleScope): string {
 }
 
 function ContactOrgTree({
+  companyId,
   contacts,
+  allCycles,
   onUpdate
 }: {
+  companyId: string;
   contacts: Contact[];
+  allCycles: ActiveContract[];
   onUpdate: (next: Contact) => void;
 }) {
   const [editing, setEditing] = useState<Contact | null>(null);
-  // 出現するすべての scope を「overall → 各事業」順で抽出
+  // 参加者状態 (組織図タブ内に統合表示)
+  const [participantList, setParticipantList] = useState<Participant[]>(() =>
+    allParticipants.filter((p) => p.companyId === companyId)
+  );
+  const [editingParticipant, setEditingParticipant] = useState<Participant | null>(
+    null
+  );
+  const [addingParticipant, setAddingParticipant] = useState(false);
+  const isParticipantEmailDuplicate = (email: string, excludeId?: string) => {
+    const norm = email.trim().toLowerCase();
+    if (!norm) return false;
+    return participantList.some(
+      (p) => p.id !== excludeId && p.email.trim().toLowerCase() === norm
+    );
+  };
+  const updateParticipant = (next: Participant) =>
+    setParticipantList((prev) => prev.map((p) => (p.id === next.id ? next : p)));
+  const contactByIdMap = new Map(contacts.map((c) => [c.id, c]));
+  // 出現するすべての scope を抽出。担当者ゼロでも参加者の追加ができるよう、契約商材も候補に含める
   const scopes: ContactRoleScope[] = [];
   const seen = new Set<ContactRoleScope>();
-  for (const c of contacts) {
-    for (const r of c.roles ?? []) {
-      if (!seen.has(r.scope)) {
-        seen.add(r.scope);
-        scopes.push(r.scope);
-      }
+  const pushScope = (s: ContactRoleScope) => {
+    if (!seen.has(s)) {
+      seen.add(s);
+      scopes.push(s);
     }
+  };
+  for (const c of contacts) {
+    for (const r of c.roles ?? []) pushScope(r.scope);
+  }
+  for (const cycle of allCycles) {
+    pushScope(cycle.product as ContactRoleScope);
   }
   scopes.sort((a, b) => (a === "overall" ? -1 : b === "overall" ? 1 : 0));
+
+  // 事業フィルタ (overall=全社) と期フィルタの状態
+  const [selectedScope, setSelectedScope] = useState<ContactRoleScope>(
+    scopes[0] ?? "overall"
+  );
+  // 選択 scope が "overall" 以外の場合は商材コードと一致 → 該当商材の期一覧
+  const cyclesForSelected =
+    selectedScope === "overall"
+      ? []
+      : allCycles
+          .filter((c) => (c.product as string) === (selectedScope as string))
+          .sort((a, b) => a.cycleNumber - b.cycleNumber);
+  const [selectedContractId, setSelectedContractId] = useState<string | undefined>(
+    cyclesForSelected[0]?.id
+  );
+  // scope 切替時に期もリセット
+  useEffect(() => {
+    setSelectedContractId(cyclesForSelected[0]?.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedScope]);
 
   if (scopes.length === 0) {
     return (
@@ -2418,117 +3551,307 @@ function ContactOrgTree({
     );
   }
 
-  const contactById = new Map(contacts.map((c) => [c.id, c]));
+  // 選択 scope に該当する役割を持つ担当者だけを表示。overall は all。
+  const filteredContacts = contacts.filter((c) =>
+    (c.roles ?? []).some((r) => r.scope === selectedScope)
+  );
+
+  // 各 contact の scope/level 一覧 (現在 scope に絞ったものを表示)
+  const rolesByContact = (c: Contact) =>
+    (c.roles ?? [])
+      .filter((r) => r.scope === selectedScope)
+      .map((r) => ({ scope: r.scope, level: r.level }));
 
   return (
     <div className="space-y-3">
-      {scopes.map((scope) => {
-        // この scope のレベルごとの担当者を集める
-        const byLevel: Record<ContactRoleLevel, Contact[]> = {
-          executive: [], approver: [], lead: [], member: []
-        };
-        for (const c of contacts) {
-          for (const r of c.roles ?? []) {
-            if (r.scope === scope && contactById.has(c.id)) {
-              if (!byLevel[r.level].some((x) => x.id === c.id)) {
-                byLevel[r.level].push(c);
-              }
-            }
-          }
-        }
-        const accent = scopeAccent(scope);
-        return (
-          <div
-            key={scope}
-            className="rounded-xl border bg-white p-3"
-            style={{ borderColor: `${accent}33` }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ background: accent }}
-              />
-              <div className="text-xs font-semibold" style={{ color: accent }}>
+      {/* 事業 (scope) + 期 切替バー — 参加者タブと同じ操作感に揃える */}
+      <div className="liquid-surface p-3 space-y-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-ink-500 mr-1">事業</span>
+          {scopes.map((scope) => {
+            const accent = scopeAccent(scope);
+            const active = scope === selectedScope;
+            const count = contacts.filter((c) =>
+              (c.roles ?? []).some((r) => r.scope === scope)
+            ).length;
+            return (
+              <button
+                key={scope}
+                type="button"
+                onClick={() => setSelectedScope(scope)}
+                className={[
+                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs transition border",
+                  active
+                    ? "bg-ink-900 text-white border-ink-900"
+                    : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                ].join(" ")}
+              >
+                <span
+                  className="inline-block w-2 h-2 rounded-full"
+                  style={{ background: accent }}
+                />
                 {scopeLabel(scope)}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              {ROLE_LEVEL_ORDER.map((lv) => {
-                const people = byLevel[lv];
-                if (people.length === 0) return null;
-                const meta = ROLE_LEVEL_META[lv];
-                return (
-                  <div key={lv} className="flex items-start gap-2">
-                    <span
-                      className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border ${meta.tone}`}
-                      style={{ minWidth: 60, textAlign: "center" }}
-                    >
-                      {meta.label}
-                    </span>
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {people.map((c) => (
-                        <div
-                          key={c.id}
-                          className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-ink-50 border border-ink-100"
-                          title={`${c.department} ${c.title} / ${c.email}`}
-                        >
-                          {c.community && (
-                            <span
-                              className="w-1.5 h-1.5 rounded-full shrink-0"
-                              style={{ background: COMMUNITY_META[c.community].dot }}
-                              title={`コミュニティ関与度: ${COMMUNITY_META[c.community].label}`}
-                            />
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setEditing(c)}
-                            className="font-medium text-ink-900 hover:underline"
-                            title="クリックで編集"
-                          >
-                            {c.name}
-                          </button>
-                          <span className="text-ink-500">{c.title}</span>
-                          {c.community && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${COMMUNITY_META[c.community].tone}`}>
-                              {COMMUNITY_META[c.community].label}
-                            </span>
-                          )}
-                          {(c.personality ?? []).map((p) => (
-                            <span
-                              key={p}
-                              className={`text-[10px] px-1.5 py-0.5 rounded-full border ${PERSONALITY_META[p].tone}`}
-                            >
-                              {PERSONALITY_META[p].label}
-                            </span>
-                          ))}
-                          {(c.functions ?? []).map((f) => (
-                            <FunctionBadge key={f} fn={f} />
-                          ))}
-                          <Link
-                            href={`/inbox?contact=${encodeURIComponent(c.email)}`}
-                            className="text-[10px] text-ink-500 hover:text-brand-blue underline ml-0.5"
-                            title={`${c.email} とのメールを表示`}
-                          >
-                            ✉
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => setEditing(c)}
-                            className="text-[10px] text-ink-400 hover:text-ink-700 ml-0.5"
-                            title="編集"
-                          >
-                            ✎
-                          </button>
-                        </div>
-                      ))}
+                <span className="text-[10px] opacity-70 tabular-nums">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 期ボタン — 商材選択時のみ表示。担当者は期に依存しないが、UI 統一のため切替UIを置く */}
+        {selectedScope !== "overall" && cyclesForSelected.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-ink-500 mr-1">期</span>
+            {cyclesForSelected.map((c) => {
+              const active = c.id === selectedContractId;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedContractId(c.id)}
+                  className={[
+                    "px-2.5 py-1 rounded-full text-xs transition border",
+                    active
+                      ? "bg-ink-900 text-white border-ink-900"
+                      : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                  ].join(" ")}
+                  title={`${c.startDate} 〜 ${c.endDate ?? ""}`}
+                >
+                  {cycleLabel(c.product, c.cycleNumber)}
+                  {c.status === "renewed" && (
+                    <span className="ml-1 text-[9px] opacity-70">(終了)</span>
+                  )}
+                  {c.status === "churned" && (
+                    <span className="ml-1 text-[9px] opacity-70">(解約)</span>
+                  )}
+                </button>
+              );
+            })}
+            <span className="ml-auto text-[10px] text-ink-400">
+              ※ 担当者は期に依らず会社単位で管理
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-ink-100 bg-white overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-ink-50/60 text-ink-600">
+            <tr>
+              <th className="text-left font-medium px-3 py-2 whitespace-nowrap">
+                氏名
+              </th>
+              <th className="text-left font-medium px-3 py-2 whitespace-nowrap">
+                所属 / 役職
+              </th>
+              <th className="text-left font-medium px-3 py-2 whitespace-nowrap">
+                役割
+              </th>
+              <th className="text-left font-medium px-3 py-2 whitespace-nowrap">
+                関与度
+              </th>
+              <th className="text-left font-medium px-3 py-2 whitespace-nowrap">
+                パーソナリティ
+              </th>
+              <th className="text-left font-medium px-3 py-2 whitespace-nowrap">
+                機能
+              </th>
+              <th className="text-left font-medium px-3 py-2 max-w-[280px]">
+                備考
+              </th>
+              <th className="text-right font-medium px-3 py-2 w-24 whitespace-nowrap">
+                操作
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink-100">
+            {filteredContacts.length === 0 && (
+              <tr>
+                <td colSpan={8} className="text-center text-ink-400 py-6">
+                  この事業に紐づく担当者は登録されていません
+                </td>
+              </tr>
+            )}
+            {filteredContacts.map((c) => {
+              const roles = rolesByContact(c);
+              return (
+                <tr key={c.id} className="hover:bg-ink-50/40 align-top">
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(c)}
+                        className="font-medium text-ink-900 hover:underline"
+                        title="クリックで編集"
+                      >
+                        {c.name}
+                      </button>
+                      {c.isPrimary && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                          主担当
+                        </span>
+                      )}
                     </div>
-                  </div>
-                );
-              })}
+                    {c.email && (
+                      <div className="text-[10px] text-ink-500 truncate">
+                        {c.email}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-ink-700">
+                    <div>{c.department || "—"}</div>
+                    <div className="text-[10px] text-ink-500">{c.title}</div>
+                  </td>
+                  <td className="px-3 py-2">
+                    {roles.length === 0 ? (
+                      <span className="text-ink-400">—</span>
+                    ) : (
+                      <ul className="space-y-0.5">
+                        {roles.map((r, i) => {
+                          const accent = scopeAccent(r.scope);
+                          const meta = ROLE_LEVEL_META[r.level];
+                          return (
+                            <li
+                              key={`${r.scope}-${r.level}-${i}`}
+                              className="flex items-center gap-1.5"
+                            >
+                              <span
+                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                style={{ background: accent }}
+                              />
+                              <span
+                                className="text-[10px]"
+                                style={{ color: accent }}
+                              >
+                                {scopeLabel(r.scope)}
+                              </span>
+                              <span
+                                className={`text-[10px] px-1 py-0 rounded border ${meta.tone}`}
+                              >
+                                {meta.label}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {c.community ? (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap ${COMMUNITY_META[c.community].tone}`}
+                      >
+                        {COMMUNITY_META[c.community].label}
+                      </span>
+                    ) : (
+                      <span className="text-ink-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {(c.personality ?? []).length === 0 ? (
+                      <span className="text-ink-400">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {(c.personality ?? []).map((p) => (
+                          <span
+                            key={p}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full border ${PERSONALITY_META[p].tone}`}
+                          >
+                            {PERSONALITY_META[p].label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {(c.functions ?? []).length === 0 ? (
+                      <span className="text-ink-400">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {(c.functions ?? []).map((f) => (
+                          <FunctionBadge key={f} fn={f} />
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-ink-700 max-w-[280px]">
+                    {c.note ? (
+                      <div className="line-clamp-2 whitespace-pre-wrap">
+                        {c.note}
+                      </div>
+                    ) : (
+                      <span className="text-ink-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <div className="inline-flex items-center gap-2">
+                      <Link
+                        href={`/inbox?contact=${encodeURIComponent(c.email)}`}
+                        className="text-[10px] text-ink-500 hover:text-brand-blue"
+                        title={`${c.email} とのメールを表示`}
+                      >
+                        ✉
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(c)}
+                        className="text-[11px] text-ink-500 hover:text-ink-700"
+                        title="編集"
+                      >
+                        ✎ 編集
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 参加者セクション (商材+期 が選択されているときのみ表示) */}
+      {selectedScope !== "overall" && selectedContractId && (() => {
+        const contract = cyclesForSelected.find(
+          (c) => c.id === selectedContractId
+        );
+        if (!contract) return null;
+        const peopleForCycle = participantList.filter(
+          (p) => p.contractId === selectedContractId
+        );
+        const termLabel = participantTermByProduct[contract.product] ?? "参加者";
+        return (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <div className="text-xs font-semibold text-ink-700">
+                {termLabel} ({peopleForCycle.length}名)
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingParticipant(true)}
+                className="px-3 py-1 rounded-full bg-ink-900 text-white text-xs hover:bg-ink-700"
+              >
+                + 追加
+              </button>
             </div>
+            {peopleForCycle.length === 0 ? (
+              <div className="rounded-xl border border-ink-100 bg-white p-6 text-center text-xs text-ink-400">
+                この期の{termLabel}は登録されていません
+              </div>
+            ) : (
+              <ParticipantContractList
+                contractId={selectedContractId}
+                contract={contract}
+                people={peopleForCycle}
+                contactById={contactByIdMap}
+                onEdit={setEditingParticipant}
+                termLabel={termLabel}
+              />
+            )}
           </div>
         );
-      })}
+      })()}
+
       {editing && (
         <ContactEditDialog
           contact={editing}
@@ -2540,7 +3863,1527 @@ function ContactOrgTree({
           }}
         />
       )}
+
+      {editingParticipant && (
+        <ParticipantEditDialog
+          participant={editingParticipant}
+          productCode={
+            allCycles.find((c) => c.id === editingParticipant.contractId)?.product
+          }
+          contacts={contacts}
+          isEmailDuplicate={(email) =>
+            isParticipantEmailDuplicate(email, editingParticipant.id)
+          }
+          onClose={() => setEditingParticipant(null)}
+          onSave={(next) => {
+            if (isParticipantEmailDuplicate(next.email, next.id)) return;
+            updateParticipant(next);
+            setEditingParticipant(null);
+          }}
+        />
+      )}
+
+      {addingParticipant && selectedContractId && selectedScope !== "overall" && (() => {
+        const contract = cyclesForSelected.find(
+          (c) => c.id === selectedContractId
+        );
+        if (!contract) return null;
+        const termLabel = participantTermByProduct[contract.product] ?? "参加者";
+        return (
+          <ParticipantAddDialog
+            companyId={companyId}
+            contractId={selectedContractId}
+            productCode={contract.product}
+            termLabel={termLabel}
+            contacts={contacts}
+            isEmailDuplicate={(email) => isParticipantEmailDuplicate(email)}
+            onClose={() => setAddingParticipant(false)}
+            onSave={(next) => {
+              setParticipantList((prev) => [...prev, next]);
+              setAddingParticipant(false);
+            }}
+          />
+        );
+      })()}
     </div>
+  );
+}
+
+/* ──────────────── 参加者タブ ────────────────
+   契約 (=期/サイクル) ごとに参加者をグルーピングして表示。
+   担当者と同等のタグ (関与度・性質・機能) と備考を編集できる。
+   状態は本コンポーネント内 (useState) のみで保持。永続化は将来の participantRepo に委譲予定。 */
+function ParticipantsTab({
+  companyId,
+  allCycles,
+  contacts
+}: {
+  companyId: string;
+  allCycles: ActiveContract[];
+  contacts: Contact[];
+}) {
+  const initial = allParticipants.filter((p) => p.companyId === companyId);
+  const [list, setList] = useState<Participant[]>(initial);
+  const [editing, setEditing] = useState<Participant | null>(null);
+  const contactById = new Map(contacts.map((c) => [c.id, c]));
+
+  const cycleById = new Map(allCycles.map((c) => [c.id, c]));
+
+  // 参加者がひもづく契約を商材→期 でグルーピング (allCycles 由来のみ。未知 contractId は "other" 商材として扱う)
+  const productSet = new Set<ProductCode>();
+  const contractsByProduct = new Map<ProductCode, ActiveContract[]>();
+  for (const p of list) {
+    const c = cycleById.get(p.contractId);
+    if (!c) continue;
+    productSet.add(c.product);
+    const arr = contractsByProduct.get(c.product) ?? [];
+    if (!arr.find((x) => x.id === c.id)) arr.push(c);
+    contractsByProduct.set(c.product, arr);
+  }
+  // 期番号で昇順
+  for (const arr of contractsByProduct.values()) {
+    arr.sort((a, b) => a.cycleNumber - b.cycleNumber);
+  }
+  const productCodes = Array.from(productSet);
+
+  const [selectedProduct, setSelectedProduct] = useState<ProductCode | undefined>(
+    productCodes[0]
+  );
+  const cyclesForSelected = selectedProduct
+    ? contractsByProduct.get(selectedProduct) ?? []
+    : [];
+  // 選択中の期 (contractId)。商材切替時にリセット
+  const [selectedContractId, setSelectedContractId] = useState<string | undefined>(
+    cyclesForSelected[0]?.id
+  );
+  // 商材選択が変わったら、選択期を当該商材の最新期に合わせる
+  useEffect(() => {
+    setSelectedContractId(cyclesForSelected[0]?.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct]);
+
+  const [viewMode, setViewMode] = useState<"card" | "list">("list");
+  const [adding, setAdding] = useState(false);
+
+  // メールアドレス重複チェック (大文字小文字無視。空文字 / 編集中の自分自身は除外)
+  function isEmailDuplicate(email: string, excludeId?: string): boolean {
+    const norm = email.trim().toLowerCase();
+    if (!norm) return false;
+    return list.some(
+      (p) => p.id !== excludeId && p.email.trim().toLowerCase() === norm
+    );
+  }
+
+  if (list.length === 0 || productCodes.length === 0) {
+    return (
+      <section className="liquid-surface p-10 text-center text-sm text-ink-500">
+        この企業の参加者はまだ登録されていません
+      </section>
+    );
+  }
+
+  function updateParticipant(next: Participant) {
+    setList((prev) => prev.map((p) => (p.id === next.id ? next : p)));
+  }
+
+  const selectedContract = selectedContractId
+    ? cycleById.get(selectedContractId)
+    : undefined;
+  const selectedPeople = selectedContractId
+    ? list.filter((p) => p.contractId === selectedContractId)
+    : [];
+  const termLabel = selectedProduct
+    ? participantTermByProduct[selectedProduct]
+    : "参加者";
+
+  return (
+    <section className="space-y-4">
+      {/* 研修 (商材) ボタン + ビューモード */}
+      <div className="liquid-surface p-3 space-y-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-ink-500 mr-1">研修</span>
+          {productCodes.map((code) => {
+            const p = productByCode[code];
+            const active = code === selectedProduct;
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setSelectedProduct(code)}
+                className={[
+                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs transition border",
+                  active
+                    ? "bg-ink-900 text-white border-ink-900"
+                    : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                ].join(" ")}
+              >
+                <span
+                  className="inline-block w-2 h-2 rounded-full"
+                  style={{ background: p.accent }}
+                />
+                {p.shortName}
+                <span className="text-[10px] opacity-70 tabular-nums">
+                  {(contractsByProduct.get(code) ?? []).reduce(
+                    (s, c) =>
+                      s +
+                      list.filter((pp) => pp.contractId === c.id).length,
+                    0
+                  )}
+                </span>
+              </button>
+            );
+          })}
+          <div className="ml-auto inline-flex items-center gap-2">
+            <div className="inline-flex items-center gap-1 p-0.5 rounded-full bg-ink-50 border border-ink-100">
+              {(["list", "card"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setViewMode(m)}
+                  className={[
+                    "px-2.5 py-0.5 rounded-full text-[11px] transition",
+                    viewMode === m
+                      ? "bg-white shadow-sm font-semibold text-ink-900"
+                      : "text-ink-500 hover:text-ink-700"
+                  ].join(" ")}
+                >
+                  {m === "card" ? "カード" : "一覧"}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              disabled={!selectedContractId}
+              className="px-3 py-1 rounded-full bg-ink-900 text-white text-xs hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              title={selectedContractId ? "選択中の期に追加" : "先に研修と期を選択してください"}
+            >
+              + 追加
+            </button>
+          </div>
+        </div>
+
+        {/* 期 (cycle) ボタン */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-ink-500 mr-1">期</span>
+          {cyclesForSelected.length === 0 ? (
+            <span className="text-[11px] text-ink-400">
+              選択中の研修に紐づく期はありません
+            </span>
+          ) : (
+            cyclesForSelected.map((c) => {
+              const active = c.id === selectedContractId;
+              const peopleCount = list.filter(
+                (p) => p.contractId === c.id
+              ).length;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedContractId(c.id)}
+                  className={[
+                    "px-2.5 py-1 rounded-full text-xs transition border",
+                    active
+                      ? "bg-ink-900 text-white border-ink-900"
+                      : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                  ].join(" ")}
+                  title={`${c.startDate} 〜 ${c.endDate ?? ""}`}
+                >
+                  {cycleLabel(c.product, c.cycleNumber)}
+                  <span className="ml-1 text-[10px] opacity-70 tabular-nums">
+                    {peopleCount}
+                  </span>
+                  {c.status === "renewed" && (
+                    <span className="ml-1 text-[9px] opacity-70">(終了)</span>
+                  )}
+                  {c.status === "churned" && (
+                    <span className="ml-1 text-[9px] opacity-70">(解約)</span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* 本体: 選択された contract の参加者を、カード or 一覧で表示 */}
+      {selectedContract && selectedContractId && (
+        viewMode === "card" ? (
+          <ParticipantContractGroup
+            contractId={selectedContractId}
+            contract={selectedContract}
+            people={selectedPeople}
+            contactById={contactById}
+            onEdit={setEditing}
+            termLabel={termLabel}
+          />
+        ) : (
+          <ParticipantContractList
+            contractId={selectedContractId}
+            contract={selectedContract}
+            people={selectedPeople}
+            contactById={contactById}
+            onEdit={setEditing}
+            termLabel={termLabel}
+          />
+        )
+      )}
+
+      {editing && (
+        <ParticipantEditDialog
+          participant={editing}
+          productCode={cycleById.get(editing.contractId)?.product}
+          onClose={() => setEditing(null)}
+          onSave={(next) => {
+            // 既存編集時もメール重複ガード
+            if (isEmailDuplicate(next.email, next.id)) {
+              return;
+            }
+            updateParticipant(next);
+            setEditing(null);
+          }}
+          isEmailDuplicate={(email) => isEmailDuplicate(email, editing.id)}
+        />
+      )}
+
+      {adding && selectedContractId && selectedContract && (
+        <ParticipantAddDialog
+          companyId={companyId}
+          contractId={selectedContractId}
+          productCode={selectedContract.product}
+          termLabel={termLabel}
+          isEmailDuplicate={(email) => isEmailDuplicate(email)}
+          onClose={() => setAdding(false)}
+          onSave={(next) => {
+            setList((prev) => [...prev, next]);
+            setAdding(false);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+/* 契約 (=期) ごとの参加者グループ。
+   - セッション (回) 別フィルタ
+   - 兼任 (担当者と同一人物) バッジ表示
+   - 商材ごとのカスタム属性表示 */
+function ParticipantContractGroup({
+  contractId,
+  contract,
+  people,
+  contactById,
+  onEdit,
+  termLabel = "参加者"
+}: {
+  contractId: string;
+  contract: ActiveContract | undefined;
+  people: Participant[];
+  contactById: Map<string, Contact>;
+  onEdit: (p: Participant) => void;
+  /** 商材ごとの呼称 (例: "アカデミア生", "評議員") */
+  termLabel?: string;
+}) {
+  const productCode = contract?.product;
+  const product = productCode ? productByCode[productCode] : undefined;
+  const accent = product?.accent ?? "#94A3B8";
+  const fieldSchema = productCode
+    ? participantFieldSchemas[productCode] ?? []
+    : [];
+  const fieldLabelByKey = new Map(fieldSchema.map((f) => [f.key, f.label]));
+  const fieldOptionLabel = (key: string, value: string): string => {
+    const f = fieldSchema.find((x) => x.key === key);
+    if (!f) return value;
+    if (f.type === "select" && f.options) {
+      return f.options.find((o) => o.value === value)?.label ?? value;
+    }
+    return value;
+  };
+
+  // 当該契約のセッション (回ごとの絞り込みに使用)
+  const contractSessions = allSessionsData
+    .filter((s) => s.contractId === contractId)
+    .sort((a, b) => a.sessionNumber - b.sessionNumber);
+  const [sessionFilter, setSessionFilter] = useState<string>("all");
+
+  const visiblePeople =
+    sessionFilter === "all"
+      ? people
+      : people.filter((p) => {
+          const sess = contractSessions.find((s) => s.id === sessionFilter);
+          return sess ? sess.expectedParticipantIds.includes(p.id) : true;
+        });
+
+  return (
+    <div className="liquid-surface p-5 space-y-4">
+      {/* ヘッダ */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {productCode && <ProductBadge code={productCode} />}
+        {contract && hasMultipleCourses(contract.product) && (
+          <span
+            className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+            style={{
+              color: accent,
+              background: `${accent}14`,
+              border: `1px solid ${accent}33`
+            }}
+          >
+            {courseShortName(contract.product, contract.courseKey)}
+          </span>
+        )}
+        {contract && (
+          <span className="text-[11px] text-ink-500">
+            {cycleLabel(contract.product, contract.cycleNumber)}
+          </span>
+        )}
+        <span className="ml-auto text-[11px] text-ink-500 tabular-nums">
+          {termLabel} {visiblePeople.length}/{people.length}名
+        </span>
+      </div>
+
+      {/* セッション (回) フィルタ */}
+      {contractSessions.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap text-xs">
+          <span className="text-ink-500 mr-1">回:</span>
+          <button
+            type="button"
+            onClick={() => setSessionFilter("all")}
+            className={[
+              "px-2 py-0.5 rounded-full border text-[11px] transition",
+              sessionFilter === "all"
+                ? "bg-ink-900 text-white border-ink-900"
+                : "bg-white border-ink-200 text-ink-600 hover:bg-ink-50"
+            ].join(" ")}
+          >
+            全回
+          </button>
+          {contractSessions.map((s) => {
+            const active = sessionFilter === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSessionFilter(s.id)}
+                className={[
+                  "px-2 py-0.5 rounded-full border text-[11px] transition",
+                  active
+                    ? "bg-ink-900 text-white border-ink-900"
+                    : "bg-white border-ink-200 text-ink-600 hover:bg-ink-50"
+                ].join(" ")}
+                title={s.title}
+              >
+                第{s.sessionNumber}回
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {visiblePeople.map((p) => {
+          const linked = p.linkedContactId
+            ? contactById.get(p.linkedContactId)
+            : undefined;
+          return (
+            <div
+              key={p.id}
+              className="rounded-xl border border-ink-100 bg-white p-3"
+            >
+              <div className="flex items-start gap-2">
+                <div className="w-8 h-8 rounded-full bg-ink-100 flex items-center justify-center text-xs text-ink-700 shrink-0">
+                  {p.name.charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-ink-900 truncate">
+                      {p.name}
+                    </span>
+                    {linked && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100"
+                        title={`担当者${linked.name} と同一人物 (兼任)`}
+                      >
+                        兼任 / 担当者
+                      </span>
+                    )}
+                    {p.continuingFromPrev && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        継続
+                      </span>
+                    )}
+                    {p.status === "dropped" && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
+                        脱落
+                      </span>
+                    )}
+                    {p.seniority && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-50 border border-ink-200 text-ink-600">
+                        {p.seniority === "exec"
+                          ? "役員"
+                          : p.seniority === "senior"
+                          ? "管理職"
+                          : p.seniority === "mid"
+                          ? "中堅"
+                          : "若手"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-ink-500 truncate">
+                    {[p.department, p.title ?? p.role]
+                      .filter(Boolean)
+                      .join(" ／ ") || "—"}
+                  </div>
+                  {p.email && (
+                    <div className="mt-0.5 text-[11px] text-ink-500 truncate">
+                      {p.email}
+                    </div>
+                  )}
+                  {(p.community ||
+                    (p.personality ?? []).length > 0 ||
+                    (p.functions ?? []).length > 0) && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {p.community && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${COMMUNITY_META[p.community].tone}`}
+                        >
+                          {COMMUNITY_META[p.community].label}
+                        </span>
+                      )}
+                      {(p.personality ?? []).map((pp) => (
+                        <span
+                          key={pp}
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${PERSONALITY_META[pp].tone}`}
+                        >
+                          {PERSONALITY_META[pp].label}
+                        </span>
+                      ))}
+                      {(p.functions ?? []).map((f) => (
+                        <FunctionBadge key={f} fn={f} />
+                      ))}
+                    </div>
+                  )}
+                  {/* 商材固有のカスタム属性 */}
+                  {p.customFields &&
+                    Object.keys(p.customFields).length > 0 && (
+                      <dl className="mt-2 grid grid-cols-1 gap-y-0.5 text-[11px]">
+                        {Object.entries(p.customFields).map(([key, value]) => {
+                          if (!value) return null;
+                          const label = fieldLabelByKey.get(key) ?? key;
+                          return (
+                            <div key={key} className="flex items-baseline gap-1.5">
+                              <dt className="text-ink-400 shrink-0">{label}</dt>
+                              <dd className="text-ink-700 break-words">
+                                {fieldOptionLabel(key, value)}
+                              </dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
+                    )}
+                  {p.note && (
+                    <div className="mt-2 text-[11px] text-ink-700 bg-ink-50/70 border border-ink-100 rounded-lg px-2 py-1.5 whitespace-pre-wrap">
+                      <span className="text-[10px] text-ink-500 font-semibold">
+                        備考:{" "}
+                      </span>
+                      {p.note}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(p)}
+                    className="text-[11px] text-ink-500 hover:text-ink-700"
+                    title="プロファイル編集"
+                  >
+                    ✎ 編集
+                  </button>
+                  {p.email && (
+                    <a
+                      href={`mailto:${p.email}`}
+                      className="text-[11px] text-ink-500 hover:text-brand-blue"
+                      title={`メール: ${p.email}`}
+                    >
+                      ✉ メール
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* 参加者一覧表示 (テーブル形式)。商材ごとのカスタム項目を列に展開する。 */
+function ParticipantContractList({
+  contractId,
+  contract,
+  people,
+  contactById,
+  onEdit,
+  termLabel = "参加者"
+}: {
+  contractId: string;
+  contract: ActiveContract | undefined;
+  people: Participant[];
+  contactById: Map<string, Contact>;
+  onEdit: (p: Participant) => void;
+  termLabel?: string;
+}) {
+  const productCode = contract?.product;
+  const fieldSchema = productCode
+    ? participantFieldSchemas[productCode] ?? []
+    : [];
+  const fieldOptionLabel = (key: string, value: string): string => {
+    const f = fieldSchema.find((x) => x.key === key);
+    if (!f) return value;
+    if (f.type === "select" && f.options) {
+      return f.options.find((o) => o.value === value)?.label ?? value;
+    }
+    return value;
+  };
+
+  // 当該契約のセッション (回フィルタ)
+  const contractSessions = allSessionsData
+    .filter((s) => s.contractId === contractId)
+    .sort((a, b) => a.sessionNumber - b.sessionNumber);
+  const [sessionFilter, setSessionFilter] = useState<string>("all");
+  const visiblePeople =
+    sessionFilter === "all"
+      ? people
+      : people.filter((p) => {
+          const sess = contractSessions.find((s) => s.id === sessionFilter);
+          return sess ? sess.expectedParticipantIds.includes(p.id) : true;
+        });
+
+  return (
+    <div className="liquid-surface p-3 space-y-3">
+      {/* 上部: セッションフィルタ + カウント */}
+      <div className="flex items-center gap-2 flex-wrap px-1">
+        {contractSessions.length > 0 && (
+          <>
+            <span className="text-[11px] text-ink-500 mr-1">回</span>
+            <button
+              type="button"
+              onClick={() => setSessionFilter("all")}
+              className={[
+                "px-2 py-0.5 rounded-full border text-[11px] transition",
+                sessionFilter === "all"
+                  ? "bg-ink-900 text-white border-ink-900"
+                  : "bg-white border-ink-200 text-ink-600 hover:bg-ink-50"
+              ].join(" ")}
+            >
+              全回
+            </button>
+            {contractSessions.map((s) => {
+              const active = sessionFilter === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSessionFilter(s.id)}
+                  className={[
+                    "px-2 py-0.5 rounded-full border text-[11px] transition",
+                    active
+                      ? "bg-ink-900 text-white border-ink-900"
+                      : "bg-white border-ink-200 text-ink-600 hover:bg-ink-50"
+                  ].join(" ")}
+                  title={s.title}
+                >
+                  第{s.sessionNumber}回
+                </button>
+              );
+            })}
+          </>
+        )}
+        <span className="ml-auto text-[11px] text-ink-500 tabular-nums">
+          {termLabel} {visiblePeople.length}/{people.length}名
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-ink-50/60 text-ink-600">
+            <tr>
+              <th className="text-left font-medium px-2 py-2">{termLabel}</th>
+              <th className="text-left font-medium px-2 py-2">所属 / 役職</th>
+              <th className="text-left font-medium px-2 py-2">タグ</th>
+              {fieldSchema.map((f) => (
+                <th
+                  key={f.key}
+                  className="text-left font-medium px-2 py-2 whitespace-nowrap"
+                >
+                  {f.label}
+                </th>
+              ))}
+              <th className="text-left font-medium px-2 py-2">備考</th>
+              <th className="text-right font-medium px-2 py-2 w-20">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink-100">
+            {visiblePeople.length === 0 && (
+              <tr>
+                <td
+                  colSpan={4 + fieldSchema.length + 1}
+                  className="text-center text-ink-400 py-6"
+                >
+                  該当する{termLabel}はいません
+                </td>
+              </tr>
+            )}
+            {visiblePeople.map((p) => {
+              const linked = p.linkedContactId
+                ? contactById.get(p.linkedContactId)
+                : undefined;
+              return (
+                <tr key={p.id} className="hover:bg-ink-50/40">
+                  <td className="px-2 py-2 align-top">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-ink-900">{p.name}</span>
+                      {linked && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100"
+                          title={`担当者${linked.name} と同一人物 (兼任)`}
+                        >
+                          兼任
+                        </span>
+                      )}
+                      {p.continuingFromPrev && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                          継続
+                        </span>
+                      )}
+                      {p.status === "dropped" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
+                          脱落
+                        </span>
+                      )}
+                    </div>
+                    {p.email && (
+                      <div className="text-[10px] text-ink-500 mt-0.5">
+                        {p.email}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-2 py-2 align-top text-ink-700">
+                    <div>{p.department ?? "—"}</div>
+                    <div className="text-[10px] text-ink-500">
+                      {p.title ?? p.role ?? ""}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 align-top">
+                    <div className="flex flex-wrap gap-1">
+                      {p.community && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${COMMUNITY_META[p.community].tone}`}
+                        >
+                          {COMMUNITY_META[p.community].label}
+                        </span>
+                      )}
+                      {(p.personality ?? []).map((pp) => (
+                        <span
+                          key={pp}
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${PERSONALITY_META[pp].tone}`}
+                        >
+                          {PERSONALITY_META[pp].label}
+                        </span>
+                      ))}
+                      {(p.functions ?? []).map((f) => (
+                        <FunctionBadge key={f} fn={f} />
+                      ))}
+                    </div>
+                  </td>
+                  {fieldSchema.map((f) => {
+                    const v = p.customFields?.[f.key];
+                    return (
+                      <td
+                        key={f.key}
+                        className="px-2 py-2 align-top text-ink-700"
+                      >
+                        {v ? fieldOptionLabel(f.key, v) : "—"}
+                      </td>
+                    );
+                  })}
+                  <td className="px-2 py-2 align-top text-ink-600 max-w-[280px]">
+                    <div className="line-clamp-2 whitespace-pre-wrap">
+                      {p.note ?? ""}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 align-top text-right">
+                    <button
+                      type="button"
+                      onClick={() => onEdit(p)}
+                      className="text-[11px] text-ink-500 hover:text-ink-700"
+                      title="プロファイル編集"
+                    >
+                      ✎ 編集
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* 参加者プロファイル編集ダイアログ
+   担当者用 ContactEditDialog の参加者向けサブセット
+   (役職・連絡先・関与度・性質・機能・備考・継続フラグ) */
+function ParticipantEditDialog({
+  participant,
+  productCode,
+  contacts = [],
+  isEmailDuplicate,
+  onClose,
+  onSave
+}: {
+  participant: Participant;
+  /** 商材コード — 渡されると商材固有のカスタム項目を編集UIに展開 */
+  productCode?: ProductCode;
+  /** 兼任候補となる担当者一覧 — 渡されると 兼任 link UI を表示 */
+  contacts?: Contact[];
+  /** 既存参加者のメールと重複しているか (自分自身は除外して呼び出される) */
+  isEmailDuplicate?: (email: string) => boolean;
+  onClose: () => void;
+  onSave: (next: Participant) => void;
+}) {
+  const [linkedContactId, setLinkedContactId] = useState<string>(
+    participant.linkedContactId ?? ""
+  );
+  const [department, setDepartment] = useState(participant.department ?? "");
+  const [title, setTitle] = useState(participant.title ?? participant.role ?? "");
+  const [email, setEmail] = useState(participant.email);
+  const [tel, setTel] = useState(participant.tel ?? "");
+  const fieldSchema = productCode
+    ? participantFieldSchemas[productCode] ?? []
+    : [];
+  const [customFields, setCustomFields] = useState<Record<string, string>>(
+    participant.customFields ?? {}
+  );
+  const setCustomField = (key: string, value: string) =>
+    setCustomFields((prev) => ({ ...prev, [key]: value }));
+  const [community, setCommunity] = useState<ContactCommunityTier | undefined>(
+    participant.community
+  );
+  const [personality, setPersonality] = useState<ContactPersonality[]>(
+    participant.personality ?? []
+  );
+  const togglePersonality = (p: ContactPersonality) =>
+    setPersonality((prev) =>
+      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
+    );
+  const [functions, setFunctions] = useState<ContactFunction[]>(
+    participant.functions ?? []
+  );
+  const toggleFunction = (f: ContactFunction) =>
+    setFunctions((prev) =>
+      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]
+    );
+  const [note, setNote] = useState(participant.note ?? "");
+  const [continuing, setContinuing] = useState(
+    participant.continuingFromPrev ?? false
+  );
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  const submit = () => {
+    // 空欄のカスタム項目は保存しない
+    const cleanedCustom = Object.fromEntries(
+      Object.entries(customFields).filter(([, v]) => v && v.length > 0)
+    );
+    onSave({
+      ...participant,
+      department: department || undefined,
+      title: title || undefined,
+      email,
+      tel: tel || undefined,
+      community,
+      personality,
+      functions,
+      note: note || undefined,
+      continuingFromPrev: continuing,
+      linkedContactId: linkedContactId || undefined,
+      customFields: Object.keys(cleanedCustom).length > 0 ? cleanedCustom : undefined
+    });
+  };
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] bg-ink-900/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white shadow-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <div className="text-sm font-semibold text-ink-900">
+            {participant.name}
+          </div>
+          <div className="text-[11px] text-ink-500">参加者プロファイル編集</div>
+        </div>
+
+        {/* 担当者との兼任リンク */}
+        {contacts.length > 0 && (
+          <div className="rounded-xl border border-ink-100 bg-ink-50/40 p-3 space-y-1.5">
+            <label className="block text-xs">
+              <span className="text-ink-500">兼任 (担当者と紐付け)</span>
+              <select
+                value={linkedContactId}
+                onChange={(e) => setLinkedContactId(e.target.value)}
+                className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm bg-white"
+              >
+                <option value="">紐付けなし</option>
+                {contacts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.department ?? "—"} / {c.title ?? "—"})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="text-[10px] text-ink-500">
+              同一人物の担当者がいる場合に紐付けると 兼任 バッジが表示されます。
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-xs">
+            <span className="text-ink-500">所属</span>
+            <input
+              type="text"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+            />
+          </label>
+          <label className="block text-xs">
+            <span className="text-ink-500">役職</span>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+            />
+          </label>
+          <label className="block text-xs">
+            <span className="text-ink-500">メール</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={[
+                "mt-1 w-full px-2 py-1.5 rounded-md border text-sm",
+                isEmailDuplicate?.(email)
+                  ? "border-rose-400 bg-rose-50/40"
+                  : "border-ink-200"
+              ].join(" ")}
+            />
+            {isEmailDuplicate?.(email) && (
+              <div className="mt-1 text-[11px] text-rose-600">
+                同じメールアドレスの参加者が既に登録されています
+              </div>
+            )}
+          </label>
+          <label className="block text-xs">
+            <span className="text-ink-500">電話</span>
+            <input
+              type="tel"
+              value={tel}
+              onChange={(e) => setTel(e.target.value)}
+              className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+            />
+          </label>
+        </div>
+
+        <div>
+          <div className="text-xs text-ink-500 mb-1.5">コミュニティ関与度</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(COMMUNITY_META) as ContactCommunityTier[]).map((tier) => {
+              const active = community === tier;
+              return (
+                <button
+                  key={tier}
+                  type="button"
+                  onClick={() => setCommunity(active ? undefined : tier)}
+                  className={[
+                    "text-[11px] px-2 py-0.5 rounded-full border",
+                    active
+                      ? COMMUNITY_META[tier].tone
+                      : "bg-white border-ink-200 text-ink-500 hover:bg-ink-50"
+                  ].join(" ")}
+                >
+                  {COMMUNITY_META[tier].label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs text-ink-500 mb-1.5">パーソナリティ</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(PERSONALITY_META) as ContactPersonality[]).map((p) => {
+              const active = personality.includes(p);
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => togglePersonality(p)}
+                  className={[
+                    "text-[11px] px-2 py-0.5 rounded-full border",
+                    active
+                      ? PERSONALITY_META[p].tone
+                      : "bg-white border-ink-200 text-ink-500 hover:bg-ink-50"
+                  ].join(" ")}
+                >
+                  {PERSONALITY_META[p].label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs text-ink-500 mb-1.5">機能タグ</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(["contract", "pr", "invitation", "liaison"] as ContactFunction[]).map(
+              (f) => {
+                const active = functions.includes(f);
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => toggleFunction(f)}
+                    className={[
+                      "text-[11px] px-2 py-0.5 rounded-full border",
+                      active
+                        ? FUNCTION_META[f].tone
+                        : "bg-white border-ink-200 text-ink-500 hover:bg-ink-50"
+                    ].join(" ")}
+                  >
+                    {FUNCTION_META[f].label}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+
+        {/* 商材ごとのカスタム項目 (productCode が渡されたときのみ) */}
+        {fieldSchema.length > 0 && (
+          <div>
+            <div className="text-xs text-ink-500 mb-1.5">
+              事業固有の項目{productCode ? ` (${productByCode[productCode]?.shortName})` : ""}
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {fieldSchema.map((f) => {
+                const v = customFields[f.key] ?? "";
+                if (f.type === "select") {
+                  return (
+                    <label key={f.key} className="block text-xs">
+                      <span className="text-ink-500">{f.label}</span>
+                      <select
+                        value={v}
+                        onChange={(e) => setCustomField(f.key, e.target.value)}
+                        className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm bg-white"
+                      >
+                        <option value="">未設定</option>
+                        {(f.options ?? []).map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                }
+                return (
+                  <label key={f.key} className="block text-xs">
+                    <span className="text-ink-500">{f.label}</span>
+                    <input
+                      type="text"
+                      value={v}
+                      onChange={(e) => setCustomField(f.key, e.target.value)}
+                      placeholder={f.hint}
+                      className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <label className="block text-xs">
+          <span className="text-ink-500">備考</span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+            placeholder="趣味嗜好・関係性・関係構築のヒントなど"
+          />
+        </label>
+
+        <label className="flex items-center gap-2 text-xs text-ink-700">
+          <input
+            type="checkbox"
+            checked={continuing}
+            onChange={(e) => setContinuing(e.target.checked)}
+          />
+          前期からの継続参加
+        </label>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-full text-xs text-ink-700 border border-ink-200 hover:bg-ink-50"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!email.trim() || (isEmailDuplicate?.(email) ?? false)}
+            className="px-3 py-1.5 rounded-full text-xs text-white bg-ink-900 hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* ──────────────── 参加者追加ダイアログ ────────────────
+   - 必須: 氏名 / メール
+   - メールは既存参加者と重複していたらエラー (DB保存ガード)
+   - 商材ごとのカスタム項目も入力可
+   将来的に外部コミュニティポータル (Slack / Discord / Notion 等) からの一括同期 を予定。
+   そのときは email を一意キーに付き合わせるため、ここでも email 必須・重複不可に揃えている。 */
+function ParticipantAddDialog({
+  companyId,
+  contractId,
+  productCode,
+  termLabel,
+  contacts = [],
+  isEmailDuplicate,
+  onClose,
+  onSave
+}: {
+  companyId: string;
+  contractId: string;
+  productCode?: ProductCode;
+  termLabel: string;
+  /** 兼任候補となる担当者一覧 — 渡されると先頭で選択UIを出す */
+  contacts?: Contact[];
+  isEmailDuplicate: (email: string) => boolean;
+  onClose: () => void;
+  onSave: (next: Participant) => void;
+}) {
+  // 入力モード: "new" = 新規入力 (デフォルト) / "linked" = 既存担当者から兼任として登録
+  const [mode, setMode] = useState<"new" | "linked">("new");
+  const [linkedContactId, setLinkedContactId] = useState<string>("");
+  const [name, setName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [title, setTitle] = useState("");
+  const [email, setEmail] = useState("");
+  const [tel, setTel] = useState("");
+  const [community, setCommunity] = useState<ContactCommunityTier | undefined>();
+  const [personality, setPersonality] = useState<ContactPersonality[]>([]);
+
+  // 担当者を選択したら、参加者フォームをその情報で埋める
+  const applyContact = (contactId: string) => {
+    setLinkedContactId(contactId);
+    const c = contacts.find((x) => x.id === contactId);
+    if (!c) return;
+    setName(c.name);
+    setDepartment(c.department ?? "");
+    setTitle(c.title ?? "");
+    setEmail(c.email);
+    setTel(c.tel ?? "");
+    setCommunity(c.community);
+    setPersonality(c.personality ?? []);
+    setFunctions(c.functions ?? []);
+    setNote(c.note ?? "");
+  };
+
+  // タイプ中の email が既存担当者の email と一致したら「兼任候補」として通知
+  const emailMatchedContact = email
+    ? contacts.find(
+        (c) => c.email.trim().toLowerCase() === email.trim().toLowerCase()
+      )
+    : undefined;
+  const togglePersonality = (p: ContactPersonality) =>
+    setPersonality((prev) =>
+      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
+    );
+  const [functions, setFunctions] = useState<ContactFunction[]>([]);
+  const toggleFunction = (f: ContactFunction) =>
+    setFunctions((prev) =>
+      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]
+    );
+  const [note, setNote] = useState("");
+  const [continuing, setContinuing] = useState(false);
+  const fieldSchema = productCode
+    ? participantFieldSchemas[productCode] ?? []
+    : [];
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
+  const setCustomField = (key: string, value: string) =>
+    setCustomFields((prev) => ({ ...prev, [key]: value }));
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  const dup = isEmailDuplicate(email);
+  const canSubmit = name.trim().length > 0 && email.trim().length > 0 && !dup;
+
+  const submit = () => {
+    if (!canSubmit) return;
+    const cleanedCustom = Object.fromEntries(
+      Object.entries(customFields).filter(([, v]) => v && v.length > 0)
+    );
+    const next: Participant = {
+      id: `pa-new-${Date.now()}`,
+      companyId,
+      contractId,
+      name: name.trim(),
+      email: email.trim(),
+      role: title || undefined,
+      title: title || undefined,
+      tel: tel || undefined,
+      department: department || undefined,
+      status: "active",
+      joinedAt: new Date().toISOString().slice(0, 10),
+      community,
+      personality,
+      functions,
+      note: note || undefined,
+      continuingFromPrev: continuing,
+      linkedContactId:
+        mode === "linked"
+          ? linkedContactId || undefined
+          : emailMatchedContact?.id,
+      customFields:
+        Object.keys(cleanedCustom).length > 0 ? cleanedCustom : undefined
+    };
+    onSave(next);
+  };
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] bg-ink-900/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white shadow-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <div className="text-sm font-semibold text-ink-900">
+            {termLabel} を追加
+          </div>
+          <div className="text-[11px] text-ink-500">
+            メールアドレスで重複チェックされます (大文字小文字無視)
+          </div>
+        </div>
+
+        {/* 兼任モード切替: 既存担当者から選ぶ / 新規入力 */}
+        {contacts.length > 0 && (
+          <div className="rounded-xl border border-ink-100 bg-ink-50/40 p-3 space-y-2">
+            <div className="flex items-center gap-1 p-0.5 rounded-full bg-white border border-ink-100 w-fit">
+              {(["new", "linked"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setMode(m);
+                    if (m === "new") {
+                      // 新規モードへ切替時は兼任リンクを外す
+                      setLinkedContactId("");
+                    }
+                  }}
+                  className={[
+                    "px-2.5 py-0.5 rounded-full text-[11px] transition",
+                    mode === m
+                      ? "bg-ink-900 text-white font-semibold"
+                      : "text-ink-500 hover:text-ink-700"
+                  ].join(" ")}
+                >
+                  {m === "linked" ? "担当者から選ぶ (兼任)" : "新規入力"}
+                </button>
+              ))}
+            </div>
+            {mode === "linked" && (
+              <div>
+                <label className="block text-xs">
+                  <span className="text-ink-500">既存担当者を選択</span>
+                  <select
+                    value={linkedContactId}
+                    onChange={(e) => applyContact(e.target.value)}
+                    className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm bg-white"
+                  >
+                    <option value="">— 選択してください —</option>
+                    {contacts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.department ?? "—"} / {c.title ?? "—"})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="mt-1.5 text-[10px] text-ink-500">
+                  選択すると氏名・所属・役職・メール・タグが自動入力されます。下のフォームで調整可能です。
+                </div>
+              </div>
+            )}
+            {/* 新規モード時、入力中 email が既存担当者と一致したら兼任候補を提示 */}
+            {mode === "new" && emailMatchedContact && (
+              <div className="rounded-md border border-blue-200 bg-blue-50/50 p-2 text-[11px] text-blue-800">
+                同じメールアドレスの担当者「{emailMatchedContact.name}」が見つかりました。
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("linked");
+                    applyContact(emailMatchedContact.id);
+                  }}
+                  className="ml-2 underline font-medium hover:text-blue-900"
+                >
+                  兼任として登録する →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-xs col-span-2">
+            <span className="text-ink-500">氏名 *</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+            />
+          </label>
+          <label className="block text-xs">
+            <span className="text-ink-500">所属</span>
+            <input
+              type="text"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+            />
+          </label>
+          <label className="block text-xs">
+            <span className="text-ink-500">役職</span>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+            />
+          </label>
+          <label className="block text-xs col-span-2">
+            <span className="text-ink-500">メール *</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className={[
+                "mt-1 w-full px-2 py-1.5 rounded-md border text-sm",
+                dup ? "border-rose-400 bg-rose-50/40" : "border-ink-200"
+              ].join(" ")}
+            />
+            {dup && (
+              <div className="mt-1 text-[11px] text-rose-600">
+                同じメールアドレスの参加者が既に登録されています
+              </div>
+            )}
+          </label>
+          <label className="block text-xs">
+            <span className="text-ink-500">電話</span>
+            <input
+              type="tel"
+              value={tel}
+              onChange={(e) => setTel(e.target.value)}
+              className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+            />
+          </label>
+        </div>
+
+        <div>
+          <div className="text-xs text-ink-500 mb-1.5">コミュニティ関与度</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(COMMUNITY_META) as ContactCommunityTier[]).map((tier) => {
+              const active = community === tier;
+              return (
+                <button
+                  key={tier}
+                  type="button"
+                  onClick={() => setCommunity(active ? undefined : tier)}
+                  className={[
+                    "text-[11px] px-2 py-0.5 rounded-full border",
+                    active
+                      ? COMMUNITY_META[tier].tone
+                      : "bg-white border-ink-200 text-ink-500 hover:bg-ink-50"
+                  ].join(" ")}
+                >
+                  {COMMUNITY_META[tier].label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs text-ink-500 mb-1.5">パーソナリティ</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(PERSONALITY_META) as ContactPersonality[]).map((p) => {
+              const active = personality.includes(p);
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => togglePersonality(p)}
+                  className={[
+                    "text-[11px] px-2 py-0.5 rounded-full border",
+                    active
+                      ? PERSONALITY_META[p].tone
+                      : "bg-white border-ink-200 text-ink-500 hover:bg-ink-50"
+                  ].join(" ")}
+                >
+                  {PERSONALITY_META[p].label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs text-ink-500 mb-1.5">機能タグ</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(["contract", "pr", "invitation", "liaison"] as ContactFunction[]).map(
+              (f) => {
+                const active = functions.includes(f);
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => toggleFunction(f)}
+                    className={[
+                      "text-[11px] px-2 py-0.5 rounded-full border",
+                      active
+                        ? FUNCTION_META[f].tone
+                        : "bg-white border-ink-200 text-ink-500 hover:bg-ink-50"
+                    ].join(" ")}
+                  >
+                    {FUNCTION_META[f].label}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+
+        {fieldSchema.length > 0 && (
+          <div>
+            <div className="text-xs text-ink-500 mb-1.5">
+              事業固有の項目{productCode ? ` (${productByCode[productCode]?.shortName})` : ""}
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {fieldSchema.map((f) => {
+                const v = customFields[f.key] ?? "";
+                if (f.type === "select") {
+                  return (
+                    <label key={f.key} className="block text-xs">
+                      <span className="text-ink-500">{f.label}</span>
+                      <select
+                        value={v}
+                        onChange={(e) => setCustomField(f.key, e.target.value)}
+                        className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm bg-white"
+                      >
+                        <option value="">未設定</option>
+                        {(f.options ?? []).map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                }
+                return (
+                  <label key={f.key} className="block text-xs">
+                    <span className="text-ink-500">{f.label}</span>
+                    <input
+                      type="text"
+                      value={v}
+                      onChange={(e) => setCustomField(f.key, e.target.value)}
+                      placeholder={f.hint}
+                      className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <label className="block text-xs">
+          <span className="text-ink-500">備考</span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            className="mt-1 w-full px-2 py-1.5 rounded-md border border-ink-200 text-sm"
+          />
+        </label>
+
+        <label className="flex items-center gap-2 text-xs text-ink-700">
+          <input
+            type="checkbox"
+            checked={continuing}
+            onChange={(e) => setContinuing(e.target.checked)}
+          />
+          前期からの継続参加
+        </label>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-full text-xs text-ink-700 border border-ink-200 hover:bg-ink-50"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSubmit}
+            className="px-3 py-1.5 rounded-full text-xs text-white bg-ink-900 hover:bg-ink-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {(mode === "linked" && linkedContactId) ||
+            (mode === "new" && emailMatchedContact)
+              ? "兼任として追加"
+              : "追加"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -2591,6 +5434,7 @@ function ContactEditDialog({
   const [tel, setTel] = useState<string>(contact.tel ?? "");
   const [department, setDepartment] = useState<string>(contact.department);
   const [title, setTitle] = useState<string>(contact.title);
+  const [note, setNote] = useState<string>(contact.note ?? "");
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
@@ -2819,6 +5663,23 @@ function ContactEditDialog({
           </div>
         </div>
 
+        {/* 備考（自由記述） */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-ink-700">備考</div>
+            <div className="text-[10px] text-ink-400">
+              趣味嗜好・関係性・関係構築のヒント等
+            </div>
+          </div>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            placeholder="例: 野球好き / 元 営業出身で現場経験豊富 / 家族の話題に乗ってくれる"
+            className="w-full resize-y rounded-lg border border-ink-200 px-2 py-1.5 text-sm focus:outline-none focus:border-brand-blue"
+          />
+        </div>
+
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-ink-100">
           <button
             type="button"
@@ -2839,7 +5700,8 @@ function ContactEditDialog({
                 community,
                 personality: personality.length > 0 ? personality : undefined,
                 roles: roles.length > 0 ? roles : undefined,
-                functions: functions.length > 0 ? functions : undefined
+                functions: functions.length > 0 ? functions : undefined,
+                note: note.trim() ? note.trim() : undefined
               })
             }
             className="px-4 py-1.5 text-sm rounded-lg bg-ink-900 text-white hover:opacity-90"

@@ -159,6 +159,47 @@ export const supabaseMeetingLogRepo: MeetingLogRepo = {
       authorName: r.author_user_id ?? "",
       aiGenerated: r.ai_generated
     }));
+  },
+
+  async create(input) {
+    const sb = getServiceClient();
+    const isCross = input.product === "cross";
+    const { data, error } = await sb
+      .from("meeting_logs")
+      .insert({
+        organization_id: input.organizationId ?? DEFAULT_ORG_ID,
+        company_id: input.companyId,
+        product_code: isCross ? null : input.product,
+        is_cross: isCross,
+        log_type: input.type,
+        occurred_at: input.date,
+        title: input.title,
+        summary: input.summary || null,
+        good: input.good ?? null,
+        more: input.more ?? null,
+        next_action: input.next ?? null,
+        author_user_id: input.authorName || null,
+        ai_generated: input.aiGenerated
+      })
+      .select()
+      .single();
+    if (error) throw new Error(`meeting_logs.create: ${error.message}`);
+    const r = data as MeetingLogRow;
+    return {
+      id: r.id,
+      organizationId: r.organization_id,
+      companyId: r.company_id,
+      date: r.occurred_at.slice(0, 10),
+      product: (r.is_cross ? "cross" : r.product_code) as MeetingLog["product"],
+      type: r.log_type,
+      title: r.title,
+      summary: r.summary ?? "",
+      good: r.good ?? undefined,
+      more: r.more ?? undefined,
+      next: r.next_action ?? undefined,
+      authorName: r.author_user_id ?? "",
+      aiGenerated: r.ai_generated
+    };
   }
 };
 

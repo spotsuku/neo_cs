@@ -38,13 +38,28 @@ export function JourneyStageBar(props: JourneyStageBarProps) {
     title,
     subtitle,
     customizeHref,
-    stages,
+    stages: rawStages,
     currentStageKey,
     stageEnteredAt,
     suggestion,
     onChangeStage,
     warnOnRegression = false
   } = props;
+
+  // 防御的 dedup: 上流が同じ stageKey を二重に返した場合に二重描画されないように、
+  // 最初に出現したものだけ残し、displayOrder で並び替える。
+  // (mock の seed 重複や HMR 起因のデータ重複でステッパー円が二重表示される
+  // 不具合の対策。根因が解消されれば常時 no-op として機能する。)
+  const stages = useMemo(() => {
+    const seen = new Set<string>();
+    const dedup: JourneyStageDefinition[] = [];
+    for (const s of rawStages) {
+      if (seen.has(s.stageKey)) continue;
+      seen.add(s.stageKey);
+      dedup.push(s);
+    }
+    return dedup.sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [rawStages]);
 
   const currentDef = useMemo(
     () => stages.find((s) => s.stageKey === currentStageKey) ?? null,
@@ -98,9 +113,10 @@ export function JourneyStageBar(props: JourneyStageBarProps) {
         </div>
       )}
 
-      {/* 2カラム: 左=ステッパー+進捗メタ / 右=現在のみ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-stretch">
-        <div className="flex flex-col justify-between min-h-0">
+      {/* 2カラム: 左=ステッパー+進捗メタ / 右=現在のみ。
+          minmax(0,...) で右カラムが親幅を超えないように制約 (狭い親で右側が見切れる対策) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] gap-4 items-stretch">
+        <div className="flex flex-col justify-between min-h-0 min-w-0">
           <Stepper
             stages={stages}
             currentDef={currentDef}
@@ -115,7 +131,7 @@ export function JourneyStageBar(props: JourneyStageBarProps) {
           />
         </div>
 
-        <div>
+        <div className="min-w-0">
           {currentDef ? (
             <StageCard label="現在のステージ" stage={currentDef} tone="current" />
           ) : (
@@ -155,7 +171,7 @@ function Stepper({
           const isPast = stage.displayOrder < currentOrder;
           const accent = stage.color ?? "#3D9EFF";
           const labelClass = [
-            "mt-2 text-[10px] leading-tight text-center w-[88px] truncate",
+            "mt-2 text-[10px] leading-tight text-center w-full max-w-[88px] truncate",
             isCurrent
               ? "font-semibold text-ink-900"
               : isPast
@@ -166,8 +182,8 @@ function Stepper({
           return (
             <div
               key={stage.stageKey}
-              className="flex items-start last:flex-none"
-              style={{ flex: i === stages.length - 1 ? "0 0 auto" : "1 1 auto" }}
+              className="flex items-start last:flex-none min-w-0"
+              style={{ flex: i === stages.length - 1 ? "0 0 auto" : "1 1 0" }}
             >
               <StageStepWithPopover
                 stage={stage}
@@ -249,12 +265,12 @@ function StageStepWithPopover({
   return (
     <div
       ref={containerRef}
-      className="relative flex flex-col items-center"
+      className="relative flex flex-col items-center min-w-0 w-full"
     >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex flex-col items-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded p-0.5"
+        className="flex flex-col items-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded p-0.5 w-full min-w-0"
         title={`${stage.name} — クリックで詳細`}
       >
         <CircleNode
@@ -438,8 +454,8 @@ function StageCard({
           {label}
         </span>
       </div>
-      <div className="text-sm font-semibold text-ink-900">{stage.name}</div>
-      <div className="mt-1 text-[12px] text-ink-700 leading-snug">
+      <div className="text-sm font-semibold text-ink-900 break-words">{stage.name}</div>
+      <div className="mt-1 text-[12px] text-ink-700 leading-snug break-words">
         {stage.description}
       </div>
       {stage.keyActions && (
@@ -447,7 +463,7 @@ function StageCard({
           <div className="text-[10px] text-ink-500 font-semibold mb-0.5">
             この時期の支援
           </div>
-          <div className="text-[11px] text-ink-700 leading-snug">
+          <div className="text-[11px] text-ink-700 leading-snug break-words">
             {stage.keyActions}
           </div>
         </div>
