@@ -5,7 +5,7 @@
 -- 設計方針:
 --   - 既存ポリシーは drop して、external チェックを追加した形で再作成する
 --   - external は user_company_access に登録された company のみ select/update 可
---   - 0022 の auth_external_can_view_company(uuid) を用いる
+--   - 0022 の auth_external_can_view_company(text) を用いる
 --   - 既存の admin / manager / member / viewer の挙動は不変（is_external() を
 --     false に短絡することで影響を最小化）
 --

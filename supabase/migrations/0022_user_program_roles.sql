@@ -44,7 +44,7 @@ create index user_program_roles_product_idx
 create table user_company_access (
   user_id          uuid not null references app_users(id) on delete cascade,
   organization_id  uuid not null references organizations(id),
-  company_id       uuid not null references companies(id) on delete cascade,
+  company_id       text not null references companies(id) on delete cascade,
   granted_at       timestamptz not null default now(),
   granted_by       uuid references app_users(id),
   primary key (user_id, company_id)
@@ -116,7 +116,7 @@ create policy user_company_access_admin_write on user_company_access
 --
 -- ヘルパ関数: 現在のユーザーが external か & 企業アクセス可否
 -- ============================================================
-create or replace function auth_external_can_view_company(target_company_id uuid)
+create or replace function auth_external_can_view_company(target_company_id text)
 returns boolean
 language sql
 stable
@@ -135,7 +135,7 @@ as $$
   end;
 $$;
 
-comment on function auth_external_can_view_company(uuid) is
+comment on function auth_external_can_view_company(text) is
   'external ユーザーの場合のみ user_company_access による絞り込みを行う。それ以外は true を返す';
 
 -- companies / contracts / weekly_reviews 等の SELECT ポリシーに
