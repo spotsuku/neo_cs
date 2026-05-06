@@ -1,5 +1,5 @@
 -- ============================================================
--- 0029_company_vision_weather_lifecycle.sql
+-- 0030_company_vision_weather_lifecycle.sql
 -- 企業ビジョン + 企業天気オーバーライド + 契約ライフサイクル
 --
 --   company_visions / company_vision_logs:

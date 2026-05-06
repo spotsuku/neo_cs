@@ -1,5 +1,5 @@
 // 企業/事業ジャーニーのステージ定義 Supabase リポジトリ
-// マイグレーション: supabase/migrations/0028_journey_v2.sql
+// マイグレーション: supabase/migrations/0029_journey_v2.sql
 // 純関数群: lib/mock/journeys.ts (DEFAULT_COMPANY_STAGES / DEFAULT_BUSINESS_STAGES)
 
 import "server-only";

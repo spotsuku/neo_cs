@@ -201,11 +201,11 @@ export const supabaseVocItemRepo: VocItemRepo = {
 
     const now = new Date().toISOString();
     const patch: Record<string, unknown> = { status: opts.status };
-    if (opts.status === "triaged" || opts.status === "backlog") {
+    if (opts.status === "in_progress") {
       if (!before.triagedBy && opts.actorUserId) patch.triaged_by = opts.actorUserId;
       if (!before.triagedAt) patch.triaged_at = now;
     }
-    if (opts.status === "shipped") {
+    if (opts.status === "done") {
       patch.shipped_at = opts.shippedAt ?? now;
       if (opts.customerNotifiedAt) patch.customer_notified_at = opts.customerNotifiedAt;
     }
@@ -231,6 +231,26 @@ export const supabaseVocItemRepo: VocItemRepo = {
     if (!before) throw new Error(`VocItem not found: ${id}`);
     const { error } = await sb.from("voc_items").update({ priority }).eq("id", id);
     if (error) throw new Error(`voc_items.setPriority: ${error.message}`);
+    const after = await fetchById(id);
+    await runAfterWrite({
+      entityType: "voc_items",
+      entityId: id,
+      before,
+      after,
+      action: "update",
+      ctx
+    });
+    return after!;
+  },
+
+  async setTags(id, tags) {
+    const sb = getServiceClient();
+    const ctx = getActorContext();
+    const before = await fetchById(id);
+    if (!before) throw new Error(`VocItem not found: ${id}`);
+    const dedup = Array.from(new Set(tags.map((t) => t.trim()).filter((t) => t.length > 0)));
+    const { error } = await sb.from("voc_items").update({ tags: dedup }).eq("id", id);
+    if (error) throw new Error(`voc_items.setTags: ${error.message}`);
     const after = await fetchById(id);
     await runAfterWrite({
       entityType: "voc_items",

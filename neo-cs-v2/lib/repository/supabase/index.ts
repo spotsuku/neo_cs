@@ -31,7 +31,7 @@ import {
   supabaseOnboardingItemRepo,
   supabaseSuccessPlanRepo
 } from "./_lookup";
-// 企業/事業ジャーニー (account-journey-v2): migration 0028 + 各 supabase repo で実装済
+// 企業/事業ジャーニー (account-journey-v2): migration 0029 + 各 supabase repo で実装済
 import { supabaseJourneyStageDefinitionRepo } from "./journeyStageDefinitionRepo";
 import { supabaseCompanyJourneyRepo } from "./companyJourneyRepo";
 import { supabaseBusinessJourneyRepo } from "./businessJourneyRepo";
@@ -40,8 +40,8 @@ import { supabaseBusinessJourneyRepo } from "./businessJourneyRepo";
 import { supabaseUserProgramRoleRepo } from "./userProgramRoleRepo";
 import { supabaseUserCompanyAccessRepo } from "./userCompanyAccessRepo";
 import { supabaseChatRepo } from "./chatRepo";
-// ジャーニーチェックポイント: migration 0028 + supabaseJourneyCheckpointRepo で実装済
-// 契約ライフサイクル / 企業天気 / 企業ビジョン: migration 0029 + 各 supabase repo で実装済
+// ジャーニーチェックポイント: migration 0029 + supabaseJourneyCheckpointRepo で実装済
+// 契約ライフサイクル / 企業天気 / 企業ビジョン: migration 0030 + 各 supabase repo で実装済
 import { supabaseJourneyCheckpointRepo } from "./journeyCheckpointRepo";
 import { supabaseContractLifecycleRepo } from "./contractLifecycleRepo";
 import { supabaseCompanyWeatherRepo } from "./companyWeatherRepo";

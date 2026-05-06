@@ -1,5 +1,5 @@
 // 事業ジャーニー (契約=商材×期 単位) Supabase リポジトリ
-// マイグレーション: supabase/migrations/0028_journey_v2.sql
+// マイグレーション: supabase/migrations/0029_journey_v2.sql
 
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";

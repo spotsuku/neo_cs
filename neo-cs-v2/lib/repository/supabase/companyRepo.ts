@@ -28,6 +28,7 @@ type Row = {
   is_demo?: boolean | null;
   karute_no?: number | null;
   created_at?: string | null;
+  logo_url?: string | null;
 };
 
 function toCompany(row: Row, ownerName: string = ""): Company {
@@ -52,7 +53,8 @@ function toCompany(row: Row, ownerName: string = ""): Company {
     driveFolderCreatedAt: row.drive_folder_created_at ?? null,
     isDemo: row.is_demo ?? true,
     karuteNo: row.karute_no ?? undefined,
-    createdAt: row.created_at ?? undefined
+    createdAt: row.created_at ?? undefined,
+    logoUrl: row.logo_url ?? undefined
   };
 }
 
@@ -67,6 +69,8 @@ function toRow(input: Partial<Company>): Partial<Row> {
   if (input.group !== undefined) out.group_name = input.group ?? null;
   if (input.memo !== undefined) out.memo = input.memo ?? null;
   if (input.isDemo !== undefined) out.is_demo = input.isDemo;
+  if (input.logoUrl !== undefined) out.logo_url = input.logoUrl ?? null;
+  if (input.driveFolderUrl !== undefined) out.drive_folder_url = input.driveFolderUrl ?? null;
   return out;
 }
 
@@ -107,7 +111,8 @@ export const supabaseCompanyRepo: CompanyRepo = {
       // is_demo: 明示指定があればそれ、なければ default true (本番開始前)
       // 本番運用開始時は登録ウィザードのチェックボックスデフォルトを false に
       // 切り替え、本フィールドの default も false に変更する想定。
-      is_demo: input.isDemo ?? true
+      is_demo: input.isDemo ?? true,
+      logo_url: input.logoUrl ?? null
     };
     const { data, error } = await sb.from("companies").insert(row).select().single();
     if (error) throw new Error(`companies.create: ${error.message}`);

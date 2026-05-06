@@ -1,5 +1,5 @@
 // 企業天気の手動オーバーライド Supabase リポジトリ
-// マイグレーション: supabase/migrations/0029_company_vision_weather_lifecycle.sql
+// マイグレーション: supabase/migrations/0030_company_vision_weather_lifecycle.sql
 
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";

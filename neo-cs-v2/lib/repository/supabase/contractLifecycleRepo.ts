@@ -1,5 +1,5 @@
 // 契約ライフサイクル スナップショット Supabase リポジトリ
-// マイグレーション: supabase/migrations/0029_company_vision_weather_lifecycle.sql
+// マイグレーション: supabase/migrations/0030_company_vision_weather_lifecycle.sql
 // 解約 / 更新成功 / 期満了の時点で freeze。読み取り中心。
 
 import "server-only";

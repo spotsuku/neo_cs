@@ -1,5 +1,5 @@
 // 企業ビジョン Supabase リポジトリ
-// マイグレーション: supabase/migrations/0029_company_vision_weather_lifecycle.sql
+// マイグレーション: supabase/migrations/0030_company_vision_weather_lifecycle.sql
 // upsert で値が変わったとき、変更前を company_vision_logs に保存する。
 
 import "server-only";

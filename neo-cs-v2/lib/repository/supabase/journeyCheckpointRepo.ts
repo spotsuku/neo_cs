@@ -1,5 +1,5 @@
 // ジャーニーチェックポイント完了状態 Supabase リポジトリ
-// マイグレーション: supabase/migrations/0028_journey_v2.sql
+// マイグレーション: supabase/migrations/0029_journey_v2.sql
 
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";
