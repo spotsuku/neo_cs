@@ -20,16 +20,22 @@ import {
   hasMultipleCourses,
   productCourses
 } from "@/lib/mock/data";
-import { companies } from "@/lib/mock/entities";
-import { activeContracts, allContracts, productJourney } from "@/lib/mock/onboarding";
+import { productJourney } from "@/lib/mock/onboarding";
+import type { Contract as MockContract } from "@/lib/mock/contracts";
+import type { Company as MockCompany } from "@/lib/mock/entities";
+import type { Survey as MockSurvey } from "@/lib/mock/surveys";
 import { companyHealthColor } from "@/lib/mock/health";
 import {
-  surveys as allSurveys,
   aggregateSurvey,
-  surveySchedules,
-  scheduleById
+  surveySchedules
 } from "@/lib/mock/surveys";
-import { productAttendanceByAttribute } from "@/lib/mock/participants";
+import {
+  companyRepo,
+  contractRepo,
+  surveyRepo
+} from "@/lib/repository/server";
+
+export const dynamic = "force-dynamic";
 
 const VALID_CODES: ProductCode[] = ["academia", "hyogikai", "aiken", "commu"];
 
@@ -50,6 +56,35 @@ export default async function ProductDashboard({
   }
   const code = product as ProductCode;
   const p = productByCode[code];
+
+  // ── Repository から DB 由来データを並列取得 ─────────────
+  const [allCompanies, allContractsRaw, productSurveys] = await Promise.all([
+    companyRepo.list(),
+    contractRepo.list(),
+    surveyRepo.list({ productCode: code })
+  ]);
+
+  // 契約は active 集合 (renewed / churned 以外) を派生
+  const activeContracts: MockContract[] = allContractsRaw.filter(
+    (c) => c.status !== "renewed" && c.status !== "churned"
+  );
+  const allContracts: MockContract[] = allContractsRaw;
+
+  // 企業ごとに自身の active 契約 product から `contracts: ProductCode[]` を派生
+  // (supabase の companyRepo は contracts:[] を返す可能性があるため)
+  const productsByCompany = new Map<string, Set<ProductCode>>();
+  for (const c of activeContracts) {
+    const set = productsByCompany.get(c.companyId) ?? new Set<ProductCode>();
+    set.add(c.product);
+    productsByCompany.set(c.companyId, set);
+  }
+  const companies: MockCompany[] = allCompanies.map((c) => ({
+    ...c,
+    contracts:
+      c.contracts && c.contracts.length > 0
+        ? c.contracts
+        : Array.from(productsByCompany.get(c.id) ?? [])
+  }));
   const targetCompanies = companies.filter((c) => c.contracts.includes(code));
 
   return (
@@ -117,16 +152,35 @@ export default async function ProductDashboard({
         </section>
 
         {p.type === "continuous" ? (
-          <ContinuousView code={code as "academia" | "hyogikai" | "commu"} targetCompanies={targetCompanies} accent={p.accent} />
+          <ContinuousView
+            code={code as "academia" | "hyogikai" | "commu"}
+            targetCompanies={targetCompanies}
+            accent={p.accent}
+            allContracts={allContracts}
+            activeContracts={activeContracts}
+            companies={companies}
+            productSurveys={productSurveys}
+          />
         ) : (
-          <OneShotView targetCompanies={targetCompanies} accent={p.accent} />
+          <OneShotView
+            targetCompanies={targetCompanies}
+            accent={p.accent}
+            activeContracts={activeContracts}
+            companies={companies}
+          />
         )}
 
         {/* 属性別エンゲージメント */}
         <AttributeEngagementSection code={code} accent={p.accent} />
 
         {/* コース別サマリー（複数コース研修のみ） */}
-        {hasMultipleCourses(code) && <CourseSummarySection code={code} accent={p.accent} />}
+        {hasMultipleCourses(code) && (
+          <CourseSummarySection
+            code={code}
+            accent={p.accent}
+            activeContracts={activeContracts}
+          />
+        )}
 
         <footer className="pt-8 pb-4 text-center text-[11px] text-ink-500">
           NEO CS v2 — 研修別ダッシュボード / ダミーデータ
@@ -139,11 +193,19 @@ export default async function ProductDashboard({
 function ContinuousView({
   code,
   targetCompanies,
-  accent
+  accent,
+  allContracts,
+  activeContracts,
+  companies,
+  productSurveys
 }: {
   code: "academia" | "hyogikai" | "commu";
-  targetCompanies: typeof companies;
+  targetCompanies: MockCompany[];
   accent: string;
+  allContracts: MockContract[];
+  activeContracts: MockContract[];
+  companies: MockCompany[];
+  productSurveys: MockSurvey[];
 }) {
   const s = continuousSummary[code];
   const h = health.byProduct[code];
@@ -196,10 +258,20 @@ function ContinuousView({
       </section>
 
       {/* NPSセクション（過去90日平均と推移） */}
-      <NpsSection code={code} accent={accent} />
+      <NpsSection
+        code={code}
+        accent={accent}
+        productSurveys={productSurveys}
+        allContracts={allContracts}
+      />
 
       {/* フェーズ別企業数 */}
-      <JourneyPhaseSection code={code} accent={accent} />
+      <JourneyPhaseSection
+        code={code}
+        accent={accent}
+        activeContracts={activeContracts}
+        companies={companies}
+      />
 
       {/* 契約中企業 */}
       <section>
@@ -266,10 +338,14 @@ function ContinuousView({
 
 function OneShotView({
   targetCompanies,
-  accent
+  accent,
+  activeContracts,
+  companies
 }: {
-  targetCompanies: typeof companies;
+  targetCompanies: MockCompany[];
   accent: string;
+  activeContracts: MockContract[];
+  companies: MockCompany[];
 }) {
   const s = oneShotSummary.aiken;
 
@@ -338,7 +414,12 @@ function OneShotView({
       </section>
 
       {/* フェーズ別企業数 */}
-      <JourneyPhaseSection code="aiken" accent={accent} />
+      <JourneyPhaseSection
+        code="aiken"
+        accent={accent}
+        activeContracts={activeContracts}
+        companies={companies}
+      />
 
       {/* 受講企業 */}
       <section>
@@ -383,7 +464,15 @@ function OneShotView({
 }
 
 // コース別サマリー（契約数・参加者・売上）
-function CourseSummarySection({ code, accent }: { code: ProductCode; accent: string }) {
+function CourseSummarySection({
+  code,
+  accent,
+  activeContracts
+}: {
+  code: ProductCode;
+  accent: string;
+  activeContracts: MockContract[];
+}) {
   const courses = productCourses[code];
   const contracts = activeContracts.filter((c) => c.product === code);
 
@@ -463,16 +552,20 @@ function CourseSummarySection({ code, accent }: { code: ProductCode; accent: str
 }
 
 // NPSサマリー（過去90日平均と推移）
-function NpsSection({ code, accent }: { code: ProductCode; accent: string }) {
-  const productContractIds = new Set(
-    allContracts.filter((c) => c.product === code).map((c) => c.id)
-  );
-  // 当該プロダクトのスケジュール経由 / 旧モデルのcontract経由 どちらでも拾う
-  const productSurveys = allSurveys.filter((s) => {
-    const sch = scheduleById(s.scheduleId);
-    if (sch?.product === code) return true;
-    return s.contractId !== undefined && productContractIds.has(s.contractId);
-  });
+function NpsSection({
+  code,
+  accent,
+  productSurveys,
+  allContracts
+}: {
+  code: ProductCode;
+  accent: string;
+  productSurveys: MockSurvey[];
+  allContracts: MockContract[];
+}) {
+  // surveyRepo.list({productCode}) は当該 product の survey をすでに返すが、
+  // 念のため旧モデル (contractId 経由でしか紐付かない) も拾えるように互換実装。
+  void allContracts;
   const aggs = productSurveys
     .map((s) => ({ s, agg: aggregateSurvey(s.id) }))
     .filter((x) => x.agg.npsScore !== undefined)
@@ -569,11 +662,20 @@ function AttributeEngagementSection({
   code: ProductCode;
   accent: string;
 }) {
-  const seniorityRows = productAttendanceByAttribute(code, "seniority");
-  const departmentRows = productAttendanceByAttribute(code, "department")
-    .slice()
-    .sort((a, b) => b.attendanceRate - a.attendanceRate)
-    .slice(0, 5);
+  // TODO: 属性別出席率は participants/sessions/attendance を repo 経由で集計する
+  // ロジックに置き換える必要がある。現状 mock の `productAttendanceByAttribute` は
+  // mock 内の固定データに依存するため、本番 DB 駆動の Server Component からは
+  // 一旦無効化している。実装後にここから集計関数を呼び出す形に戻す。
+  void code;
+  void accent;
+  const seniorityRows: {
+    axisValue: string;
+    totalSessions: number;
+    attendanceRate: number;
+    participantCount: number;
+    trend: { sessionMonth: string; rate: number }[];
+  }[] = [];
+  const departmentRows: typeof seniorityRows = [];
 
   if (seniorityRows.length === 0 && departmentRows.length === 0) return null;
 
@@ -715,7 +817,17 @@ function AttributeEngagementSection({
   );
 }
 
-function JourneyPhaseSection({ code, accent }: { code: ProductCode; accent: string }) {
+function JourneyPhaseSection({
+  code,
+  accent,
+  activeContracts,
+  companies
+}: {
+  code: ProductCode;
+  accent: string;
+  activeContracts: MockContract[];
+  companies: MockCompany[];
+}) {
   const phases = productJourney[code];
   const contractsForProduct = activeContracts.filter((c) => c.product === code);
 

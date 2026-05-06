@@ -1,8 +1,6 @@
 import { TopNavServer } from "@/components/TopNavServer";
 import { MyTasksWidget } from "@/components/MyTasksWidget";
 import { ExecutiveDashboard } from "./ExecutiveDashboard";
-import { allContracts } from "@/lib/mock/onboarding";
-import { companies as mockCompanies } from "@/lib/mock/entities";
 import {
   computeContinuousKpis,
   computeOneShotKpis,
@@ -14,17 +12,24 @@ import { detectMissedCompanies } from "@/lib/domain/missed-response";
 import {
   vocItemRepo,
   companyJourneyRepo,
-  journeyStageDefinitionRepo
+  journeyStageDefinitionRepo,
+  companyRepo,
+  contractRepo
 } from "@/lib/repository/server";
 
 const ASOF = "2026-04-24";
 
+export const dynamic = "force-dynamic";
+
 export default async function Page() {
-  const [vocItems, companyJourneys, journeyStages] = await Promise.all([
-    vocItemRepo.list(),
-    companyJourneyRepo.list(),
-    journeyStageDefinitionRepo.list({ journeyType: "company" })
-  ]);
+  const [vocItems, companyJourneys, journeyStages, companies, allContracts] =
+    await Promise.all([
+      vocItemRepo.list(),
+      companyJourneyRepo.list(),
+      journeyStageDefinitionRepo.list({ journeyType: "company" }),
+      companyRepo.list(),
+      contractRepo.list()
+    ]);
 
   const continuous = computeContinuousKpis(allContracts, ASOF);
   const oneShot = computeOneShotKpis(allContracts, ASOF, 90);
@@ -54,7 +59,7 @@ export default async function Page() {
     strategicStageKeys.has(j.currentStageKey)
   ).length;
 
-  const missed = detectMissedCompanies(ASOF, mockCompanies, companyJourneys, vocItems);
+  const missed = detectMissedCompanies(ASOF, companies, companyJourneys, vocItems);
 
   return (
     <>
@@ -76,7 +81,7 @@ export default async function Page() {
           productActivity={productActivity}
           journeyStages={journeyStages}
           companyJourneys={companyJourneys}
-          companies={mockCompanies.map((c) => ({
+          companies={companies.map((c) => ({
             id: c.id,
             name: c.name,
             ownerName: c.ownerName
