@@ -32,10 +32,17 @@ function buildDefaults(
     description: s.description,
     color: s.color,
     keyActions: s.keyActions,
+    checkpoints: s.checkpoints,
     createdAt: now,
     updatedAt: now
   }));
 }
+
+/**
+ * Seed バージョン. seed 内容（ステージ名・チェックポイント）を更新したら bump。
+ * dev server の HMR で globalThis ストアが残っても、バージョン違いなら再 seed。
+ */
+const SEED_VERSION = "v3-2026-05";
 
 import { useGlobalStore } from "./_global-store";
 
@@ -50,8 +57,21 @@ const store = useGlobalStore<JourneyStageDefinition[]>(
 );
 
 function ensureSeeded(organizationId: string, journeyType: JourneyType) {
-  const key = `${organizationId}:${journeyType}`;
+  const key = `${organizationId}:${journeyType}:${SEED_VERSION}`;
   if (initialized.has(key)) return;
+  // 旧バージョン / 重複 seed (HMR や旧キーで蓄積されたもの) を掃除
+  for (let i = store.length - 1; i >= 0; i--) {
+    if (
+      store[i].organizationId === organizationId &&
+      store[i].journeyType === journeyType
+    ) {
+      store.splice(i, 1);
+    }
+  }
+  // 旧キー (バージョン無し / 別バージョン) もクリーンアップ
+  for (const k of [...initialized]) {
+    if (k.startsWith(`${organizationId}:${journeyType}`)) initialized.delete(k);
+  }
   store.push(...buildDefaults(organizationId, journeyType));
   initialized.add(key);
 }
@@ -59,11 +79,18 @@ function ensureSeeded(organizationId: string, journeyType: JourneyType) {
 export const mockJourneyStageDefinitionRepo: JourneyStageDefinitionRepo = {
   async list({ organizationId = DEFAULT_ORG_ID, journeyType }) {
     ensureSeeded(organizationId, journeyType);
+    // 防御的 dedup: stageKey 単位で1件のみ残す (HMR で旧 seed が混入した場合の保険)
+    const seen = new Set<string>();
     return store
       .filter(
         (s) =>
           s.organizationId === organizationId && s.journeyType === journeyType
       )
+      .filter((s) => {
+        if (seen.has(s.stageKey)) return false;
+        seen.add(s.stageKey);
+        return true;
+      })
       .sort((a, b) => a.displayOrder - b.displayOrder)
       .map((s) => ({ ...s }));
   },
@@ -128,7 +155,9 @@ export const mockJourneyStageDefinitionRepo: JourneyStageDefinitionRepo = {
         store.splice(i, 1);
       }
     }
-    initialized.delete(`${organizationId}:${journeyType}`);
+    for (const k of [...initialized]) {
+      if (k.startsWith(`${organizationId}:${journeyType}`)) initialized.delete(k);
+    }
     ensureSeeded(organizationId, journeyType);
     return store
       .filter(

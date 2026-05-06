@@ -91,6 +91,47 @@ describe("/api/claude — 認証/入力検証", () => {
   });
 });
 
+describe("/api/claude — 用途別モデル振り分け", () => {
+  it.each([
+    ["survey_insight", "claude-opus-4-7"],
+    ["weekly_review", "claude-opus-4-7"],
+    ["voc_extraction", "claude-opus-4-7"],
+    ["mail_extraction", "claude-sonnet-4-6"],
+    ["mail_reply", "claude-sonnet-4-6"],
+    ["mail_summary", "claude-haiku-4-5"],
+    [undefined, "claude-sonnet-4-6"],
+  ])("purpose=%s → model=%s", async (purpose, expectedModel) => {
+    const auth = await import("@/lib/security/auth");
+    vi.mocked(auth.verifyBearer).mockResolvedValueOnce({
+      userId: "u1",
+      email: "u@x",
+      role: "member",
+      organizationId: "org1"
+    });
+    const captured: { body?: Record<string, unknown> } = {};
+    const origFetch = global.fetch;
+    global.fetch = vi.fn(async (_url, init) => {
+      captured.body = JSON.parse((init as RequestInit).body as string);
+      return new Response(
+        JSON.stringify({ content: [{ text: "ok" }], usage: { input_tokens: 1, output_tokens: 1 } }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }) as typeof fetch;
+
+    const r = await call({
+      auth: "Bearer x",
+      body: {
+        messages: [{ role: "user", content: "ping" }],
+        ...(purpose ? { purpose } : {})
+      }
+    });
+    expect(r.status).toBe(200);
+    expect(captured.body?.model).toBe(expectedModel);
+
+    global.fetch = origFetch;
+  });
+});
+
 describe("/api/claude — 縮退モード", () => {
   it("DEGRADED_ANTHROPIC=true → 503 service_degraded", async () => {
     process.env.DEGRADED_ANTHROPIC = "true";

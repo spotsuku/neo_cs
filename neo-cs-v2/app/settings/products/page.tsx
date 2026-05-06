@@ -6,7 +6,7 @@ export default function ProductsSettingsPage() {
   return (
     <>
       <TopNavServer current="/settings" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
         <section>
           <div className="flex items-center gap-2 text-xs text-ink-500 font-medium">
             <Link href="/settings" className="hover:text-ink-700">設定</Link>
@@ -15,7 +15,7 @@ export default function ProductsSettingsPage() {
           </div>
           <div className="mt-1 flex items-end justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">研修マスタ</h1>
+              <h1 className="text-xl font-bold tracking-tight">研修マスタ</h1>
               <div className="mt-1 text-sm text-ink-500">
                 4研修の基本情報・契約設定・スケジュールを管理
               </div>

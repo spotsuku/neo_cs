@@ -11,7 +11,7 @@ export default function ConsentsPage() {
       <main className="mx-auto max-w-[960px] px-6 py-8 space-y-6">
         <header>
           <div className="text-xs text-ink-500 font-medium">/ 設定 / 利用同意・データ取扱い</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900">
+          <h1 className="mt-1 text-xl font-bold tracking-tight text-ink-900">
             利用同意・データ取扱いの記録
           </h1>
           <p className="mt-2 text-sm text-ink-600 leading-relaxed">

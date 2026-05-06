@@ -7,44 +7,84 @@ import type {
   AttendanceRecord
 } from "@/lib/mock/participants";
 import type { ActiveContract } from "@/lib/mock/onboarding";
-import type { Company as MockCompany } from "@/lib/mock/entities";
+import type { Company as MockCompany, Contact } from "@/lib/mock/entities";
 
 type Company = MockCompany;
 import type { ProductCode, products as ProductList } from "@/lib/mock/data";
+import { AddSessionModal } from "./AddSessionModal";
+import { AddParticipantModal } from "./AddParticipantModal";
+import { ExpectedTargetModal } from "./ExpectedTargetModal";
 
+// AttendanceRecord.status は履歴互換のため late/excused も型上は残るが、
+// 本UIでは「出席予定 / 出席 / 欠席 / 対象外」の4状態にまとめる。
+//   - late      → 出席として扱う（visual coerce）
+//   - excused   → 欠席として扱う（visual coerce）
+//   - 記録なし  → 出席予定（pending）
+//   - expected外→ 対象外
 type Status = "present" | "absent" | "late" | "excused";
 type ViewMode = "person" | "company";
 
+// 列 = 同じ事業内で scheduledAt が同じセッション群を集約したもの。
+// 各契約ごとに 1 つのセッションが紐づく可能性がある。
+type DateColumn = {
+  date: string;
+  sessionsByContract: Map<string, Session>;
+  sessionNumber: number;
+  title: string;
+};
+
 const PRODUCT_TABS: ProductCode[] = ["academia", "hyogikai", "aiken", "commu"];
 
-const STATUS_GLYPH: Record<Status, string> = {
+// 表示用ステータス
+type DisplayStatus = "pending" | "present" | "absent" | "out_of_scope";
+
+const DISPLAY_GLYPH: Record<DisplayStatus, string> = {
+  pending: "・",
   present: "○",
   absent: "×",
-  late: "△",
-  excused: "公"
+  out_of_scope: "—"
 };
 
-const STATUS_COLOR: Record<Status, string> = {
+const DISPLAY_COLOR: Record<DisplayStatus, string> = {
+  pending: "#9CA3AF",
   present: "#10B981",
-  late: "#F59E0B",
-  excused: "#6366F1",
-  absent: "#EF4444"
+  absent: "#EF4444",
+  out_of_scope: "#D1D5DB"
 };
 
+const DISPLAY_LABEL: Record<DisplayStatus, string> = {
+  pending: "出席予定",
+  present: "出席",
+  absent: "欠席",
+  out_of_scope: "対象外"
+};
+
+function recordToDisplay(st: Status | undefined): DisplayStatus {
+  if (st === "present" || st === "late") return "present";
+  if (st === "absent" || st === "excused") return "absent";
+  return "pending";
+}
+
+// 後方互換: CSV / DrillDown で使う 2状態 (出席/欠席) ラベル & 色
 const STATUS_LABEL: Record<Status, string> = {
   present: "出席",
-  late: "遅刻",
-  excused: "公欠",
-  absent: "欠席"
+  late: "出席",
+  absent: "欠席",
+  excused: "欠席"
+};
+const STATUS_COLOR: Record<Status, string> = {
+  present: "#10B981",
+  late: "#10B981",
+  absent: "#EF4444",
+  excused: "#EF4444"
 };
 
-// 出欠を循環: 未入力 → present → absent → excused → present ...
-function nextStatus(current: Status | undefined): Status {
-  if (!current) return "present";
-  if (current === "present") return "absent";
-  if (current === "absent") return "excused";
-  if (current === "excused") return "late";
-  return "present";
+// セルクリックでの出欠循環: 出席予定 → 出席 → 欠席 → 出席予定
+function nextStatus(current: Status | undefined): Status | "pending" {
+  const d = recordToDisplay(current);
+  if (d === "pending") return "present";
+  if (d === "present") return "absent";
+  return "pending";
 }
 
 function rateToColor(rate: number): string {
@@ -63,6 +103,7 @@ export function AttendanceClient({
   initialRecords,
   contracts,
   companies,
+  contacts,
   products,
   initialSessionId
 }: {
@@ -71,6 +112,7 @@ export function AttendanceClient({
   initialRecords: AttendanceRecord[];
   contracts: ActiveContract[];
   companies: Company[];
+  contacts: Contact[];
   products: typeof ProductList;
   initialSessionId?: string;
 }) {
@@ -87,13 +129,17 @@ export function AttendanceClient({
   const [product, setProduct] = useState<ProductCode>(initialProduct);
   const [view, setView] = useState<ViewMode>("person");
   const [selectedCourseKey, setSelectedCourseKey] = useState<string>("");
-  const [periodWeeks, setPeriodWeeks] = useState<number>(0); // 0 = 全期間
+  const [periodWeeks, setPeriodWeeks] = useState<number>(12); // 直近12週（~5列に抑える）
   const [records, setRecords] = useState<AttendanceRecord[]>(initialRecords);
+  const [sessions, setSessions] = useState<Session[]>(initialSessions);
+  const [participants, setParticipants] =
+    useState<Participant[]>(initialParticipants);
+  const [showAddSession, setShowAddSession] = useState(false);
+  const [showAddParticipant, setShowAddParticipant] = useState(false);
+  const [editExpectedColumnDate, setEditExpectedColumnDate] = useState<
+    string | null
+  >(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [excusedTarget, setExcusedTarget] = useState<{
-    participantId: string;
-    sessionId: string;
-  } | null>(null);
   const [drillDown, setDrillDown] = useState<{
     companyId: string;
     sessionId: string;
@@ -127,16 +173,37 @@ export function AttendanceClient({
 
   const productSessions = useMemo(() => {
     const contractIds = new Set(productContracts.map((c) => c.id));
-    return initialSessions
+    return sessions
       .filter((s) => contractIds.has(s.contractId))
       .filter((s) => !periodFrom || s.scheduledAt >= periodFrom)
       .sort((a, b) => (a.scheduledAt < b.scheduledAt ? -1 : 1));
-  }, [initialSessions, productContracts, periodFrom]);
+  }, [sessions, productContracts, periodFrom]);
+
+  // 列 = 同じ事業内の同じ scheduledAt を集約。1列に複数 contract の session が紐づく。
+  const dateColumns = useMemo<DateColumn[]>(() => {
+    const map = new Map<string, DateColumn>();
+    productSessions.forEach((s) => {
+      const col = map.get(s.scheduledAt);
+      if (col) {
+        col.sessionsByContract.set(s.contractId, s);
+      } else {
+        map.set(s.scheduledAt, {
+          date: s.scheduledAt,
+          sessionsByContract: new Map([[s.contractId, s]]),
+          sessionNumber: s.sessionNumber,
+          title: s.title
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.date < b.date ? -1 : 1
+    );
+  }, [productSessions]);
 
   const productParticipants = useMemo(() => {
     const contractIds = new Set(productContracts.map((c) => c.id));
-    return initialParticipants.filter((p) => contractIds.has(p.contractId));
-  }, [initialParticipants, productContracts]);
+    return participants.filter((p) => contractIds.has(p.contractId));
+  }, [participants, productContracts]);
 
   // company × participants グルーピング
   const groupedByCompany = useMemo(() => {
@@ -171,10 +238,16 @@ export function AttendanceClient({
   const writeStatus = (
     sessionId: string,
     participantId: string,
-    status: Status,
+    status: Status | "pending",
     note?: string
   ) => {
     setRecords((prev) => {
+      // pending = 記録を削除して「出席予定」状態に戻す
+      if (status === "pending") {
+        return prev.filter(
+          (r) => !(r.sessionId === sessionId && r.participantId === participantId)
+        );
+      }
       const idx = prev.findIndex(
         (r) => r.sessionId === sessionId && r.participantId === participantId
       );
@@ -208,43 +281,50 @@ export function AttendanceClient({
   const handleCellClick = (sessionId: string, participantId: string) => {
     const cur = recordIndex.get(recordKey(sessionId, participantId));
     const next = nextStatus(cur?.status as Status | undefined);
-    if (next === "excused") {
-      // 公欠は理由入力モーダルを表示。先に状態だけexcusedで保存し、理由入力はモーダルで上書き
-      writeStatus(sessionId, participantId, "excused", cur?.note);
-      setExcusedTarget({ sessionId, participantId });
-      return;
-    }
     writeStatus(sessionId, participantId, next);
   };
 
-  // 企業×日程ビュー: 該当日のその企業の出席数/総数 (期待者 = 該当 contract の participants)
-  const companyDayCell = (companyId: string, sessionId: string) => {
-    const session = productSessions.find((s) => s.id === sessionId);
-    if (!session) return { attended: 0, total: 0, rate: 0, expectedIds: [] as string[] };
-    const expected = productParticipants.filter(
-      (p) => p.companyId === companyId && p.contractId === session.contractId
-    );
-    const expectedIds = expected.map((p) => p.id);
-    if (expectedIds.length === 0)
-      return { attended: 0, total: 0, rate: 0, expectedIds };
+  // 企業×日程ビュー: 該当日(列)におけるその企業の出席数/総数
+  //   - 1列 = 同 product 内で同日のセッション群（複数契約をまたぐ）
+  //   - 出席対象 = 該当企業の派遣者のうち、その契約のセッションで expected に含まれる人
+  const companyDayCellByColumn = (companyId: string, col: DateColumn) => {
+    const expectedIds: string[] = [];
+    let sessionIdForFirstClick: string | undefined;
+    productParticipants.forEach((p) => {
+      if (p.companyId !== companyId) return;
+      const session = col.sessionsByContract.get(p.contractId);
+      if (!session) return;
+      if (!session.expectedParticipantIds.includes(p.id)) return;
+      expectedIds.push(p.id);
+      if (!sessionIdForFirstClick) sessionIdForFirstClick = session.id;
+    });
+    if (expectedIds.length === 0) {
+      return { attended: 0, total: 0, rate: 0, expectedIds, sessionIdForFirstClick };
+    }
     const attended = expectedIds.filter((pid) => {
-      const r = recordIndex.get(recordKey(sessionId, pid));
+      // セッションIDは派遣者ごとに違うので、p の contract から再引き
+      const p = productParticipants.find((x) => x.id === pid);
+      if (!p) return false;
+      const session = col.sessionsByContract.get(p.contractId);
+      if (!session) return false;
+      const r = recordIndex.get(recordKey(session.id, pid));
       return r?.status === "present" || r?.status === "late";
     }).length;
     return {
       attended,
       total: expectedIds.length,
       rate: attended / expectedIds.length,
-      expectedIds
+      expectedIds,
+      sessionIdForFirstClick
     };
   };
 
-  // 企業の総合出席率
+  // 企業の総合出席率（全列の合算）
   const companyOverallRate = (companyId: string) => {
     let attended = 0;
     let total = 0;
-    productSessions.forEach((s) => {
-      const cell = companyDayCell(companyId, s.id);
+    dateColumns.forEach((col) => {
+      const cell = companyDayCellByColumn(companyId, col);
       if (cell.total > 0) {
         attended += cell.attended;
         total += cell.total;
@@ -295,8 +375,8 @@ export function AttendanceClient({
       });
     } else {
       const header = ["企業", "総合出席率"];
-      productSessions.forEach((s) =>
-        header.push(`${s.scheduledAt} 第${s.sessionNumber}回`)
+      dateColumns.forEach((col) =>
+        header.push(`${col.date} 第${col.sessionNumber}回`)
       );
       lines.push(header.map(esc).join(sep));
       groupedByCompany.forEach((grp) => {
@@ -304,8 +384,8 @@ export function AttendanceClient({
           grp.company!.name,
           fmtPct(companyOverallRate(grp.companyId))
         ];
-        productSessions.forEach((s) => {
-          const cell = companyDayCell(grp.companyId, s.id);
+        dateColumns.forEach((col) => {
+          const cell = companyDayCellByColumn(grp.companyId, col);
           row.push(cell.total === 0 ? "" : `${cell.attended}/${cell.total}`);
         });
         lines.push(row.map(esc).join(sep));
@@ -328,7 +408,7 @@ export function AttendanceClient({
     <main className="mx-auto max-w-[1600px] px-6 py-8 space-y-5">
       <section>
         <div className="text-xs text-ink-500">出席管理</div>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink-900">
+        <h1 className="mt-1 text-xl font-bold tracking-tight text-ink-900">
           出席ピボット
         </h1>
         <div className="mt-1 text-sm text-ink-500">
@@ -420,6 +500,22 @@ export function AttendanceClient({
             </span>
           )}
           <button
+            onClick={() => setShowAddSession(true)}
+            disabled={productContracts.length === 0}
+            title="新しい開催回（列）を追加します"
+            className="px-3 py-1.5 rounded-full bg-white border border-ink-100 text-xs text-ink-700 hover:bg-ink-50 focus-ring disabled:opacity-30"
+          >
+            ＋ 列を追加
+          </button>
+          <button
+            onClick={() => setShowAddParticipant(true)}
+            disabled={productContracts.length === 0}
+            title="新しい派遣者を1名追加します"
+            className="px-3 py-1.5 rounded-full bg-white border border-ink-100 text-xs text-ink-700 hover:bg-ink-50 focus-ring disabled:opacity-30"
+          >
+            ＋ 派遣者を追加
+          </button>
+          <button
             onClick={exportCsv}
             className="px-3 py-1.5 rounded-full bg-white border border-ink-100 text-xs text-ink-700 hover:bg-ink-50 focus-ring"
           >
@@ -430,19 +526,28 @@ export function AttendanceClient({
 
       {/* 凡例 */}
       <section className="text-[11px] text-ink-500 flex flex-wrap items-center gap-3">
-        {(["present", "late", "excused", "absent"] as Status[]).map((s) => (
+        {(
+          ["pending", "present", "absent", "out_of_scope"] as DisplayStatus[]
+        ).map((s) => (
           <span key={s} className="inline-flex items-center gap-1.5">
             <span
-              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white"
-              style={{ background: STATUS_COLOR[s] }}
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold"
+              style={{
+                background: s === "out_of_scope" ? "transparent" : DISPLAY_COLOR[s],
+                color: s === "out_of_scope" ? DISPLAY_COLOR[s] : "white",
+                border:
+                  s === "pending" || s === "out_of_scope"
+                    ? `1px dashed ${DISPLAY_COLOR[s]}`
+                    : "none"
+              }}
             >
-              {STATUS_GLYPH[s]}
+              {DISPLAY_GLYPH[s]}
             </span>
-            {STATUS_LABEL[s]}
+            {DISPLAY_LABEL[s]}
           </span>
         ))}
         <span className="text-ink-400">
-          ・セルをクリックすると 出席→欠席→公欠→遅刻→出席 の順に切替（即時保存）
+          ・セルをクリックすると 出席予定→出席→欠席→出席予定 の順に切替（即時保存）
         </span>
       </section>
 
@@ -454,46 +559,116 @@ export function AttendanceClient({
       ) : view === "person" ? (
         <PersonByDateTable
           groupedByCompany={groupedByCompany}
-          sessions={productSessions}
+          columns={dateColumns}
           recordIndex={recordIndex}
           onCellClick={handleCellClick}
+          onEditExpected={(date) => setEditExpectedColumnDate(date)}
         />
       ) : (
         <CompanyByDateTable
           groupedByCompany={groupedByCompany}
-          sessions={productSessions}
-          companyDayCell={companyDayCell}
+          columns={dateColumns}
+          companyDayCellByColumn={companyDayCellByColumn}
           companyOverallRate={companyOverallRate}
           onCellClick={(companyId, sessionId) =>
             setDrillDown({ companyId, sessionId })
           }
+          onEditExpected={(date) => setEditExpectedColumnDate(date)}
         />
       )}
 
-      {/* 公欠理由モーダル */}
-      {excusedTarget && (
-        <ExcusedReasonModal
-          initialNote={
-            recordIndex.get(
-              recordKey(excusedTarget.sessionId, excusedTarget.participantId)
-            )?.note ?? ""
+      {/* 列を追加（事業全社一括・期で絞り込み） */}
+      {showAddSession && (
+        <AddSessionModal
+          product={product}
+          productLabel={productMeta?.shortName ?? product}
+          productContracts={productContracts}
+          productParticipants={productParticipants}
+          companies={companies}
+          contacts={contacts}
+          defaultSessionNumber={
+            (productSessions.reduce(
+              (m, s) => Math.max(m, s.sessionNumber),
+              0
+            ) || 0) + 1
           }
-          participant={
-            initialParticipants.find((p) => p.id === excusedTarget.participantId)
-          }
-          session={initialSessions.find((s) => s.id === excusedTarget.sessionId)}
-          onClose={() => setExcusedTarget(null)}
-          onSave={(note) => {
-            writeStatus(
-              excusedTarget.sessionId,
-              excusedTarget.participantId,
-              "excused",
-              note
-            );
-            setExcusedTarget(null);
+          onClose={() => setShowAddSession(false)}
+          onSave={(newSessions) => {
+            setSessions((prev) => [...prev, ...newSessions]);
+            setShowAddSession(false);
+            flashSaved(`列を追加しました（${newSessions.length}契約に展開）`);
           }}
         />
       )}
+
+      {/* 派遣者追加 */}
+      {showAddParticipant && (
+        <AddParticipantModal
+          contracts={productContracts}
+          companies={companies}
+          existingDepartments={Array.from(
+            new Set(
+              productParticipants.map((p) => p.department).filter(Boolean)
+            )
+          ) as string[]}
+          onClose={() => setShowAddParticipant(false)}
+          onSave={(p) => {
+            setParticipants((prev) => [...prev, p]);
+            // 既存の同 contract 全セッションの expected にも追加（デフォルトで対象に）
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.contractId === p.contractId
+                  ? {
+                      ...s,
+                      expectedParticipantIds: [
+                        ...s.expectedParticipantIds,
+                        p.id
+                      ]
+                    }
+                  : s
+              )
+            );
+            setShowAddParticipant(false);
+            flashSaved("派遣者を追加しました");
+          }}
+        />
+      )}
+
+      {/* 出席対象の編集（列=同日のセッション群を対象） */}
+      {editExpectedColumnDate &&
+        (() => {
+          const col = dateColumns.find((c) => c.date === editExpectedColumnDate);
+          if (!col) return null;
+          const colSessions = Array.from(col.sessionsByContract.values());
+          const contractIds = new Set(colSessions.map((s) => s.contractId));
+          const eligible = participants.filter((p) =>
+            contractIds.has(p.contractId)
+          );
+          return (
+            <ExpectedTargetModal
+              sessions={colSessions}
+              contractParticipants={eligible}
+              companies={companies}
+              contacts={contacts}
+              product={product}
+              onClose={() => setEditExpectedColumnDate(null)}
+              onSave={(idsByContract) => {
+                setSessions((prev) =>
+                  prev.map((s) => {
+                    if (!contractIds.has(s.contractId)) return s;
+                    if (s.scheduledAt !== col.date) return s;
+                    const next = idsByContract.get(s.contractId);
+                    return next
+                      ? { ...s, expectedParticipantIds: next }
+                      : s;
+                  })
+                );
+                setEditExpectedColumnDate(null);
+                flashSaved("出席対象を更新しました");
+              }}
+            />
+          );
+        })()}
 
       {/* 企業×日程 ドリルダウン: 個人別出欠 */}
       {drillDown && (
@@ -501,12 +676,12 @@ export function AttendanceClient({
           companyName={
             companies.find((c) => c.id === drillDown.companyId)?.name ?? ""
           }
-          session={initialSessions.find((s) => s.id === drillDown.sessionId)}
+          session={sessions.find((s) => s.id === drillDown.sessionId)}
           expectedParticipants={productParticipants.filter(
             (p) =>
               p.companyId === drillDown.companyId &&
               p.contractId ===
-                initialSessions.find((s) => s.id === drillDown.sessionId)
+                sessions.find((s) => s.id === drillDown.sessionId)
                   ?.contractId
           )}
           recordIndex={recordIndex}
@@ -529,14 +704,16 @@ export function AttendanceClient({
 // ─────────────────────────────────────────────
 function PersonByDateTable({
   groupedByCompany,
-  sessions,
+  columns,
   recordIndex,
-  onCellClick
+  onCellClick,
+  onEditExpected
 }: {
   groupedByCompany: { companyId: string; company?: Company; participants: Participant[] }[];
-  sessions: Session[];
+  columns: DateColumn[];
   recordIndex: Map<string, AttendanceRecord>;
   onCellClick: (sessionId: string, participantId: string) => void;
+  onEditExpected: (date: string) => void;
 }) {
   return (
     <div className="liquid-surface">
@@ -547,15 +724,31 @@ function PersonByDateTable({
               <th className="sticky left-0 z-30 bg-white/95 backdrop-blur text-left px-3 py-2.5 min-w-[220px] border-r border-ink-100">
                 企業 / 氏名
               </th>
-              {sessions.map((s) => (
-                <th
-                  key={s.id}
-                  className="px-2 py-2.5 text-center font-medium border-r border-ink-50 min-w-[78px]"
-                >
-                  <div className="text-[10px] text-ink-500">第{s.sessionNumber}回</div>
-                  <div className="text-[10px] text-ink-700">{s.scheduledAt.slice(5)}</div>
-                </th>
-              ))}
+              {columns.map((col) => {
+                const totalExpected = Array.from(
+                  col.sessionsByContract.values()
+                ).reduce((s, x) => s + x.expectedParticipantIds.length, 0);
+                return (
+                  <th
+                    key={col.date}
+                    className="px-2 py-2.5 text-center font-medium border-r border-ink-50 min-w-[78px]"
+                  >
+                    <div className="text-[10px] text-ink-500">
+                      第{col.sessionNumber}回
+                    </div>
+                    <div className="text-[10px] text-ink-700">
+                      {col.date.slice(5)}
+                    </div>
+                    <button
+                      onClick={() => onEditExpected(col.date)}
+                      title={`対象を編集 (${totalExpected}名)`}
+                      className="mt-0.5 text-[9px] text-ink-400 hover:text-ink-700"
+                    >
+                      ⚙ {totalExpected}名
+                    </button>
+                  </th>
+                );
+              })}
               <th className="px-3 py-2.5 text-center font-medium min-w-[80px]">
                 出席率
               </th>
@@ -566,7 +759,7 @@ function PersonByDateTable({
               <CompanyGroupRows
                 key={grp.companyId}
                 grp={grp}
-                sessions={sessions}
+                columns={columns}
                 recordIndex={recordIndex}
                 onCellClick={onCellClick}
               />
@@ -580,12 +773,12 @@ function PersonByDateTable({
 
 function CompanyGroupRows({
   grp,
-  sessions,
+  columns,
   recordIndex,
   onCellClick
 }: {
   grp: { companyId: string; company?: Company; participants: Participant[] };
-  sessions: Session[];
+  columns: DateColumn[];
   recordIndex: Map<string, AttendanceRecord>;
   onCellClick: (sessionId: string, participantId: string) => void;
 }) {
@@ -601,13 +794,15 @@ function CompanyGroupRows({
             {grp.participants.length}名
           </span>
         </td>
-        <td colSpan={sessions.length + 1} className="bg-ink-50/60" />
+        <td colSpan={columns.length + 1} className="bg-ink-50/60" />
       </tr>
       {grp.participants.map((p) => {
         let attended = 0;
         let total = 0;
-        sessions.forEach((s) => {
-          if (s.contractId !== p.contractId) return;
+        columns.forEach((col) => {
+          const s = col.sessionsByContract.get(p.contractId);
+          if (!s) return;
+          if (!s.expectedParticipantIds.includes(p.id)) return;
           const r = recordIndex.get(`${s.id}::${p.id}`);
           total += 1;
           if (r?.status === "present" || r?.status === "late") attended += 1;
@@ -621,20 +816,32 @@ function CompanyGroupRows({
                 {p.department ?? ""} {p.role ? `/ ${p.role}` : ""}
               </div>
             </td>
-            {sessions.map((s) => {
-              const same = s.contractId === p.contractId;
-              if (!same) {
+            {columns.map((col) => {
+              const s = col.sessionsByContract.get(p.contractId);
+              if (!s) {
                 return (
                   <td
-                    key={s.id}
+                    key={col.date}
                     className="px-2 py-2 text-center border-r border-ink-50 bg-ink-50/30"
                   >
                     <span className="text-ink-300 text-[11px]">—</span>
                   </td>
                 );
               }
+              const expected = s.expectedParticipantIds.includes(p.id);
+              if (!expected) {
+                return (
+                  <td
+                    key={col.date}
+                    className="px-2 py-2 text-center border-r border-ink-50 bg-ink-50/20"
+                    title="対象外"
+                  >
+                    <span className="text-ink-300 text-[10px]">対象外</span>
+                  </td>
+                );
+              }
               const r = recordIndex.get(`${s.id}::${p.id}`);
-              const st = r?.status as Status | undefined;
+              const disp = recordToDisplay(r?.status as Status | undefined);
               return (
                 <td
                   key={s.id}
@@ -642,15 +849,19 @@ function CompanyGroupRows({
                 >
                   <button
                     onClick={() => onCellClick(s.id, p.id)}
-                    title={r?.note ?? STATUS_LABEL[st ?? "absent"]}
+                    title={r?.note ?? DISPLAY_LABEL[disp]}
                     className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[12px] font-bold focus-ring transition hover:scale-105"
                     style={{
-                      background: st ? STATUS_COLOR[st] : "white",
-                      color: st ? "white" : "#9CA3AF",
-                      border: st ? "none" : "1px dashed #D1D5DB"
+                      background:
+                        disp === "pending" ? "white" : DISPLAY_COLOR[disp],
+                      color: disp === "pending" ? "#9CA3AF" : "white",
+                      border:
+                        disp === "pending"
+                          ? "1px dashed #D1D5DB"
+                          : "none"
                     }}
                   >
-                    {st ? STATUS_GLYPH[st] : ""}
+                    {DISPLAY_GLYPH[disp]}
                   </button>
                 </td>
               );
@@ -679,21 +890,27 @@ function CompanyGroupRows({
 // ─────────────────────────────────────────────
 function CompanyByDateTable({
   groupedByCompany,
-  sessions,
-  companyDayCell,
+  columns,
+  companyDayCellByColumn,
   companyOverallRate,
-  onCellClick
+  onCellClick,
+  onEditExpected
 }: {
   groupedByCompany: { companyId: string; company?: Company; participants: Participant[] }[];
-  sessions: Session[];
-  companyDayCell: (companyId: string, sessionId: string) => {
+  columns: DateColumn[];
+  companyDayCellByColumn: (
+    companyId: string,
+    col: DateColumn
+  ) => {
     attended: number;
     total: number;
     rate: number;
     expectedIds: string[];
+    sessionIdForFirstClick?: string;
   };
   companyOverallRate: (companyId: string) => number;
   onCellClick: (companyId: string, sessionId: string) => void;
+  onEditExpected: (date: string) => void;
 }) {
   return (
     <div className="liquid-surface">
@@ -707,15 +924,31 @@ function CompanyByDateTable({
               <th className="px-3 py-2.5 text-center font-medium min-w-[80px] border-r border-ink-50">
                 総合
               </th>
-              {sessions.map((s) => (
-                <th
-                  key={s.id}
-                  className="px-2 py-2.5 text-center font-medium border-r border-ink-50 min-w-[100px]"
-                >
-                  <div className="text-[10px] text-ink-500">第{s.sessionNumber}回</div>
-                  <div className="text-[10px] text-ink-700">{s.scheduledAt.slice(5)}</div>
-                </th>
-              ))}
+              {columns.map((col) => {
+                const totalExpected = Array.from(
+                  col.sessionsByContract.values()
+                ).reduce((s, x) => s + x.expectedParticipantIds.length, 0);
+                return (
+                  <th
+                    key={col.date}
+                    className="px-2 py-2.5 text-center font-medium border-r border-ink-50 min-w-[100px]"
+                  >
+                    <div className="text-[10px] text-ink-500">
+                      第{col.sessionNumber}回
+                    </div>
+                    <div className="text-[10px] text-ink-700">
+                      {col.date.slice(5)}
+                    </div>
+                    <button
+                      onClick={() => onEditExpected(col.date)}
+                      title={`対象を編集 (${totalExpected}名)`}
+                      className="mt-0.5 text-[9px] text-ink-400 hover:text-ink-700"
+                    >
+                      ⚙ {totalExpected}名
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -737,12 +970,12 @@ function CompanyByDateTable({
                       {fmtPct(overall)}
                     </span>
                   </td>
-                  {sessions.map((s) => {
-                    const cell = companyDayCell(grp.companyId, s.id);
+                  {columns.map((col) => {
+                    const cell = companyDayCellByColumn(grp.companyId, col);
                     if (cell.total === 0) {
                       return (
                         <td
-                          key={s.id}
+                          key={col.date}
                           className="px-2 py-2.5 text-center border-r border-ink-50 bg-ink-50/30 text-ink-300 text-xs"
                         >
                           —
@@ -751,11 +984,14 @@ function CompanyByDateTable({
                     }
                     return (
                       <td
-                        key={s.id}
+                        key={col.date}
                         className="px-2 py-2.5 text-center border-r border-ink-50"
                       >
                         <button
-                          onClick={() => onCellClick(grp.companyId, s.id)}
+                          onClick={() =>
+                            cell.sessionIdForFirstClick &&
+                            onCellClick(grp.companyId, cell.sessionIdForFirstClick)
+                          }
                           className="inline-flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-ink-50 focus-ring transition"
                         >
                           <span
@@ -911,24 +1147,14 @@ function DrillDownModal({
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {(["present", "absent", "excused", "late"] as Status[]).map(
+                  {(["present", "absent"] as Status[]).map(
                     (s) => {
-                      const active = st === s;
+                      const active =
+                        recordToDisplay(st) === recordToDisplay(s);
                       return (
                         <button
                           key={s}
-                          onClick={() => {
-                            if (s === "excused") {
-                              const note = window.prompt(
-                                "公欠理由を入力",
-                                r?.note ?? ""
-                              );
-                              if (note === null) return;
-                              onSetStatus(p.id, s, note);
-                            } else {
-                              onSetStatus(p.id, s);
-                            }
-                          }}
+                          onClick={() => onSetStatus(p.id, s)}
                           className="text-[10px] px-2 py-1 rounded-full border focus-ring"
                           style={{
                             background: active ? STATUS_COLOR[s] : "white",

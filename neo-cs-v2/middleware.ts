@@ -61,13 +61,11 @@ function requiredRoleFor(pathname: string): Role | null {
   if (pathname.startsWith("/settings/consents")) return "admin";
   if (pathname.startsWith("/settings/demo-data")) return "admin";
   // manager 以上
-  if (pathname.startsWith("/team")) return "manager";
   if (pathname.startsWith("/reports")) return "manager";
   // member 以上 (CS 業務全般)
   if (pathname.startsWith("/companies")) return "member";
   if (pathname.startsWith("/weekly")) return "member";
   if (pathname.startsWith("/onboarding")) return "member";
-  if (pathname.startsWith("/renewal")) return "member";
   if (pathname.startsWith("/attendance")) return "member";
   if (pathname.startsWith("/inbox")) return "member";
   if (pathname.startsWith("/surveys")) return "member";

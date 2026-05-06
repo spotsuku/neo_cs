@@ -77,7 +77,7 @@ export function SurveyDetail({
   );
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
+    <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-6">
       <div className="text-xs text-ink-500">
         <Link href="/surveys" className="hover:text-ink-700">アンケート</Link>
         <span className="mx-1.5">/</span>
@@ -107,7 +107,7 @@ export function SurveyDetail({
                 {survey.respondentType === "stakeholder" ? "担当者向け" : "参加者向け"}
               </span>
             </div>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900">
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-ink-900">
               {survey.title}
             </h1>
             <div className="mt-2 text-sm text-ink-500">

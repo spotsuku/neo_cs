@@ -56,9 +56,9 @@ export type DetectInput = {
   snapshots: { asOf: string; score: number }[];
   // 直近のミーティング履歴 (occurredAt 新しい順想定)。 attended=false なら欠席
   recentMeetings: { occurredAt: string; attended: boolean }[];
-  // 更新マイルストン
-  // status は "pending" | "in_progress" | "todo" | "done" | "skipped" の何れか。
-  // 未着手扱い (pending / todo / in_progress) は milestone_overdue 検知の対象。
+  // 更新タスク (旧 RenewalMilestone は廃止し、program_company_tasks に統合)
+  // 検知ルール milestone_overdue は category=renewal_* のタスクから派生する想定
+  // 互換のため引数自体は維持し、空配列で渡せばこのルールはスキップされる
   milestones: {
     type: "T-120" | "T-90" | "T-60" | "T-30";
     dueDate: string;

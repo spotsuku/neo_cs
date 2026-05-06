@@ -104,7 +104,7 @@ export function ExtractionsView({
 
       <header className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink-900">
+          <h1 className="text-xl font-bold tracking-tight text-ink-900">
             🤖 AI抽出 承認待ち
           </h1>
           <p className="text-xs text-ink-500 mt-0.5">

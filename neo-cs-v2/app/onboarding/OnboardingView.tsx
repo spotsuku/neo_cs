@@ -18,6 +18,16 @@ import {
 import type { ContractOnboardingItem } from "@/lib/repository/types";
 import { MatrixView } from "./MatrixView";
 
+// 事業ごとに「期」「回」など単位語が異なる
+//   アカデミア / 評議会: 年次の期 → 第◯期
+//   AI研修 / コミュマネ: 開催回 → 第◯回
+function cycleNounLabel(product: ProductCode): string {
+  return product === "academia" || product === "hyogikai" ? "期" : "回";
+}
+function cycleLabel(product: ProductCode, n: number): string {
+  return `第${n}${cycleNounLabel(product)}`;
+}
+
 function computeProgress(
   items: ContractOnboardingItem[],
   today: string
@@ -60,9 +70,40 @@ export function OnboardingView({
 
   const p = productByCode[product];
 
-  const productContracts = useMemo(
+  // 事業内の全契約 (期トグル候補を作るために product だけで先に絞る)
+  const productAllContracts = useMemo(
     () => activeContracts.filter((c) => c.product === product),
     [activeContracts, product]
+  );
+
+  // この事業に存在する期 (cycleNumber) 一覧 — 昇順
+  const availableCycles = useMemo(() => {
+    const set = new Set<number>();
+    for (const c of productAllContracts) set.add(c.cycleNumber);
+    return Array.from(set).sort((a, b) => a - b);
+  }, [productAllContracts]);
+
+  // 期フィルタ — デフォルトは最新期
+  const [cycleFilter, setCycleFilter] = useState<number | "all">(() =>
+    availableCycles.length > 0 ? availableCycles[availableCycles.length - 1] : "all"
+  );
+
+  // 事業切替時に最新期へ追従
+  const latestCycle =
+    availableCycles.length > 0 ? availableCycles[availableCycles.length - 1] : null;
+  const lastSyncRef = `${product}:${latestCycle ?? ""}`;
+  const [lastSync, setLastSync] = useState(lastSyncRef);
+  if (lastSync !== lastSyncRef) {
+    setLastSync(lastSyncRef);
+    setCycleFilter(latestCycle ?? "all");
+  }
+
+  const productContracts = useMemo(
+    () =>
+      cycleFilter === "all"
+        ? productAllContracts
+        : productAllContracts.filter((c) => c.cycleNumber === cycleFilter),
+    [productAllContracts, cycleFilter]
   );
 
   const inProgress = useMemo(
@@ -111,57 +152,8 @@ export function OnboardingView({
   }, [inProgress, itemsByContract, today]);
 
   return (
-    <main className="mx-auto max-w-[1600px] px-6 py-8 space-y-8">
-      {/* ヘッダ */}
-      <section className="flex items-end justify-between gap-4">
-        <div>
-          <div className="text-xs text-ink-500 font-medium">
-            契約単位のチェックリスト
-          </div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight flex items-center gap-3">
-            <span className="brand-text-gradient">オンボーディング</span>
-            <span
-              className="text-base font-semibold px-3 py-1 rounded-full border"
-              style={{
-                color: p.accent,
-                borderColor: `${p.accent}44`,
-                background: `${p.accent}0F`
-              }}
-            >
-              {p.shortName}
-            </span>
-          </h1>
-          <div className="mt-1 text-sm text-ink-500">
-            内諾後から契約開始までのチェックリスト管理
-          </div>
-        </div>
-
-        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100 shrink-0">
-          {products.map((x) => {
-            const active = x.code === product;
-            return (
-              <button
-                key={x.code}
-                onClick={() => setProduct(x.code)}
-                className={[
-                  "px-3 py-1.5 rounded-full text-sm transition flex items-center gap-1.5",
-                  active
-                    ? "bg-white shadow-liquid font-medium text-ink-900"
-                    : "text-ink-500 hover:text-ink-700"
-                ].join(" ")}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: x.accent }}
-                />
-                {x.shortName}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* KPI */}
+    <main className="mx-auto max-w-[1800px] px-4 py-4 space-y-4">
+      {/* KPI — 最上段 */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
           label="オンボ進行中"
@@ -187,6 +179,71 @@ export function OnboardingView({
           sub="進行中契約の平均"
           accent="#4CD97B"
         />
+      </section>
+
+      {/* 事業切替 + 期/回トグル — 同じ並び */}
+      <section className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100 shrink-0">
+          {products.map((x) => {
+            const active = x.code === product;
+            return (
+              <button
+                key={x.code}
+                onClick={() => setProduct(x.code)}
+                className={[
+                  "px-3 py-1.5 rounded-full text-sm transition flex items-center gap-1.5",
+                  active
+                    ? "bg-white shadow-liquid font-medium text-ink-900"
+                    : "text-ink-500 hover:text-ink-700"
+                ].join(" ")}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: x.accent }}
+                />
+                {x.shortName}
+              </button>
+            );
+          })}
+        </div>
+
+        {availableCycles.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ink-500 font-medium">
+              {cycleNounLabel(product)}:
+            </span>
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100">
+              {availableCycles.map((n) => {
+                const active = cycleFilter === n;
+                return (
+                  <button
+                    key={n}
+                    onClick={() => setCycleFilter(n)}
+                    className={[
+                      "px-3 py-1 rounded-full text-xs transition",
+                      active
+                        ? "bg-white shadow-liquid font-medium text-ink-900"
+                        : "text-ink-500 hover:text-ink-700"
+                    ].join(" ")}
+                  >
+                    {cycleLabel(product, n)}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setCycleFilter("all")}
+                className={[
+                  "px-3 py-1 rounded-full text-xs transition",
+                  cycleFilter === "all"
+                    ? "bg-white shadow-liquid font-medium text-ink-900"
+                    : "text-ink-500 hover:text-ink-700"
+                ].join(" ")}
+              >
+                すべて
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* フィルタ */}

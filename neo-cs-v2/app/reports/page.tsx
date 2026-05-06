@@ -39,7 +39,7 @@ export default function ReportsPage() {
   return (
     <>
       <TopNavServer current="/reports" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-6">
         <header className="flex items-baseline justify-between gap-3 flex-wrap">
           <div>
             <div className="text-caption text-neutral-500">
@@ -49,7 +49,7 @@ export default function ReportsPage() {
               <span className="mx-1">/</span>
               <span>レポート</span>
             </div>
-            <h1 className="text-h1 font-bold text-neutral-900">月次レポート</h1>
+            <h1 className="text-xl font-bold text-neutral-900">月次レポート</h1>
             <p className="text-body text-neutral-500">
               MRR / Churn / NRR の月次推移。CSV エクスポートで監査用エビデンスを生成
             </p>

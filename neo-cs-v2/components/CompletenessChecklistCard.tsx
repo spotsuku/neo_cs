@@ -21,15 +21,24 @@ const LEVEL_COLOR: Record<ReturnType<typeof completenessLevel>, { fg: string; bg
 
 const CATEGORY_ORDER: ChecklistCategory[] = [
   "basic",
-  "contact",
   "contract",
   "assign",
   "onboard",
   "drive"
 ];
 
-export function CompletenessChecklistCard({ result }: { result: CompletenessResult }) {
-  const [open, setOpen] = useState(true);
+export function CompletenessChecklistCard({
+  result,
+  defaultOpen = true,
+  compact = false
+}: {
+  result: CompletenessResult;
+  /** カードを開いた状態で初期化するか (false なら折りたたみ) */
+  defaultOpen?: boolean;
+  /** サイドバー向けの幅狭レイアウト (1カラム / 余白縮小) */
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   const level = completenessLevel(result.score);
   const palette = LEVEL_COLOR[level];
 
@@ -37,13 +46,16 @@ export function CompletenessChecklistCard({ result }: { result: CompletenessResu
 
   return (
     <section
-      className="liquid-surface p-5"
+      className={compact ? "rounded-2xl border bg-white p-3" : "liquid-surface p-5"}
       style={{ borderColor: palette.ring }}
     >
-      <header className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className="relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold"
+            className={[
+              "relative rounded-full flex items-center justify-center font-bold",
+              compact ? "w-9 h-9 text-xs" : "w-12 h-12 text-sm"
+            ].join(" ")}
             style={{
               background: palette.bg,
               color: palette.fg,
@@ -54,12 +66,14 @@ export function CompletenessChecklistCard({ result }: { result: CompletenessResu
             {result.score}
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-ink-700">未入力チェック</div>
-            <div className="mt-0.5 text-xs text-ink-500">
-              {result.filledCount} / {result.totalCount} 項目入力済
+            <div className={compact ? "text-[11px] font-semibold text-ink-700" : "text-sm font-semibold text-ink-700"}>
+              未入力チェック
+            </div>
+            <div className={compact ? "mt-0.5 text-[10px] text-ink-500" : "mt-0.5 text-xs text-ink-500"}>
+              {result.filledCount}/{result.totalCount} 入力済
               {missingTotal > 0 && (
-                <span className="ml-2" style={{ color: palette.fg }}>
-                  残 {missingTotal} 件
+                <span className="ml-1.5" style={{ color: palette.fg }}>
+                  残 {missingTotal}
                 </span>
               )}
             </div>
@@ -83,7 +97,7 @@ export function CompletenessChecklistCard({ result }: { result: CompletenessResu
       </div>
 
       {open && (
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className={compact ? "mt-3 space-y-2" : "mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"}>
           {CATEGORY_ORDER.map((cat) => {
             const missing = result.missingByCategory[cat];
             const total = result.items.filter((i) => i.category === cat).length;

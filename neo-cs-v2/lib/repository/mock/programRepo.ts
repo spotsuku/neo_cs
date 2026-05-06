@@ -26,110 +26,135 @@ const NOW = "2026-04-24T09:00:00Z";
 // ─────────────────────────────────────────────
 // Seed
 // ─────────────────────────────────────────────
+// データモデル:
+//  - 1つの (期 × コーススコープ) に対して term は 1 つ
+//  - courseKey=null は「全コース共通」、特定コース時は「コース別」
+//  - 評議会 term は アカデミア契約も対象に取り込む (programRepo.syncCompanies 参照)
+//
+// 各事業の最新 active 期に対して、可能なら
+//   - 共通 term (courseKey=null)
+//   - 各コースの course-specific term
+// を用意する。複数コースのない事業は 1 term のみ。
+
+function term(
+  id: string,
+  productCode: string,
+  courseKey: string | null,
+  cycleNo: number,
+  label: string,
+  status: ProgramTermStatus,
+  startedAt: string,
+  closedAt: string
+): ProgramTerm {
+  return {
+    id,
+    organizationId: DEFAULT_ORG_ID,
+    productCode,
+    courseKey,
+    cycleNo,
+    label,
+    startedAt,
+    closedAt,
+    status,
+    createdBy: "u-furuno",
+    createdAt: NOW,
+    updatedAt: NOW
+  };
+}
+
 const seedTerms: ProgramTerm[] = [
-  {
-    id: "pt-academia-leader-7",
-    organizationId: DEFAULT_ORG_ID,
-    productCode: "academia",
-    courseKey: "leader",
-    cycleNo: null,
-    label: "アカデミア リーダー育成 (今期)",
-    startedAt: "2026-04-01",
-    closedAt: "2026-09-30",
-    status: "active",
-    createdBy: "u-furuno",
-    createdAt: NOW,
-    updatedAt: NOW
-  },
-  {
-    id: "pt-aiken-basic-3",
-    organizationId: DEFAULT_ORG_ID,
-    productCode: "aiken",
-    courseKey: "basic",
-    cycleNo: null,
-    label: "AI研 Basic (今期)",
-    startedAt: "2026-05-01",
-    closedAt: "2026-07-31",
-    status: "active",
-    createdBy: "u-furuno",
-    createdAt: NOW,
-    updatedAt: NOW
-  }
+  // アカデミア 第3期 (active)
+  term("pt-aca-3-common", "academia", null, 3, "アカデミア 共通 第3期", "active", "2026-04-01", "2026-09-30"),
+  term("pt-aca-3-leader", "academia", "leader", 3, "アカデミア リーダー育成 第3期", "active", "2026-04-01", "2026-09-30"),
+  term("pt-aca-3-pjt", "academia", "pjt", 3, "アカデミア PJT共創 第3期", "active", "2026-04-01", "2026-09-30"),
+  // アカデミア 第2期 (closed) — 履歴
+  term("pt-aca-2-common", "academia", null, 2, "アカデミア 共通 第2期", "closed", "2025-10-01", "2026-03-31"),
+  term("pt-aca-2-leader", "academia", "leader", 2, "アカデミア リーダー育成 第2期", "closed", "2025-10-01", "2026-03-31"),
+
+  // AI研 第4期 (active)
+  term("pt-aiken-4-common", "aiken", null, 4, "AI研 共通 第4期", "active", "2026-04-01", "2026-07-31"),
+  term("pt-aiken-4-basic", "aiken", "basic", 4, "AI研 Basic 第4期", "active", "2026-04-01", "2026-07-31"),
+  term("pt-aiken-4-advance", "aiken", "advance", 4, "AI研 Advance 第4期", "active", "2026-04-01", "2026-07-31"),
+
+  // 評議会 第3期 (active) — アカデミア契約も対象
+  term("pt-hyo-3", "hyogikai", null, 3, "評議会 第3期", "active", "2026-04-01", "2027-03-31"),
+
+  // コミュマネ 第1期 (active)
+  term("pt-commu-1", "commu", null, 1, "コミュマネ 第1期", "active", "2026-04-01", "2026-06-30")
 ];
 
+// テンプレ列を簡潔に書くためのヘルパ
+function tpl(
+  id: string,
+  programTermId: string,
+  orderNo: number,
+  label: string,
+  category: ProgramTaskTemplate["category"],
+  defaultDueOffsetDays?: number
+): ProgramTaskTemplate {
+  return {
+    id,
+    programTermId,
+    orderNo,
+    label,
+    category,
+    defaultDueOffsetDays,
+    createdAt: NOW,
+    updatedAt: NOW
+  };
+}
+
 const seedTemplates: ProgramTaskTemplate[] = [
-  // Academia leader 7
-  {
-    id: "ptpl-al7-1",
-    programTermId: "pt-academia-leader-7",
-    orderNo: 1,
-    label: "面談日程調整",
-    category: "meeting_schedule",
-    defaultDueOffsetDays: 7,
-    createdAt: NOW,
-    updatedAt: NOW
-  },
-  {
-    id: "ptpl-al7-2",
-    programTermId: "pt-academia-leader-7",
-    orderNo: 2,
-    label: "招待メール送付",
-    category: "invite_send",
-    defaultDueOffsetDays: 14,
-    createdAt: NOW,
-    updatedAt: NOW
-  },
-  {
-    id: "ptpl-al7-3",
-    programTermId: "pt-academia-leader-7",
-    orderNo: 3,
-    label: "面談実施",
-    category: "meeting_hold",
-    defaultDueOffsetDays: 30,
-    createdAt: NOW,
-    updatedAt: NOW
-  },
-  {
-    id: "ptpl-al7-4",
-    programTermId: "pt-academia-leader-7",
-    orderNo: 4,
-    label: "事後フォロー",
-    category: "followup",
-    defaultDueOffsetDays: 45,
-    createdAt: NOW,
-    updatedAt: NOW
-  },
-  // AI研 Basic 3
-  {
-    id: "ptpl-aib3-1",
-    programTermId: "pt-aiken-basic-3",
-    orderNo: 1,
-    label: "事前アンケート送付",
-    category: "material_send",
-    defaultDueOffsetDays: 7,
-    createdAt: NOW,
-    updatedAt: NOW
-  },
-  {
-    id: "ptpl-aib3-2",
-    programTermId: "pt-aiken-basic-3",
-    orderNo: 2,
-    label: "招待送付",
-    category: "invite_send",
-    defaultDueOffsetDays: 14,
-    createdAt: NOW,
-    updatedAt: NOW
-  },
-  {
-    id: "ptpl-aib3-3",
-    programTermId: "pt-aiken-basic-3",
-    orderNo: 3,
-    label: "研修実施",
-    category: "meeting_hold",
-    defaultDueOffsetDays: 30,
-    createdAt: NOW,
-    updatedAt: NOW
-  }
+  // ── アカデミア 共通 第3期 (どのコースでも実施) ──
+  tpl("ptpl-aca3c-1", "pt-aca-3-common", 1, "NDA締結確認", "document_check", 7),
+  tpl("ptpl-aca3c-2", "pt-aca-3-common", 2, "参加者リスト最終化", "material_send", 14),
+  tpl("ptpl-aca3c-3", "pt-aca-3-common", 3, "キックオフ実施", "meeting_hold", 21),
+  tpl("ptpl-aca3c-4", "pt-aca-3-common", 4, "中間アンケート回収", "followup", 90),
+
+  // ── アカデミア リーダー育成 第3期 (コース固有) ──
+  tpl("ptpl-aca3l-1", "pt-aca-3-leader", 1, "個別面談日程調整", "meeting_schedule", 14),
+  tpl("ptpl-aca3l-2", "pt-aca-3-leader", 2, "リーダーシップ診断送付", "material_send", 30),
+  tpl("ptpl-aca3l-3", "pt-aca-3-leader", 3, "個別面談実施", "meeting_hold", 45),
+  tpl("ptpl-aca3l-4", "pt-aca-3-leader", 4, "最終発表会", "meeting_hold", 150),
+
+  // ── アカデミア PJT共創 第3期 (コース固有) ──
+  tpl("ptpl-aca3p-1", "pt-aca-3-pjt", 1, "PJTテーマ設定", "material_send", 14),
+  tpl("ptpl-aca3p-2", "pt-aca-3-pjt", 2, "メンター割当", "meeting_schedule", 21),
+  tpl("ptpl-aca3p-3", "pt-aca-3-pjt", 3, "中間レビュー", "meeting_hold", 90),
+  tpl("ptpl-aca3p-4", "pt-aca-3-pjt", 4, "最終発表会", "meeting_hold", 150),
+
+  // ── アカデミア 共通 第2期 (closed) ──
+  tpl("ptpl-aca2c-1", "pt-aca-2-common", 1, "NDA締結確認", "document_check"),
+  tpl("ptpl-aca2c-2", "pt-aca-2-common", 2, "参加者リスト最終化", "material_send"),
+  tpl("ptpl-aca2c-3", "pt-aca-2-common", 3, "キックオフ実施", "meeting_hold"),
+
+  // ── アカデミア リーダー育成 第2期 (closed) ──
+  tpl("ptpl-aca2l-1", "pt-aca-2-leader", 1, "個別面談実施", "meeting_hold"),
+  tpl("ptpl-aca2l-2", "pt-aca-2-leader", 2, "最終発表会", "meeting_hold"),
+
+  // ── AI研 共通 第4期 ──
+  tpl("ptpl-ai4c-1", "pt-aiken-4-common", 1, "事前アンケート送付", "material_send", 7),
+  tpl("ptpl-ai4c-2", "pt-aiken-4-common", 2, "招待送付", "invite_send", 14),
+  tpl("ptpl-ai4c-3", "pt-aiken-4-common", 3, "事後アンケート", "followup", 60),
+
+  // ── AI研 Basic 第4期 ──
+  tpl("ptpl-ai4b-1", "pt-aiken-4-basic", 1, "Basic研修実施", "meeting_hold", 30),
+  tpl("ptpl-ai4b-2", "pt-aiken-4-basic", 2, "演習レビュー", "followup", 45),
+
+  // ── AI研 Advance 第4期 ──
+  tpl("ptpl-ai4a-1", "pt-aiken-4-advance", 1, "開発キックオフ", "meeting_hold", 14),
+  tpl("ptpl-ai4a-2", "pt-aiken-4-advance", 2, "技術メンター割当", "meeting_schedule", 21),
+  tpl("ptpl-ai4a-3", "pt-aiken-4-advance", 3, "デプロイ確認", "followup", 60),
+
+  // ── 評議会 第3期 ──
+  tpl("ptpl-hyo3-1", "pt-hyo-3", 1, "年間スケジュール案内", "material_send", 7),
+  tpl("ptpl-hyo3-2", "pt-hyo-3", 2, "5月定例会 招待送付", "invite_send", 21),
+  tpl("ptpl-hyo3-3", "pt-hyo-3", 3, "5月定例会 実施", "meeting_hold", 30),
+
+  // ── コミュマネ 第1期 ──
+  tpl("ptpl-commu1-1", "pt-commu-1", 1, "コミュニティ立ち上げ", "material_send", 7),
+  tpl("ptpl-commu1-2", "pt-commu-1", 2, "初回オンボ", "meeting_hold", 14),
+  tpl("ptpl-commu1-3", "pt-commu-1", 3, "1ヶ月レビュー", "followup", 45)
 ];
 
 const termsStore = useGlobalStore<ProgramTerm[]>("__programTermsStore", () =>
@@ -144,23 +169,30 @@ const cellsStore = useGlobalStore<ProgramCompanyTask[]>(
   () => []
 );
 
-// デモ用: 一部テンプレに defaultDueDate を入れて列ヘッダ初期値を見せる
-// seedCellsFor が tp.defaultDueDate を参照するので seedCellsFor より先に設定
+// デモ用: 一部テンプレに defaultDueDate / 責任者の初期値を入れて
+// 列ヘッダの見栄えを作る (seedCellsFor が defaultDueDate を参照するので前に実行)
 {
   const tplDueDates: Record<string, string> = {
-    "ptpl-al7-1": "2026-05-15",
-    "ptpl-al7-2": "2026-05-29",
-    "ptpl-al7-3": "2026-06-15",
-    "ptpl-al7-4": "2026-07-01"
+    // アカデミア 共通 第3期
+    "ptpl-aca3c-1": "2026-04-15",
+    "ptpl-aca3c-2": "2026-04-22",
+    "ptpl-aca3c-3": "2026-05-12",
+    // アカデミア リーダー育成 第3期
+    "ptpl-aca3l-1": "2026-05-01",
+    "ptpl-aca3l-3": "2026-06-01",
+    // AI研 共通 第4期
+    "ptpl-ai4c-1": "2026-04-15",
+    "ptpl-ai4c-2": "2026-04-22"
   };
   for (const [tplId, due] of Object.entries(tplDueDates)) {
     const i = templatesStore.findIndex((t) => t.id === tplId);
     if (i >= 0) templatesStore[i].defaultDueDate = due;
   }
-  // デモ用: 列の責任者初期値
   const tplResponsibles: Record<string, string> = {
-    "ptpl-al7-1": "u-furuno",
-    "ptpl-al7-2": "u-furuno"
+    "ptpl-aca3c-1": "u-furuno",
+    "ptpl-aca3c-2": "u-furuno",
+    "ptpl-aca3l-1": "u-furuno",
+    "ptpl-ai4c-1": "u-furuno"
   };
   for (const [tplId, uid] of Object.entries(tplResponsibles)) {
     const i = templatesStore.findIndex((t) => t.id === tplId);
@@ -175,23 +207,26 @@ function seedCellsFor(termId: string) {
   const templates = templatesStore.filter((tp) => tp.programTermId === termId);
   // 契約中 (status: active / onboarding 等で活きているもの) のみを対象に。
   // mock の activeContracts は cycleStatus="active" のもの。
-  const targetContracts = activeContracts.filter((c) =>
+  // 評議会 term は アカデミア契約も対象に含める (運用方針: ToDo は両者共通)
+  // course/cycle のスコープは各事業内でのみ評価し、cross-product 取り込みは無条件
+  const matchHyogikaiAcademia = (c: { product: string }) =>
+    term.productCode === "hyogikai" && c.product === "academia";
+
+  const matchScope = (c: {
+    product: string;
+    courseKey?: string | null;
+    cycleNumber?: number | null;
+  }) =>
     contractMatchesScope(
       { product: c.product, courseKey: c.courseKey, cycleNumber: c.cycleNumber },
       { productCode: term.productCode, courseKey: term.courseKey, cycleNo: term.cycleNo }
-    )
-  );
+    ) || matchHyogikaiAcademia(c);
+
+  const targetContracts = activeContracts.filter(matchScope);
   // mock の seed 用フォールバック: activeContracts に該当が0件でも、allContracts
   // から最新サイクル分は拾うようにしておく (デモ用途)
   if (targetContracts.length === 0) {
-    targetContracts.push(
-      ...allContracts.filter((c) =>
-        contractMatchesScope(
-          { product: c.product, courseKey: c.courseKey, cycleNumber: c.cycleNumber },
-          { productCode: term.productCode, courseKey: term.courseKey, cycleNo: term.cycleNo }
-        )
-      )
-    );
+    targetContracts.push(...allContracts.filter(matchScope));
   }
   for (const c of targetContracts) {
     for (const tp of templates) {

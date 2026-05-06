@@ -109,6 +109,6 @@ export function formatDemoCountsForDisplay(c: DemoCounts): Array<{ label: string
     { label: "週次レビュー", value: c.weeklyReviews },
     { label: "面談ログ", value: c.meetingLogs },
     { label: "健康スナップショット", value: c.healthSnapshots },
-    { label: "業務ToDo", value: c.companyTasks }
+    { label: "個社ToDo", value: c.companyTasks }
   ];
 }

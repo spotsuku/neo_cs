@@ -1,4 +1,4 @@
-// 業務ToDo (company_tasks) mock リポジトリ
+// 個社ToDo (company_tasks) mock リポジトリ
 // onboarding_tasks とは別の汎用タスク。
 // 純関数ロジックは lib/domain/task.ts に切り出し済。
 

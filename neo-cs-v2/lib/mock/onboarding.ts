@@ -14,6 +14,8 @@ export type OnboardingTemplateItem = {
   dueOffsetDays: number; // 契約開始日からの相対日数（負の値 = 開始前）
   required: boolean;
   defaultAssigneeRole?: "cs" | "pr" | "ops" | "finance";
+  /** null/undefined = 全コース共通。文字列 = 特定 courseKey のみ */
+  courseKey?: string | null;
 };
 
 export type OnboardingCategory = {
@@ -22,6 +24,40 @@ export type OnboardingCategory = {
   order: number;
   items: OnboardingTemplateItem[];
 };
+
+// 指定 courseKey に該当する項目のみを残してテンプレを絞り込む。
+// item.courseKey == null は全コース共通として常に残す。
+// courseKey が null/undefined なら全コース共通の項目だけ返す。
+export function filterTemplateByCourse(
+  template: OnboardingCategory[],
+  courseKey: string | null | undefined
+): OnboardingCategory[] {
+  return template
+    .map((cat) => ({
+      ...cat,
+      items: cat.items.filter((it) => {
+        if (it.courseKey == null) return true;
+        return courseKey != null && it.courseKey === courseKey;
+      })
+    }))
+    .filter((cat) => cat.items.length > 0);
+}
+
+// 表示中の契約群（複数 courseKey の混在を許す）に対して、いずれかの契約に
+// 該当する項目だけ列として残す。matrix 表示で空列を出さないために使う。
+export function filterTemplateByCourses(
+  template: OnboardingCategory[],
+  courseKeys: ReadonlyArray<string | null | undefined>
+): OnboardingCategory[] {
+  const set = new Set<string>();
+  for (const k of courseKeys) if (k != null) set.add(k);
+  return template
+    .map((cat) => ({
+      ...cat,
+      items: cat.items.filter((it) => it.courseKey == null || set.has(it.courseKey))
+    }))
+    .filter((cat) => cat.items.length > 0);
+}
 
 // 4研修のデフォルトオンボテンプレート（設定画面で編集する前提）
 export const productOnboardingTemplates: Record<ProductCode, OnboardingCategory[]> = {
@@ -561,7 +597,45 @@ for (const c of COMMU_BATCH_1) {
   });
 }
 
+// ─────────────────────────────────────────────
+// 更新ウィンドウデモデータ
+//   全アカデミア契約は term3 (期末 2027-03-31) で renewal_window (90日) 外。
+//   /renewal 画面と RenewalMilestoneList の動作確認のため、5社の term3
+//   契約 endDate を TODAY (2026-04-24) から 90日以内に前倒しする。
+//   healthScore (renewalStatus) も多様化させ、Green/Yellow/Red を揃える。
+// ─────────────────────────────────────────────
+const RENEWAL_WINDOW_OVERRIDES: Record<
+  string,
+  { endDate: string; renewalStatus: "green" | "yellow" | "red" }
+> = {
+  // 期末6日後・Red — クロージング迫る危機案件
+  "k-c-aeon-academia-3":     { endDate: "2026-04-30", renewalStatus: "red" },
+  // 期末30日後・Yellow — T-30 が今日
+  "k-c-ffg-academia-3":      { endDate: "2026-05-24", renewalStatus: "yellow" },
+  // 期末52日後・Yellow — T-60 を最近通過
+  "k-c-yamae-academia-3":    { endDate: "2026-06-15", renewalStatus: "yellow" },
+  // 期末82日後・Green — T-90 を最近通過、順調
+  "k-c-fukuya-academia-3":   { endDate: "2026-07-15", renewalStatus: "green" },
+  // 期末87日後・Green — 更新ウィンドウ突入直後
+  "k-c-airport-academia-3":  { endDate: "2026-07-20", renewalStatus: "green" }
+};
+
+for (const seed of generated) {
+  const ov = RENEWAL_WINDOW_OVERRIDES[seed.id];
+  if (!ov) continue;
+  seed.endDate = ov.endDate;
+  seed.renewalStatus = ov.renewalStatus;
+  // deriveStatus は onboardingStatus="in_progress" を先に評価するため、
+  // 更新ウィンドウに乗せるには complete に切替必須（オンボ完了済の前提）
+  seed.onboardingStatus = "complete";
+}
+
 const handPickedContracts: ActiveContract[] = generated.map(withStatus);
+
+/** /renewal デモで意図的に renewal_window に乗せた契約ID集合 */
+export const renewalWindowDemoContractIds: ReadonlySet<string> = new Set(
+  Object.keys(RENEWAL_WINDOW_OVERRIDES)
+);
 
 // 全契約（過去サイクル含む）
 export const allContracts: ActiveContract[] = [...handPickedContracts, ...bulkActiveContracts];
@@ -618,7 +692,10 @@ function generateItems(
   contract: ActiveContract,
   statusOverrides: Record<string, { status: "todo" | "doing" | "done"; assignee?: string; completedAt?: string }> = {}
 ): ContractOnboardingItem[] {
-  const template = productOnboardingTemplates[contract.product];
+  const template = filterTemplateByCourse(
+    productOnboardingTemplates[contract.product],
+    contract.courseKey
+  );
   const defaultAssignee = contract.ownerName;
 
   return template.flatMap((cat) =>
@@ -696,7 +773,10 @@ function pseudoRand(seedStr: string, n: number): number {
 // バルク契約(in_progress)のstatusを半ランダムに生成
 function bulkOverrides(contract: ActiveContract): Record<string, { status: "todo" | "doing" | "done"; completedAt?: string }> {
   const overrides: Record<string, { status: "todo" | "doing" | "done"; completedAt?: string }> = {};
-  const template = productOnboardingTemplates[contract.product];
+  const template = filterTemplateByCourse(
+    productOnboardingTemplates[contract.product],
+    contract.courseKey
+  );
   let idx = 0;
   for (const cat of template) {
     for (const item of cat.items) {
@@ -719,8 +799,8 @@ function bulkOverrides(contract: ActiveContract): Record<string, { status: "todo
 
 export const contractOnboardingItems: ContractOnboardingItem[] = [];
 
-// すべての契約に対しチェックリスト項目を展開
-activeContracts.forEach((c) => {
+// すべての契約に対しチェックリスト項目を展開（過去サイクルの履歴も含む）
+allContracts.forEach((c) => {
   if (c.status !== "onboarding" && c.status !== "handoff") {
     // 運用中契約: すべてdone
     const items = generateItems(c);

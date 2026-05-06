@@ -22,25 +22,43 @@ type NavItem = {
   hideForExternal?: boolean;
 };
 
+// 大項目をシンプルに整理。
+//   - To-do (オンボ / 事業別ToDo / 個社ToDo) はサブナビへ
+//   - 顧客シグナル (VOC / アンケート / 出席・参加状況) はサブナビへ
+//   - 週次は単独
 const nav: NavItem[] = [
   { href: "/", label: "ダッシュボード" },
   { href: "/me", label: "マイページ" },
-  { href: "/manager", label: "マネージャー", managerOnly: true },
-  { href: "/inbox", label: "受信箱", hideForExternal: true },
-  { href: "/chat", label: "チャット", hideForExternal: true },
   { href: "/companies", label: "企業" },
-  { href: "/surveys", label: "アンケート", hideForExternal: true },
-  { href: "/onboarding", label: "オンボ", hideForExternal: true },
-  { href: "/programs", label: "事業ToDo", hideForExternal: true },
-  { href: "/tasks", label: "個社ToDo" },
-  { href: "/weekly", label: "週次" },
-  { href: "/team", label: "チーム", hideForExternal: true },
-  { href: "/voc", label: "VOC", hideForExternal: true },
-  { href: "/renewal", label: "更新", hideForExternal: true },
-  { href: "/attendance", label: "出席", hideForExternal: true },
-  { href: "/sales-handoff", label: "営業引継", hideForExternal: true },
-  { href: "/settings", label: "設定" }
+  { href: "/tasks", label: "To-do", hideForExternal: true },
+  { href: "/weekly", label: "週次", hideForExternal: true },
+  { href: "/voc", label: "顧客シグナル", hideForExternal: true },
+  { href: "/manager", label: "マネージャー", managerOnly: true }
 ];
+
+// 大項目のどれが「現在のページ」と紐づくかを判定するためのプレフィクス。
+const SECTION_MATCH: { prefix: string; section: string }[] = [
+  { prefix: "/companies", section: "/companies" },
+  // To-do グループ
+  { prefix: "/tasks", section: "/tasks" },
+  { prefix: "/onboarding", section: "/tasks" },
+  { prefix: "/programs", section: "/tasks" },
+  // 週次は単独
+  { prefix: "/weekly", section: "/weekly" },
+  // 顧客シグナルグループ
+  { prefix: "/voc", section: "/voc" },
+  { prefix: "/surveys", section: "/voc" },
+  { prefix: "/attendance", section: "/voc" },
+  { prefix: "/manager", section: "/manager" }
+];
+
+function resolveSection(current: string): string {
+  if (current === "/" || current === "") return "/";
+  for (const { prefix, section } of SECTION_MATCH) {
+    if (current === prefix || current.startsWith(prefix + "/")) return section;
+  }
+  return current;
+}
 
 type Notification = {
   id: string;
@@ -235,7 +253,7 @@ export function TopNav({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/70 backdrop-blur-xl border-b border-ink-100">
-      <div className="mx-auto max-w-[1400px] px-6 h-14 flex items-center gap-8">
+      <div className="w-full px-6 h-14 flex items-center gap-8">
         <Link href="/" className="flex items-center gap-2.5">
           <BrandMark size={28} />
           <div className="leading-tight">
@@ -245,7 +263,8 @@ export function TopNav({
         </Link>
         <nav className="flex items-center gap-1">
           {visibleNav.map((n) => {
-            const active = n.href === current;
+            const activeSection = resolveSection(current);
+            const active = n.href === activeSection || n.href === current;
             return (
               <Link
                 key={n.href}
@@ -262,46 +281,42 @@ export function TopNav({
             );
           })}
         </nav>
-        <div className="ml-auto flex items-center gap-3">
-          {activeRole === "admin" && (
-            <div
-              className="inline-flex items-center rounded-full border border-ink-100 bg-white p-0.5 text-[11px]"
-              role="group"
-              aria-label="表示モード"
-              title="管理者用: マネージャー画面とメンバー画面の見え方を切替"
-            >
-              {(["manager", "member"] as const).map((m) => {
-                const active = (viewMode ?? "manager") === m;
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => handleViewModeChange(m)}
-                    disabled={pendingMode}
-                    className={[
-                      "px-2.5 py-1 rounded-full transition",
-                      active
-                        ? "bg-ink-900 text-white"
-                        : "text-ink-600 hover:bg-ink-50"
-                    ].join(" ")}
-                  >
-                    {m === "manager" ? "マネージャー表示" : "メンバー表示"}
-                  </button>
-                );
-              })}
-            </div>
+        <div className="ml-auto flex items-center gap-1">
+          {effectiveRole !== "external" && (
+            <>
+              <Link
+                href="/inbox"
+                aria-label="受信箱"
+                title="受信箱"
+                className="w-9 h-9 rounded-full hover:bg-ink-50 flex items-center justify-center text-base"
+              >
+                📥
+              </Link>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event("chat:toggle"))}
+                aria-label="チャット"
+                title="チャット"
+                className="w-9 h-9 rounded-full hover:bg-ink-50 flex items-center justify-center text-base"
+              >
+                💬
+              </button>
+            </>
           )}
           <div className="relative" ref={wrapRef}>
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
-              className="px-3 py-1.5 rounded-full text-xs text-ink-700 hover:bg-ink-50 border border-ink-100"
+              className="relative w-9 h-9 rounded-full hover:bg-ink-50 flex items-center justify-center text-base"
               aria-label="通知"
+              title={`通知${unreadCount > 0 ? ` (未読${unreadCount})` : ""}`}
               aria-expanded={open}
             >
-              🔔 通知{" "}
+              🔔
               {unreadCount > 0 && (
-                <span className="ml-1 text-brand-pink font-semibold">{unreadCount}</span>
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-pink text-white text-[10px] font-semibold flex items-center justify-center">
+                  {unreadCount}
+                </span>
               )}
             </button>
 
@@ -424,7 +439,48 @@ export function TopNav({
                   </div>
                 </div>
 
+                {activeRole === "admin" && (
+                  <div className="px-4 py-3 border-b border-ink-100">
+                    <div className="text-[10px] text-ink-500 mb-1.5">表示モード（管理者用）</div>
+                    <div
+                      className="inline-flex items-center rounded-full border border-ink-100 bg-white p-0.5 text-[11px] w-full"
+                      role="group"
+                      aria-label="表示モード"
+                    >
+                      {(["manager", "member"] as const).map((m) => {
+                        const isActive = (viewMode ?? "manager") === m;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => handleViewModeChange(m)}
+                            disabled={pendingMode}
+                            className={[
+                              "flex-1 px-2.5 py-1 rounded-full transition",
+                              isActive
+                                ? "bg-ink-900 text-white"
+                                : "text-ink-600 hover:bg-ink-50"
+                            ].join(" ")}
+                          >
+                            {m === "manager" ? "マネージャー表示" : "メンバー表示"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <ul className="py-1">
+                  <li>
+                    <Link
+                      href="/me"
+                      onClick={() => setUserOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-ink-700 hover:bg-ink-50"
+                    >
+                      <span className="w-5 text-center">🏠</span>
+                      <span>マイページ</span>
+                    </Link>
+                  </li>
                   <li>
                     <Link
                       href="/profile"

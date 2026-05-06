@@ -10,13 +10,13 @@ export default function ProfilePage() {
   return (
     <>
       <TopNavServer current="/" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
         <section className="flex items-end justify-between gap-4">
           <div>
             <div className="text-xs text-ink-500">
               <Link href="/" className="hover:text-ink-700">ホーム</Link> / プロフィール
             </div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+            <h1 className="mt-1 text-xl font-bold tracking-tight">
               <span className="brand-text-gradient">プロフィール</span>
             </h1>
             <div className="mt-1 text-sm text-ink-500">

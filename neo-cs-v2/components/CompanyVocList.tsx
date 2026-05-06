@@ -1,6 +1,6 @@
 "use client";
 
-// 企業カルテ用 VOC 一覧 (open のみ — new/triaged/backlog)
+// 企業カルテ用 VOC 一覧 (未完了のみ — open / in_progress)
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { vocItemRepo } from "@/lib/repository";
@@ -8,11 +8,10 @@ import type { VocItemRecord } from "@/lib/repository";
 import { VOC_TAG_LABEL, type VocTag } from "@/lib/domain/voc";
 
 const STATUS_LABEL: Record<VocItemRecord["status"], string> = {
-  new: "新規",
-  triaged: "トリアージ済",
-  backlog: "バックログ",
-  shipped: "リリース済",
-  wontfix: "対応せず"
+  open: "未対応",
+  in_progress: "対応中",
+  done: "完了",
+  wontfix: "対応なし"
 };
 
 const PRIORITY_BADGE: Record<VocItemRecord["priority"], string> = {
@@ -28,7 +27,7 @@ export function CompanyVocList({ companyId }: { companyId: string }) {
   useEffect(() => {
     let cancelled = false;
     vocItemRepo
-      .list({ companyId, status: ["new", "triaged", "backlog"] })
+      .list({ companyId, status: ["open", "in_progress"] })
       .then((list) => {
         if (cancelled) return;
         setItems(list);

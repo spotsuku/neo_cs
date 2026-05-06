@@ -31,7 +31,7 @@ export default function HelpPage() {
   return (
     <>
       <TopNavServer current="/" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
           ⚠ ヘルプセンター（検索・カテゴリ・FAQ・問い合わせフォーム・ステータスページ）は UI モックです。本番運用は準備中です。緊急時は support@neoacademia.jp までご連絡ください。
         </div>
@@ -39,7 +39,7 @@ export default function HelpPage() {
           <div className="text-xs text-ink-500">
             <Link href="/" className="hover:text-ink-700">ホーム</Link> / ヘルプ
           </div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">
+          <h1 className="mt-1 text-xl font-bold tracking-tight">
             <span className="brand-text-gradient">ヘルプ</span>
           </h1>
           <div className="mt-1 text-sm text-ink-500">

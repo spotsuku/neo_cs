@@ -127,7 +127,7 @@ export function ChatView({
     <main className="mx-auto max-w-[1500px] px-4 py-6">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink-900">チャット</h1>
+          <h1 className="text-xl font-bold tracking-tight text-ink-900">チャット</h1>
           <p className="text-xs text-ink-500 mt-0.5">
             DM・事業部・メール社内チャットの統合ビュー
           </p>

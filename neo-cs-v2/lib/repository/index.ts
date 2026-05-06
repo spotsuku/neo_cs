@@ -34,7 +34,6 @@ export const assignmentRepo = repo.assignments;
 export const oneOnOneLogRepo = repo.oneOnOneLogs;
 export const churnSignalRepo = repo.churnSignals;
 export const expansionOpportunityRepo = repo.expansionOpportunities;
-export const renewalMilestoneRepo = repo.renewalMilestones;
 export const vocItemRepo = repo.vocItems;
 export const productCourseRepo = repo.productCourses;
 export const companyTaskRepo = repo.companyTasks;
@@ -52,6 +51,10 @@ export const businessJourneyRepo = repo.businessJourneys;
 export const userProgramRoleRepo = repo.userProgramRoles;
 export const userCompanyAccessRepo = repo.userCompanyAccess;
 export const chatRepo = repo.chats;
+export const journeyCheckpointRepo = repo.journeyCheckpoints;
+export const contractLifecycleRepo = repo.contractLifecycle;
+export const companyWeatherRepo = repo.companyWeatherOverrides;
+export const companyVisionRepo = repo.companyVisions;
 
 export type { Repository } from "./types";
 export * from "./types";

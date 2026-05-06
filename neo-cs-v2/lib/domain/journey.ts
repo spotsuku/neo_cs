@@ -11,8 +11,7 @@ import type {
   Contract,
   ContractStatus,
   HealthScore,
-  JourneyStageDefinition,
-  RenewalMilestone
+  JourneyStageDefinition
 } from "@/lib/repository/types";
 
 // ─────────────────────────────────────────────
@@ -46,18 +45,16 @@ function pickStage(
 //
 // 判定ルール (上から順に評価):
 //  - status=churned → 推奨なし
-//  - status=renewed の延長線上で次期 upsell が発生 → "upsell" (※運用時拡張)
 //  - status=handoff/onboarding → "kickoff"
 //  - active で契約開始から 90日以内 → "kickoff" or "running"
 //  - active で開始から 90 日以上経過 → "running" → "value_articulated"
-//  - renewal_window (T-90 突入) → "renewal_consideration"
-//  - T-60 マイルストーン in_progress/done → "internal_share" / "approval_prep"
-//  - T-30 マイルストーン in_progress → "contract_negotiation"
-//  - T-30 done → "renewed" (締結) → 既存契約に upsell が紐付くなら "upsell"
+//  - renewal_window 突入 → "renewal_consideration"
+//  - 旧 RenewalMilestone (T-120/90/60/30) ベースの推奨は廃止。
+//    詳細ステージ (internal_share〜upsell) への遷移はチェックポイント /
+//    program_company_tasks の進捗を見てユーザーが手動で進める方針。
 
 export type SuggestBusinessStageInput = {
   contract: Pick<Contract, "id" | "status" | "startDate" | "endDate" | "healthScore">;
-  milestones: RenewalMilestone[];
   /** 既存ジャーニー (現在ステージとの比較用) */
   current?: BusinessJourney | null;
   /** 評価日 (テスト容易性のため注入可) */
@@ -68,7 +65,7 @@ export type SuggestBusinessStageInput = {
 export function suggestBusinessStage(
   input: SuggestBusinessStageInput
 ): JourneySuggestion {
-  const { contract, milestones, stageDefinitions } = input;
+  const { contract, stageDefinitions } = input;
   const today = (input.asOfIso ?? new Date().toISOString()).slice(0, 10);
   const reasons: string[] = [];
 
@@ -82,34 +79,9 @@ export function suggestBusinessStage(
     return tryPick("kickoff", stageDefinitions, reasons, "high");
   }
 
-  // 既存マイルストーン状況
-  const t30 = milestones.find((m) => m.type === "T-30");
-  const t60 = milestones.find((m) => m.type === "T-60");
-  const t90 = milestones.find((m) => m.type === "T-90");
-  const t120 = milestones.find((m) => m.type === "T-120");
-
-  if (t30?.status === "done") {
-    reasons.push("T-30 (クロージング) 完了 → 契約締結相当");
-    return tryPick("renewed", stageDefinitions, reasons, "high");
-  }
-  if (t30?.status === "in_progress") {
-    reasons.push("T-30 (クロージング) 対応中");
-    return tryPick("contract_negotiation", stageDefinitions, reasons, "high");
-  }
-  if (t60?.status === "in_progress" || t60?.status === "done") {
-    reasons.push("T-60 (更新提案) フェーズ");
-    return tryPick("approval_prep", stageDefinitions, reasons, "high");
-  }
-  if (t90?.status === "in_progress" || t90?.status === "done") {
-    reasons.push("T-90 (更新意向ヒアリング) フェーズ");
-    return tryPick("internal_share", stageDefinitions, reasons, "high");
-  }
-  if (
-    contract.status === "renewal_window" ||
-    t120?.status === "in_progress" ||
-    t120?.status === "done"
-  ) {
-    reasons.push("更新期間 (T-120 〜 T-90) 突入");
+  // 更新ウィンドウ突入
+  if (contract.status === "renewal_window") {
+    reasons.push("更新ウィンドウ (期末90日以内) 突入");
     return tryPick("renewal_consideration", stageDefinitions, reasons, "high");
   }
 

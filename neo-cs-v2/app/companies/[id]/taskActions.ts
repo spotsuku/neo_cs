@@ -1,6 +1,6 @@
 "use server";
 
-// 企業詳細ページ「業務ToDo」セクションの Server Actions
+// 企業詳細ページ「個社ToDo」セクションの Server Actions
 // クライアントから JSON で受け取り、REPO_DRIVER 切替の getRepo() に流す。
 
 import { revalidatePath } from "next/cache";

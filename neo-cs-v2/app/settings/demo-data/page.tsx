@@ -50,7 +50,7 @@ export default async function DemoDataPage() {
         <section className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-500 font-medium">Admin</div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+            <h1 className="mt-1 text-xl font-bold tracking-tight">
               <span className="brand-text-gradient">🚧 デモデータ管理</span>
             </h1>
             <p className="mt-1 text-sm text-ink-500">
@@ -66,7 +66,7 @@ export default async function DemoDataPage() {
           <div className="font-semibold">⚠️ 削除前に必ずバックアップしてください</div>
           <div className="text-xs">
             一括削除は CASCADE で関連 (契約 / 担当窓口 / 週次 / オンボ / 健康 /
-            業務ToDo / アサイン 等) を巻き込んで物理削除します。
+            個社ToDo / アサイン 等) を巻き込んで物理削除します。
             survey_responses / surveys.contract_id は履歴保持のため SET NULL 化されます。
           </div>
         </section>

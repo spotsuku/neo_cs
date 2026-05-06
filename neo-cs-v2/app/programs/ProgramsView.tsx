@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { KpiCard } from "@/components/KpiCard";
+import { createProgramTerm } from "./termActions";
 import {
   products,
   productByCode,
+  productCourses,
   courseShortName,
   hasMultipleCourses,
   type ProductCode
@@ -54,32 +57,69 @@ export function ProgramsView({
   const initialProduct = (visibleProducts[0]?.code ?? "academia") as ProductCode;
   const [product, setProduct] = useState<ProductCode>(initialProduct);
   const [closedOpen, setClosedOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
-
-  function toggleExpanded(termId: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(termId)) next.delete(termId);
-      else next.add(termId);
-      return next;
-    });
-  }
+  const [creating, startCreate] = useTransition();
+  const router = useRouter();
 
   const p = productByCode[product];
+  const courses = productCourses[product] ?? [];
+  const showCourseToggle = hasMultipleCourses(product);
+
+  // 1つの (期 × コーススコープ) に対してテーブルは 1つ。
+  // courseFilter = "common" (= 全コース共通) / 特定 courseKey
+  const [courseFilter, setCourseFilter] = useState<string>("common");
+  // cycleFilter = 数値 (最新期がデフォルト)
+  const [cycleFilter, setCycleFilter] = useState<number | null>(null);
 
   const productTerms = useMemo(
     () => enriched.filter((e) => e.term.productCode === product),
     [enriched, product]
   );
 
+  // この事業に存在する cycleNo 一覧 (昇順)
+  const availableCycles = useMemo(() => {
+    const set = new Set<number>();
+    for (const e of productTerms) {
+      if (e.term.cycleNo != null) set.add(e.term.cycleNo);
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [productTerms]);
+
+  const latestCycle = availableCycles.at(-1) ?? null;
+
+  // 事業切替・データ更新時に最新期 / 共通へ追従
+  const syncRef = `${product}:${latestCycle ?? ""}`;
+  const [lastSync, setLastSync] = useState(syncRef);
+  if (lastSync !== syncRef) {
+    setLastSync(syncRef);
+    setCourseFilter("common");
+    setCycleFilter(latestCycle);
+  }
+
+  const filteredTerms = useMemo(() => {
+    return productTerms.filter((e) => {
+      // コーススコープ:
+      //  - "common" 選択時は courseKey null の term だけ
+      //  - 特定コース選択時は「そのコース」または「共通」を両方表示
+      if (showCourseToggle) {
+        if (courseFilter === "common") {
+          if (e.term.courseKey) return false;
+        } else {
+          if (e.term.courseKey != null && e.term.courseKey !== courseFilter) return false;
+        }
+      }
+      if (cycleFilter != null && e.term.cycleNo !== cycleFilter) return false;
+      return true;
+    });
+  }, [productTerms, courseFilter, cycleFilter, showCourseToggle]);
+
   const active = useMemo(
-    () => productTerms.filter((e) => e.term.status === "active" || e.term.status === "draft"),
-    [productTerms]
+    () => filteredTerms.filter((e) => e.term.status === "active" || e.term.status === "draft"),
+    [filteredTerms]
   );
   const closed = useMemo(
-    () => productTerms.filter((e) => e.term.status === "closed" || e.term.status === "archived"),
-    [productTerms]
+    () => filteredTerms.filter((e) => e.term.status === "closed" || e.term.status === "archived"),
+    [filteredTerms]
   );
 
   const kpi = useMemo(() => {
@@ -98,56 +138,8 @@ export function ProgramsView({
   }, [active]);
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
-      {/* ヘッダ */}
-      <section className="flex items-end justify-between gap-4">
-        <div>
-          <div className="text-xs text-ink-500 font-medium">事業 / コース / 期 単位の定期タスク</div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight flex items-center gap-3">
-            <span className="brand-text-gradient">事業内ToDo</span>
-            <span
-              className="text-base font-semibold px-3 py-1 rounded-full border"
-              style={{
-                color: p.accent,
-                borderColor: `${p.accent}44`,
-                background: `${p.accent}0F`
-              }}
-            >
-              {p.shortName}
-            </span>
-          </h1>
-          <div className="mt-1 text-sm text-ink-500">
-            企業×タスクのマトリクスで進捗を一覧管理
-          </div>
-        </div>
-
-        {/* 研修切替 */}
-        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100 shrink-0">
-          {visibleProducts.map((x) => {
-            const activeTab = x.code === product;
-            return (
-              <button
-                key={x.code}
-                onClick={() => setProduct(x.code)}
-                className={[
-                  "px-3 py-1.5 rounded-full text-sm transition flex items-center gap-1.5",
-                  activeTab
-                    ? "bg-white shadow-liquid font-medium text-ink-900"
-                    : "text-ink-500 hover:text-ink-700"
-                ].join(" ")}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: x.accent }}
-                />
-                {x.shortName}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* KPI */}
+    <main className="mx-auto max-w-[1800px] px-4 py-4 space-y-4">
+      {/* KPI — 最上段 */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
           label="進行中の期"
@@ -175,32 +167,156 @@ export function ProgramsView({
         />
       </section>
 
-      {/* 進行中の期 */}
+      {/* 事業切替 + コース・期トグル */}
+      <section className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100 shrink-0">
+          {visibleProducts.map((x) => {
+            const activeTab = x.code === product;
+            return (
+              <button
+                key={x.code}
+                onClick={() => setProduct(x.code)}
+                className={[
+                  "px-3 py-1.5 rounded-full text-sm transition flex items-center gap-1.5",
+                  activeTab
+                    ? "bg-white shadow-liquid font-medium text-ink-900"
+                    : "text-ink-500 hover:text-ink-700"
+                ].join(" ")}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: x.accent }}
+                />
+                {x.shortName}
+              </button>
+            );
+          })}
+        </div>
+
+        {showCourseToggle && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ink-500 font-medium">区分:</span>
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100">
+              <button
+                onClick={() => setCourseFilter("common")}
+                className={[
+                  "px-3 py-1 rounded-full text-xs transition",
+                  courseFilter === "common"
+                    ? "bg-white shadow-liquid font-medium text-ink-900"
+                    : "text-ink-500 hover:text-ink-700"
+                ].join(" ")}
+              >
+                全コース共通
+              </button>
+              {courses.map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => setCourseFilter(c.key)}
+                  className={[
+                    "px-3 py-1 rounded-full text-xs transition",
+                    courseFilter === c.key
+                      ? "bg-white shadow-liquid font-medium text-ink-900"
+                      : "text-ink-500 hover:text-ink-700"
+                  ].join(" ")}
+                >
+                  {c.shortName}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {availableCycles.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ink-500 font-medium">期:</span>
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100">
+              {availableCycles.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setCycleFilter(n)}
+                  className={[
+                    "px-3 py-1 rounded-full text-xs transition",
+                    cycleFilter === n
+                      ? "bg-white shadow-liquid font-medium text-ink-900"
+                      : "text-ink-500 hover:text-ink-700"
+                  ].join(" ")}
+                >
+                  第{n}期
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 進行中の期 — 現在の (期 × 区分) スコープのテーブル */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-semibold text-ink-700">進行中の期</h2>
-            <span className="text-xs text-ink-500">{active.length} 件</span>
+            <h2 className="text-base font-semibold text-ink-700">
+              {scopeHeadline({
+                p,
+                courseFilter,
+                courses,
+                cycleFilter,
+                showCourseToggle
+              })}
+            </h2>
           </div>
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="text-xs px-3 py-1.5 rounded-full bg-ink-900 text-white hover:bg-ink-800"
+            className="text-xs text-ink-500 hover:text-ink-700 underline"
           >
-            + 新しい期を作成
+            詳細設定で新規作成…
           </button>
         </div>
         {active.length === 0 ? (
-          <div className="liquid-surface p-10 text-center text-sm text-ink-500">
-            この事業に進行中の期はありません
+          <div className="liquid-surface p-10 text-center space-y-3">
+            <div className="text-sm text-ink-500">
+              このスコープのテーブルはまだありません
+            </div>
+            <button
+              type="button"
+              disabled={creating || cycleFilter == null}
+              onClick={() => {
+                const courseKey =
+                  showCourseToggle && courseFilter !== "common" ? courseFilter : null;
+                const cycleNo = cycleFilter ?? 1;
+                const courseLabel = courseKey
+                  ? courseShortName(product, courseKey)
+                  : showCourseToggle
+                    ? "全コース共通"
+                    : "";
+                const label = [p.shortName, courseLabel, `第${cycleNo}期`]
+                  .filter(Boolean)
+                  .join(" ");
+                startCreate(async () => {
+                  const r = await createProgramTerm({
+                    productCode: product,
+                    courseKey,
+                    cycleNo,
+                    label
+                  });
+                  router.refresh();
+                  router.push(`/programs/${r.termId}/edit`);
+                });
+              }}
+              className="text-sm px-4 py-2 rounded-full bg-ink-900 text-white hover:bg-ink-800 disabled:opacity-50"
+            >
+              {creating ? "作成中…" : "＋ このスコープのテーブルを追加"}
+            </button>
+            {cycleFilter == null && (
+              <div className="text-[11px] text-ink-400">
+                期を選択するか、詳細設定から作成してください
+              </div>
+            )}
           </div>
         ) : (
           active.map((e) => (
             <TermCard
               key={e.term.id}
               enriched={e}
-              isOpen={expanded.has(e.term.id)}
-              onToggle={() => toggleExpanded(e.term.id)}
               companyMap={companyMap}
               users={users}
               today={today}
@@ -235,8 +351,6 @@ export function ProgramsView({
                 <TermCard
                   key={e.term.id}
                   enriched={e}
-                  isOpen={expanded.has(e.term.id)}
-                  onToggle={() => toggleExpanded(e.term.id)}
                   companyMap={companyMap}
                   users={users}
                   today={today}
@@ -257,17 +371,38 @@ export function ProgramsView({
   );
 }
 
+function scopeHeadline({
+  p,
+  courseFilter,
+  courses,
+  cycleFilter,
+  showCourseToggle
+}: {
+  p: { shortName: string };
+  courseFilter: string;
+  courses: { key: string; shortName: string }[];
+  cycleFilter: number | null;
+  showCourseToggle: boolean;
+}): string {
+  const parts: string[] = [p.shortName];
+  if (showCourseToggle) {
+    if (courseFilter === "common") parts.push("全コース共通");
+    else {
+      const c = courses.find((x) => x.key === courseFilter);
+      if (c) parts.push(c.shortName);
+    }
+  }
+  if (cycleFilter != null) parts.push(`第${cycleFilter}期`);
+  return parts.join(" / ");
+}
+
 function TermCard({
   enriched,
-  isOpen,
-  onToggle,
   companyMap,
   users,
   today
 }: {
   enriched: EnrichedTerm;
-  isOpen: boolean;
-  onToggle: () => void;
   companyMap: Record<string, string>;
   users: { id: string; name: string }[];
   today: string;
@@ -279,24 +414,9 @@ function TermCard({
 
   return (
     <div className="liquid-surface overflow-hidden">
-      {/* ヘッダ (クリックで開閉) */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full p-5 text-left hover:bg-ink-50/40 transition flex items-start justify-between gap-4"
-        aria-expanded={isOpen}
-      >
+      <div className="w-full p-4 flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={[
-                "shrink-0 text-ink-400 transition-transform",
-                isOpen ? "rotate-90" : ""
-              ].join(" ")}
-              aria-hidden
-            >
-              ▶
-            </span>
             <span className="text-base font-bold text-ink-900 truncate">
               {term.label}
             </span>
@@ -312,6 +432,11 @@ function TermCard({
                 {courseShortName(term.productCode as ProductCode, term.courseKey)}
               </span>
             )}
+            {!term.courseKey && hasMultipleCourses(term.productCode as ProductCode) && (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-ink-50 border border-ink-100 text-ink-700">
+                全コース共通
+              </span>
+            )}
             {term.cycleNo != null && (
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-ink-50 border border-ink-100 text-ink-700">
                 第{term.cycleNo}期
@@ -322,7 +447,7 @@ function TermCard({
             </span>
           </div>
 
-          <div className="mt-2 ml-6 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-500">
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-500">
             {term.startedAt && (
               <span>
                 開始{" "}
@@ -349,12 +474,9 @@ function TermCard({
             </span>
           </div>
 
-          {/* 展開時のみ凡例を表示 (メタ情報のすぐ下、余白を活用) */}
-          {isOpen && (
-            <div className="mt-3 ml-6">
-              <ProgramMatrixLegend />
-            </div>
-          )}
+          <div className="mt-3">
+            <ProgramMatrixLegend />
+          </div>
         </div>
 
         <div className="w-40 shrink-0 text-right">
@@ -373,32 +495,26 @@ function TermCard({
               期日超過 {summary.overdue}件
             </div>
           )}
+          <Link
+            href={`/programs/${term.id}/edit`}
+            className="mt-2 inline-block text-xs px-3 py-1 rounded-full border border-ink-200 text-ink-700 bg-white hover:bg-ink-50"
+          >
+            ✎ 編集
+          </Link>
         </div>
-      </button>
+      </div>
 
-      {/* 展開時にマトリクスを inline 表示 */}
-      {isOpen && (
-        <div className="border-t border-ink-100 p-4 space-y-3 bg-ink-50/30">
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-ink-500">企業×タスクのマトリクス</div>
-            <Link
-              href={`/programs/${term.id}/edit`}
-              className="text-xs px-3 py-1.5 rounded-full border border-ink-200 text-ink-700 bg-white hover:bg-ink-50"
-            >
-              ✎ 編集
-            </Link>
-          </div>
-          <ProgramMatrix
-            termId={term.id}
-            templates={templates}
-            companyIds={companyIds}
-            companyMap={companyMap}
-            users={users}
-            initialCells={cells}
-            today={today}
-          />
-        </div>
-      )}
+      <div className="border-t border-ink-100 p-3 bg-ink-50/30">
+        <ProgramMatrix
+          termId={term.id}
+          templates={templates}
+          companyIds={companyIds}
+          companyMap={companyMap}
+          users={users}
+          initialCells={cells}
+          today={today}
+        />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ChatDock } from "@/components/ChatDock";
 
 export const metadata: Metadata = {
   title: "NEO CS 統合ダッシュボード",
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="liquid-blob bg-brand-blue top-[80px] right-[-100px] w-[420px] h-[420px]" />
         <div className="liquid-blob bg-brand-pink bottom-[-160px] left-[30%] w-[420px] h-[420px]" />
         <div className="relative">{children}</div>
+        <ChatDock />
       </body>
     </html>
   );

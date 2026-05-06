@@ -269,89 +269,8 @@ export default function WeeklyPage() {
   return (
     <>
       <TopNav current="/weekly" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
-        {/* ヘッダ */}
-        <section className="flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <div className="text-xs text-ink-500 font-medium">
-              研修 × 週 のスコープで全社俯瞰
-            </div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              <span className="brand-text-gradient">週次レビュー</span>
-            </h1>
-            <div className="mt-1 text-sm text-ink-500">
-              研修ごとに全契約企業の週次記録を一覧・編集
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 flex-wrap">
-            {/* 研修切替 */}
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100 shrink-0">
-              {products.map((x) => {
-                const active = x.code === selectedProduct;
-                return (
-                  <button
-                    key={x.code}
-                    onClick={() => {
-                      setSelectedProduct(x.code);
-                      setExpandedCompanyIds(new Set());
-                    }}
-                    className={[
-                      "px-3 py-1.5 rounded-full text-sm transition flex items-center gap-1.5",
-                      active
-                        ? "bg-white shadow-liquid font-medium text-ink-900"
-                        : "text-ink-500 hover:text-ink-700"
-                    ].join(" ")}
-                  >
-                    <span
-                      className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: x.accent }}
-                    />
-                    {x.shortName}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* 週切替 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {weekSlots.map((ws) => {
-                const range = getWeekRange(ws);
-                const isSelected = ws === selectedWeekStart;
-                const isCurrent = ws === CURRENT_WEEK_MONDAY;
-                return (
-                  <button
-                    key={ws}
-                    onClick={() => {
-                      setSelectedWeekStart(ws);
-                      setExpandedCompanyIds(new Set());
-                    }}
-                    className={[
-                      "px-3 py-1.5 rounded-lg text-xs transition text-left",
-                      isSelected
-                        ? "bg-ink-900 text-white"
-                        : isCurrent
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
-                        : "bg-white border border-ink-100 text-ink-700 hover:bg-ink-50"
-                    ].join(" ")}
-                  >
-                    <div className="font-semibold leading-tight">
-                      {range.label}{" "}
-                      {isCurrent && (
-                        <span className="text-[10px] font-normal">今週</span>
-                      )}
-                    </div>
-                    <div className="text-[10px] opacity-80">
-                      {formatWeekRange(range.start, range.end)}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* KPI */}
+      <main className="mx-auto max-w-[1800px] px-4 py-4 space-y-4">
+        {/* KPI — 最上段 */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard
             label="対象契約数"
@@ -377,6 +296,71 @@ export default function WeeklyPage() {
             sub="Stuck項目を含む"
             accent="#FF9838"
           />
+        </section>
+
+        {/* 事業切替 + 週切替 */}
+        <section className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-ink-50 border border-ink-100 shrink-0">
+            {products.map((x) => {
+              const active = x.code === selectedProduct;
+              return (
+                <button
+                  key={x.code}
+                  onClick={() => {
+                    setSelectedProduct(x.code);
+                    setExpandedCompanyIds(new Set());
+                  }}
+                  className={[
+                    "px-3 py-1.5 rounded-full text-sm transition flex items-center gap-1.5",
+                    active
+                      ? "bg-white shadow-liquid font-medium text-ink-900"
+                      : "text-ink-500 hover:text-ink-700"
+                  ].join(" ")}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: x.accent }}
+                  />
+                  {x.shortName}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {weekSlots.map((ws) => {
+              const range = getWeekRange(ws);
+              const isSelected = ws === selectedWeekStart;
+              const isCurrent = ws === CURRENT_WEEK_MONDAY;
+              return (
+                <button
+                  key={ws}
+                  onClick={() => {
+                    setSelectedWeekStart(ws);
+                    setExpandedCompanyIds(new Set());
+                  }}
+                  className={[
+                    "px-3 py-1.5 rounded-lg text-xs transition text-left",
+                    isSelected
+                      ? "bg-ink-900 text-white"
+                      : isCurrent
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
+                      : "bg-white border border-ink-100 text-ink-700 hover:bg-ink-50"
+                  ].join(" ")}
+                >
+                  <div className="font-semibold leading-tight">
+                    {range.label}{" "}
+                    {isCurrent && (
+                      <span className="text-[10px] font-normal">今週</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] opacity-80">
+                    {formatWeekRange(range.start, range.end)}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         {/* フィルタ・検索 */}

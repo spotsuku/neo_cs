@@ -8,16 +8,14 @@
 //   - 各項目には category と editHref を持ち、UIから該当編集画面へ誘導可
 //
 // カテゴリ:
-//   1. basic     基本情報 (会社名 / 業種 / 規模 / Webサイト / 法人番号)
-//   2. contact   窓口担当者 (主担当者名 / メール / 役職 / Slack ID)
-//   3. contract  契約情報 (アクティブ契約 / コース / 金額 / 期間)
-//   4. assign    アサイン (primary CS / sales_owner)
-//   5. onboard   オンボ (タスク開始 / Champion 指定)
-//   6. drive     共有Drive (フォルダURL ※ Phase4 実装予定の placeholder)
+//   1. basic     基本情報 (会社名 / 業種 / 規模 / Webサイト)
+//   2. contract  契約情報 (アクティブ契約 / コース / 金額 / 期間)
+//   3. assign    アサイン (primary CS / sales_owner)
+//   4. onboard   オンボ (タスク開始)
+//   5. drive     共有Drive (フォルダURL ※ Phase4 実装予定の placeholder)
 
 export type ChecklistCategory =
   | "basic"
-  | "contact"
   | "contract"
   | "assign"
   | "onboard"
@@ -25,7 +23,6 @@ export type ChecklistCategory =
 
 export const CHECKLIST_CATEGORY_LABEL: Record<ChecklistCategory, string> = {
   basic: "基本情報",
-  contact: "窓口担当者",
   contract: "契約情報",
   assign: "アサイン",
   onboard: "オンボーディング",
@@ -38,12 +35,6 @@ export type ChecklistItemKey =
   | "basic.industry"
   | "basic.size"
   | "basic.website"
-  | "basic.legalNumber"
-  // contact
-  | "contact.primaryName"
-  | "contact.email"
-  | "contact.title"
-  | "contact.slackId"
   // contract
   | "contract.hasActive"
   | "contract.course"
@@ -54,7 +45,6 @@ export type ChecklistItemKey =
   | "assign.salesOwner"
   // onboard
   | "onboard.tasksStarted"
-  | "onboard.champion"
   // drive
   | "drive.folderUrl";
 
@@ -91,8 +81,6 @@ export type CompanyCompletenessInput = {
     /** 規模 (社員数 or サイズ区分)。company.memo を流用するケースもあるため受け側で吸収 */
     size?: string | number | null;
     website?: string | null;
-    /** 法人番号 (13桁) */
-    legalNumber?: string | null;
   };
   contacts: Array<{
     isPrimary?: boolean;
@@ -121,9 +109,6 @@ export type CompanyCompletenessInput = {
     /** 契約に紐づくオンボタスクが1件以上立っているか */
     taskCount: number;
   };
-  stakeholders: Array<{
-    type?: string;         // "champion" 等
-  }>;
   drive?: {
     folderUrl?: string | null;
   };
@@ -151,7 +136,6 @@ export function checkCompanyCompleteness(input: CompanyCompletenessInput): Compl
   const companyHref = `/companies/${input.company.id}`;
   const editHref = `${companyHref}#edit`;
 
-  const primary = input.contacts.find((c) => c.isPrimary) ?? input.contacts[0];
   const activeContracts = input.contracts.filter((c) => ACTIVE_STATUSES.has(c.status ?? ""));
   const hasActive = activeContracts.length > 0;
 
@@ -162,8 +146,6 @@ export function checkCompanyCompleteness(input: CompanyCompletenessInput): Compl
     ? input.assignments.some((a) => a.role === "sales_owner" && !a.unassignedAt)
     : false;
 
-  const champion = input.stakeholders.some((s) => s.type === "champion");
-
   // 内諾後判定: 引数優先、なければ契約存在で代用
   const postHandoff = input.postHandoff ?? hasActive;
 
@@ -173,13 +155,6 @@ export function checkCompanyCompleteness(input: CompanyCompletenessInput): Compl
     mk("basic.industry", "basic", "業種", editHref, isFilled(input.company.industry)),
     mk("basic.size", "basic", "規模 (社員数)", editHref, isFilled(input.company.size), "事業規模感の把握に必要"),
     mk("basic.website", "basic", "Webサイト", editHref, isFilled(input.company.website)),
-    mk("basic.legalNumber", "basic", "法人番号", editHref, isFilled(input.company.legalNumber), "請求書発行・与信に必要"),
-
-    // contact
-    mk("contact.primaryName", "contact", "主担当者名", `${companyHref}#contacts`, isFilled(primary?.name)),
-    mk("contact.email", "contact", "メールアドレス", `${companyHref}#contacts`, isFilled(primary?.email)),
-    mk("contact.title", "contact", "役職", `${companyHref}#contacts`, isFilled(primary?.title)),
-    mk("contact.slackId", "contact", "Slack ID", `${companyHref}#contacts`, isFilled(primary?.slackId), "Slack連携時の通知先"),
 
     // contract
     mk("contract.hasActive", "contract", "アクティブ契約あり", `${companyHref}?tab=contracts`, hasActive),
@@ -201,7 +176,6 @@ export function checkCompanyCompleteness(input: CompanyCompletenessInput): Compl
 
     // onboard
     mk("onboard.tasksStarted", "onboard", "オンボタスク開始", `${companyHref}?tab=onboarding`, input.onboarding.taskCount > 0),
-    mk("onboard.champion", "onboard", "Champion指定", `${companyHref}?tab=overview`, champion, "社内推進者を1名以上ステークホルダーに登録"),
 
     // drive (Phase4-#5 で本番化済。営業引継ぎ後は必須)
     {
@@ -229,7 +203,7 @@ export function checkCompanyCompleteness(input: CompanyCompletenessInput): Compl
       if (!it.filled) acc[it.category].push(it);
       return acc;
     },
-    { basic: [], contact: [], contract: [], assign: [], onboard: [], drive: [] }
+    { basic: [], contract: [], assign: [], onboard: [], drive: [] }
   );
 
   return { score, filledCount, totalCount, items, missingByCategory };

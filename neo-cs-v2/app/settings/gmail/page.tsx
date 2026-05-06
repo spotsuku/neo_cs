@@ -90,7 +90,7 @@ export default function GmailSettingsPage() {
   return (
     <>
       <TopNavServer current="/settings" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
         {/* ヘッダー */}
         <section>
           <div className="text-xs text-ink-500 font-medium">
@@ -100,7 +100,7 @@ export default function GmailSettingsPage() {
             <span className="mx-1.5">/</span>
             <span>Gmail連携</span>
           </div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">
+          <h1 className="mt-1 text-xl font-bold tracking-tight">
             <span className="brand-text-gradient">Gmail連携</span>
           </h1>
           <div className="mt-1 text-sm text-ink-500">

@@ -99,9 +99,8 @@ export function ChecklistView({
 
   function changeAssignee(item: ContractOnboardingItem, userId: string) {
     const next = userId || null;
-    const display = next ? userMap.get(next) ?? next : "";
     const original = item.assignee;
-    patchLocal(item.id, { assignee: display });
+    patchLocal(item.id, { assignee: next ?? "" });
     startTransition(async () => {
       try {
         await setOnboardingItemAssignee(item.id, contractId, next);
@@ -188,7 +187,8 @@ export function ChecklistView({
                 <ul className="border-t border-ink-100 divide-y divide-ink-50">
                   {catItems.map((it) => {
                     const overdue = isOverdue(it, today);
-                    const assigneeName = it.assignee || null;
+                    const assigneeName =
+                      (it.assignee && (userMap.get(it.assignee) ?? it.assignee)) || null;
                     return (
                       <li
                         key={it.id}
@@ -422,12 +422,13 @@ function isOverdue(item: ContractOnboardingItem, today: string): boolean {
   return item.dueDate < today;
 }
 
-// 既存データの assignee は名前文字列。userMap から ID を逆引きする
+// item.assignee は user id を保存する想定。既存 seed は名前文字列を持つので両対応
 function userIdForAssignee(
   assignee: string,
   userMap: Map<string, string>
 ): string | null {
   if (!assignee) return null;
+  if (userMap.has(assignee)) return assignee;
   for (const [uid, name] of userMap) {
     if (name === assignee) return uid;
   }

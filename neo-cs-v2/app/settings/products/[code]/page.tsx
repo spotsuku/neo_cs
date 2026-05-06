@@ -67,7 +67,7 @@ export default function ProductEditPage({
   return (
     <>
       <TopNav current="/settings" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-6">
         {/* パンくず */}
         <section>
           <div className="flex items-center gap-2 text-xs text-ink-500 font-medium">
@@ -79,7 +79,7 @@ export default function ProductEditPage({
           </div>
           <div className="mt-1 flex items-end justify-between">
             <div>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight flex items-center gap-3">
+              <h1 className="mt-1 text-xl font-bold tracking-tight flex items-center gap-3">
                 <span
                   className="inline-block w-3 h-3 rounded-full"
                   style={{ background: p.accent }}
@@ -495,6 +495,9 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
     // deep copy so initial mock isn't mutated
     JSON.parse(JSON.stringify(productOnboardingTemplates[code]))
   );
+  // この事業に複数コースがある場合のみ「対象コース」列を表示
+  const courses = productCourses[code] ?? [];
+  const showCourseSelector = courses.length > 1;
 
   const updateCategory = (catIdx: number, patch: Partial<OnboardingCategory>) => {
     setCategories((cs) => cs.map((c, i) => (i === catIdx ? { ...c, ...patch } : c)));
@@ -629,6 +632,9 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
                     <th className="px-3 py-2.5 font-medium w-32">期日オフセット(日)</th>
                     <th className="px-3 py-2.5 font-medium w-20">必須</th>
                     <th className="px-3 py-2.5 font-medium w-32">デフォルト担当</th>
+                    {showCourseSelector && (
+                      <th className="px-3 py-2.5 font-medium w-36">対象コース</th>
+                    )}
                     <th className="px-3 py-2.5 font-medium w-14"></th>
                   </tr>
                 </thead>
@@ -679,6 +685,26 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
                           ))}
                         </select>
                       </td>
+                      {showCourseSelector && (
+                        <td className="px-3 py-2">
+                          <select
+                            className={`${inputCls} !py-1.5`}
+                            value={it.courseKey ?? ""}
+                            onChange={(e) =>
+                              updateItem(catIdx, itemIdx, {
+                                courseKey: e.target.value === "" ? null : e.target.value
+                              })
+                            }
+                          >
+                            <option value="">全コース共通</option>
+                            {courses.map((c) => (
+                              <option key={c.key} value={c.key}>
+                                {c.shortName ?? c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      )}
                       <td className="px-3 py-2 text-right">
                         <button
                           onClick={() => removeItem(catIdx, itemIdx)}
@@ -692,7 +718,7 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
                   ))}
                   {cat.items.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-3 py-4 text-center text-xs text-ink-500">
+                      <td colSpan={showCourseSelector ? 6 : 5} className="px-3 py-4 text-center text-xs text-ink-500">
                         項目がありません
                       </td>
                     </tr>

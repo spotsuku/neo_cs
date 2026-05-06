@@ -59,7 +59,7 @@ export default function NewProductPage() {
   return (
     <>
       <TopNav current="/settings" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
         {/* ヘッダー */}
         <section>
           <div className="flex items-center gap-2 text-xs text-ink-500 font-medium">
@@ -75,7 +75,7 @@ export default function NewProductPage() {
           </div>
           <div className="mt-1 flex items-end justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">新規研修を追加</h1>
+              <h1 className="text-xl font-bold tracking-tight">新規研修を追加</h1>
               <div className="mt-1 text-sm text-ink-500">
                 基本情報・契約条件・オンボーディング初期テンプレを登録します
               </div>

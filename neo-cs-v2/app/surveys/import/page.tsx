@@ -105,7 +105,7 @@ export default function SurveyImportPage() {
           <span className="text-ink-700">CSV取込</span>
         </div>
 
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-xl font-bold tracking-tight">
           <span className="brand-text-gradient">CSVから取り込む</span>
         </h1>
 

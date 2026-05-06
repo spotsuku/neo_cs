@@ -10,7 +10,6 @@ import { mockAssignmentRepo } from "./assignmentRepo";
 import { mockOneOnOneLogRepo } from "./oneOnOneLogRepo";
 import { mockChurnSignalRepo } from "./churnSignalRepo";
 import { mockExpansionOpportunityRepo } from "./expansionOpportunityRepo";
-import { mockRenewalMilestoneRepo } from "./renewalMilestoneRepo";
 import { mockVocItemRepo } from "./vocItemRepo";
 import { mockKpiSnapshotRepo } from "./kpiSnapshotRepo";
 import { mockContactRepo } from "./contactRepo";
@@ -28,6 +27,10 @@ import { mockBusinessJourneyRepo } from "./businessJourneyRepo";
 import { mockUserProgramRoleRepo } from "./userProgramRoleRepo";
 import { mockUserCompanyAccessRepo } from "./userCompanyAccessRepo";
 import { mockChatRepo } from "./chatRepo";
+import { mockJourneyCheckpointRepo } from "./journeyCheckpointRepo";
+import { mockContractLifecycleRepo } from "./contractLifecycleRepo";
+import { mockCompanyWeatherRepo } from "./companyWeatherRepo";
+import { mockCompanyVisionRepo } from "./companyVisionRepo";
 
 export const mockRepository: Repository = {
   companies: mockCompanyRepo,
@@ -41,7 +44,6 @@ export const mockRepository: Repository = {
   oneOnOneLogs: mockOneOnOneLogRepo,
   churnSignals: mockChurnSignalRepo,
   expansionOpportunities: mockExpansionOpportunityRepo,
-  renewalMilestones: mockRenewalMilestoneRepo,
   vocItems: mockVocItemRepo,
   kpiSnapshots: mockKpiSnapshotRepo,
   contacts: mockContactRepo,
@@ -58,5 +60,9 @@ export const mockRepository: Repository = {
   businessJourneys: mockBusinessJourneyRepo,
   userProgramRoles: mockUserProgramRoleRepo,
   userCompanyAccess: mockUserCompanyAccessRepo,
-  chats: mockChatRepo
+  chats: mockChatRepo,
+  journeyCheckpoints: mockJourneyCheckpointRepo,
+  contractLifecycle: mockContractLifecycleRepo,
+  companyWeatherOverrides: mockCompanyWeatherRepo,
+  companyVisions: mockCompanyVisionRepo
 };

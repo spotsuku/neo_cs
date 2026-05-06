@@ -1,6 +1,11 @@
 import { meetingLogs as seed } from "@/lib/mock/entities";
 import { DEFAULT_ORG_ID } from "../types";
-import type { MeetingLog, MeetingLogListOpts, MeetingLogRepo } from "../types";
+import type {
+  MeetingLog,
+  MeetingLogCreateInput,
+  MeetingLogListOpts,
+  MeetingLogRepo
+} from "../types";
 
 const store: MeetingLog[] = seed.map((m) => ({ ...m, organizationId: DEFAULT_ORG_ID }));
 
@@ -29,5 +34,14 @@ export const mockMeetingLogRepo: MeetingLogRepo = {
     const sorted = applySort(filtered, opts?.sort);
     const sliced = opts?.limit ? sorted.slice(0, opts.limit) : sorted;
     return sliced.map((m) => ({ ...m }));
+  },
+  async create(input: MeetingLogCreateInput) {
+    const log: MeetingLog = {
+      ...input,
+      id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      organizationId: input.organizationId ?? DEFAULT_ORG_ID
+    };
+    store.unshift(log);
+    return { ...log };
   }
 };

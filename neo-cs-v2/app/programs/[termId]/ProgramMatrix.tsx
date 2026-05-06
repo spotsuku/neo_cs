@@ -265,7 +265,7 @@ export function ProgramMatrix({
   }
 
   return (
-    <div className="liquid-surface overflow-auto max-h-[70vh]">
+    <div className="liquid-surface overflow-auto max-h-[calc(100vh-160px)]">
       <table className="text-sm border-separate border-spacing-0 table-fixed">
         <thead className="sticky top-0 z-20 bg-white">
           <tr>

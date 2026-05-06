@@ -436,7 +436,7 @@ export default function NewCompanyWizardPage() {
           </div>
           <div className="flex items-end justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold text-ink-900">
+              <h1 className="text-xl font-semibold text-ink-900">
                 企業を追加 — ステップ {step} / {STEP_TITLES.length}
               </h1>
               <p className="text-sm text-ink-500 mt-1">

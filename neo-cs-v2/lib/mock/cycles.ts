@@ -149,70 +149,10 @@ export const successPlans: SuccessPlan[] = [
 ];
 
 // ─────────────────────────────────────────────
-// RenewalMilestone（更新マイルストーン T-120/90/60/30）
+// 旧 RenewalMilestone (T-120/90/60/30) は廃止
+//   期日付きの更新タスクは事業別ToDo (program_company_tasks) に統合
+//   ステージ進捗は事業ジャーニー + JourneyCheckpoint に統合
 // ─────────────────────────────────────────────
-export type RenewalMilestoneType = "T-120" | "T-90" | "T-60" | "T-30";
 
-export const renewalMilestoneSpec: { type: RenewalMilestoneType; offsetDays: number; label: string; description: string }[] = [
-  { type: "T-120", offsetDays: -120, label: "価値実現レビュー", description: "Success Plan達成度の初期確認" },
-  { type: "T-90",  offsetDays: -90,  label: "更新意向ヒアリング", description: "Green/Yellow/Red判定" },
-  { type: "T-60",  offsetDays: -60,  label: "更新提案", description: "提案書・拡大提案の提示" },
-  { type: "T-30",  offsetDays: -30,  label: "クロージング", description: "契約書送付・最終合意" }
-];
-
-// reviews/02_CS責任者.md 指摘 (G項):
-// 旧設計では「日付経過 → 自動 done」としていたため、形骸化していた。
-// 担当 CS が明示的に completed をマークし、証跡 (note / attachmentUrl) を残す
-// 設計に変更。日付超過した未着手は overdue として **派生表示** する。
-//
-// status:
-//   - pending      未着手 (旧 "todo")
-//   - in_progress  着手中 (担当者が「対応中」マーク)
-//   - done         完了 (担当者が証跡付きで完了マーク)
-//   - skipped      スキップ (理由必須)
-// overdue は status とは別概念で、(status=pending|in_progress) AND (dueDate < today) で派生
-export type RenewalMilestoneStatus = "pending" | "in_progress" | "done" | "skipped";
-
-export type RenewalMilestoneEvidence = {
-  note?: string;
-  attachmentUrl?: string;
-};
-
-export type RenewalMilestone = {
-  id: string;
-  contractId: string;
-  type: RenewalMilestoneType;
-  dueDate: string;
-  status: RenewalMilestoneStatus;
-  /** done 時に必須。誰が完了マークしたか */
-  completedBy?: string; // app_users.id
-  completedAt?: string; // ISO
-  /** 完了時の証跡 (CS監査用) */
-  evidence?: RenewalMilestoneEvidence;
-  /** skipped 時に必須 */
-  skippedReason?: string;
-  note?: string; // 旧フィールド互換
-};
-
-function offsetDate(base: string, days: number): string {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-/**
- * 契約のendDateから逆算して4マイルストーンを自動生成 (status は全て "pending")。
- *
- * **重要**: 旧バージョンは日付経過で自動 "done" にしていたが、これを廃止した。
- * 完了は担当 CS が `markDone(id, evidence)` を明示的に呼ぶこと。
- * 日付超過は `isOverdue(milestone, today)` で派生判定する (lib/domain/renewal.ts)。
- */
-export function generateRenewalMilestones(contractId: string, endDate: string): RenewalMilestone[] {
-  return renewalMilestoneSpec.map((spec) => ({
-    id: `${contractId}-${spec.type}`,
-    contractId,
-    type: spec.type,
-    dueDate: offsetDate(endDate, spec.offsetDays),
-    status: "pending"
-  }));
-}
+// 旧 RenewalMilestone 型・generateRenewalMilestones 関数は削除済み。
+// 期日付きの更新タスクが必要な場合は program_company_tasks (事業別ToDo) を使うこと。

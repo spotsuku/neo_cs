@@ -20,6 +20,8 @@ import type { Contract } from "@/lib/mock/contracts";
 import type { ProgramTerm } from "@/lib/repository";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
+import { resolveSenderEmail } from "@/lib/domain/email-routing";
+import { addContactFromEmailAction } from "./actions";
 import { ReplyEditor, type ReplySubmit } from "./ReplyEditor";
 
 const TODAY = "2026-04-24";
@@ -276,7 +278,7 @@ export function InboxView({
       {/* ヘッダ */}
       <header className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink-900">受信箱</h1>
+          <h1 className="text-xl font-bold tracking-tight text-ink-900">受信箱</h1>
           <p className="text-xs text-ink-500 mt-0.5">
             メール×AIで進捗を自動抽出。CS運用の中核
           </p>
@@ -645,11 +647,8 @@ export function InboxView({
                     <div className="flex items-center justify-between gap-2 text-[11px] text-ink-500">
                       <FromLine
                         email={m.from}
-                        contact={contactByEmail.get(m.from.toLowerCase())}
-                        company={(() => {
-                          const cc = contactByEmail.get(m.from.toLowerCase());
-                          return cc ? companyById.get(cc.companyId) : undefined;
-                        })()}
+                        companies={companies}
+                        contacts={contacts}
                       />
                       <span>{new Date(m.sentAt).toLocaleString("ja-JP")}</span>
                     </div>
@@ -657,6 +656,13 @@ export function InboxView({
                       To: {m.to.join(", ")}
                       {m.cc.length > 0 && <span className="ml-2">Cc: {m.cc.join(", ")}</span>}
                     </div>
+                    {m.direction === "inbound" && (
+                      <UnregisteredSenderSuggestion
+                        email={m.from}
+                        companies={companies}
+                        contacts={contacts}
+                      />
+                    )}
                     <pre className="mt-2 text-sm text-ink-900 whitespace-pre-wrap font-sans leading-relaxed">
                       {m.body}
                     </pre>
@@ -967,37 +973,122 @@ const COMMUNITY_LABEL: Record<ContactCommunityTier, string> = {
 
 function FromLine({
   email,
-  contact,
-  company
+  companies,
+  contacts
 }: {
   email: string;
-  contact?: Contact;
-  company?: Company;
+  companies: Company[];
+  contacts: Contact[];
 }) {
-  if (!contact) {
-    // 突合できない場合はメールアドレスのみ（社内アドレス等）
-    return <span className="font-medium text-ink-700">{email}</span>;
+  const resolution = resolveSenderEmail(email, companies, contacts);
+
+  if (resolution.kind === "known_contact") {
+    const { contact, company } = resolution;
+    return (
+      <span className="flex items-center gap-1.5 flex-wrap">
+        {company && (
+          <Link
+            href={`/companies/${company.id}`}
+            className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-700 hover:bg-ink-200"
+          >
+            {company.name}
+          </Link>
+        )}
+        <span className="font-semibold text-ink-900">{contact.name}</span>
+        <span className="text-ink-500">{contact.title}</span>
+        {contact.community && (
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded-full border ${COMMUNITY_TONE[contact.community]}`}
+          >
+            {COMMUNITY_LABEL[contact.community]}
+          </span>
+        )}
+        <span className="text-[10px] text-ink-400">&lt;{email}&gt;</span>
+      </span>
+    );
   }
-  return (
-    <span className="flex items-center gap-1.5 flex-wrap">
-      {company && (
+
+  if (resolution.kind === "domain_match") {
+    // ドメインのみ一致 — 同社の未登録の送信元として表示
+    return (
+      <span className="flex items-center gap-1.5 flex-wrap">
         <Link
-          href={`/companies/${company.id}`}
+          href={`/companies/${resolution.company.id}`}
           className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-700 hover:bg-ink-200"
         >
-          {company.name}
+          {resolution.company.name}
         </Link>
-      )}
-      <span className="font-semibold text-ink-900">{contact.name}</span>
-      <span className="text-ink-500">{contact.title}</span>
-      {contact.community && (
-        <span
-          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${COMMUNITY_TONE[contact.community]}`}
-        >
-          {COMMUNITY_LABEL[contact.community]}
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700">
+          未登録の送信元
         </span>
-      )}
-      <span className="text-[10px] text-ink-400">&lt;{email}&gt;</span>
-    </span>
+        <span className="font-medium text-ink-700">{email}</span>
+      </span>
+    );
+  }
+
+  // unknown / 社内アドレス等
+  return <span className="font-medium text-ink-700">{email}</span>;
+}
+
+/**
+ * 受信メールの送信元が「企業ドメインに一致するが contacts 未登録」の場合に
+ * 担当者として追加するかどうかを提案するインライン UI。
+ */
+function UnregisteredSenderSuggestion({
+  email,
+  companies,
+  contacts
+}: {
+  email: string;
+  companies: Company[];
+  contacts: Contact[];
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const resolution = resolveSenderEmail(email, companies, contacts);
+  if (resolution.kind !== "domain_match") return null;
+
+  const handleAdd = async () => {
+    setPending(true);
+    setError(null);
+    const result = await addContactFromEmailAction({
+      companyId: resolution.company.id,
+      email
+    });
+    setPending(false);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setDone(true);
+  };
+
+  if (done) {
+    return (
+      <div className="mt-2 rounded-md border border-emerald-100 bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-700">
+        ✓ {resolution.company.name} の担当者として追加しました（次回読み込みで反映）
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-amber-100 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
+      <span>
+        この送信元は <b>{resolution.company.name}</b> のドメイン（
+        <code className="font-mono">{resolution.domain}</code>
+        ）と一致しますが、担当者として未登録です。
+      </span>
+      <button
+        type="button"
+        onClick={handleAdd}
+        disabled={pending}
+        className="px-2 py-0.5 rounded-full bg-ink-900 text-white text-[10px] hover:opacity-90 disabled:opacity-50"
+      >
+        {pending ? "追加中…" : "担当者として追加"}
+      </button>
+      {error && <span className="text-rose-600">{error}</span>}
+    </div>
   );
 }

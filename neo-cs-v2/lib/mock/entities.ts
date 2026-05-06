@@ -28,6 +28,12 @@ export type Company = {
   // 0019_is_demo_flag.sql: 本番運用前のダミーデータかどうか
   // (mock の seed は明示しない=undefined。リポジトリ層で true 扱い)
   isDemo?: boolean;
+  // 0027_companies_logo.sql: 企業ロゴ画像 (URL または data URI)
+  logoUrl?: string;
+  // Gmail 連携: この企業に紐づくメールドメイン（複数可）
+  // 受信メールの送信元ドメインがここに含まれていれば、未登録の送信元でも
+  // 「同社の担当者として追加するか」を提案する
+  domains?: string[];
 };
 
 // ─────────────────────────────────────────────
@@ -150,7 +156,59 @@ const baseCompanies: Company[] = [
   ...cRows
 ];
 
-export const companies: Company[] = [...baseCompanies, ...extraCompanies];
+// ─────────────────────────────────────────────
+// ダミーロゴ生成
+//   - 実運用では Supabase Storage の公開 URL を companies.logo_url に保存
+//   - mock では社名から決定的に色を選び、頭文字 SVG を data URI 化して埋め込む
+// ─────────────────────────────────────────────
+const LOGO_PALETTE = [
+  ["#0EA5E9", "#0369A1"], // sky
+  ["#22C55E", "#15803D"], // green
+  ["#F97316", "#C2410C"], // orange
+  ["#A855F7", "#6B21A8"], // purple
+  ["#EF4444", "#991B1B"], // red
+  ["#14B8A6", "#0F766E"], // teal
+  ["#EAB308", "#854D0E"], // amber
+  ["#EC4899", "#9D174D"]  // pink
+];
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function initialFor(name: string): string {
+  // 「株式会社」等のプレフィックス/サフィックスを除いた最初の意味のある文字
+  const cleaned = name
+    .replace(/^株式会社|^合同会社|^一般社団法人|^公益社団法人/g, "")
+    .replace(/株式会社$|ホールディングス$|HD$/g, "")
+    .trim();
+  return (cleaned[0] ?? name[0] ?? "?").toUpperCase();
+}
+
+function buildLogoDataUri(name: string): string {
+  const [bg, fg] = LOGO_PALETTE[hashStr(name) % LOGO_PALETTE.length];
+  const ch = initialFor(name);
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">` +
+    `<rect width="64" height="64" rx="12" fill="${bg}"/>` +
+    `<text x="50%" y="50%" dy=".1em" text-anchor="middle" dominant-baseline="middle" ` +
+    `font-family="system-ui,-apple-system,sans-serif" font-size="32" font-weight="700" fill="${fg}">${ch}</text>` +
+    `</svg>`;
+  // Node / Browser 双方で動く base64 化
+  const b64 =
+    typeof Buffer !== "undefined"
+      ? Buffer.from(svg, "utf-8").toString("base64")
+      : btoa(unescape(encodeURIComponent(svg)));
+  return `data:image/svg+xml;base64,${b64}`;
+}
+
+function withLogo(c: Company): Company {
+  return { ...c, logoUrl: c.logoUrl ?? buildLogoDataUri(c.name) };
+}
+
+export const companies: Company[] = [...baseCompanies, ...extraCompanies].map(withLogo);
 
 // 企業担当者（企業側の担当）
 // 担当ロール: scope（NEO全体 or 事業単位）× level（役員/決裁者/責任者/担当者）
@@ -160,6 +218,8 @@ export type ContactRoleLevel = "executive" | "approver" | "lead" | "member";
 export type ContactRole = {
   scope: ContactRoleScope;
   level: ContactRoleLevel;
+  /** 期 (cycleNumber)。未指定は全期共通として扱う。新規追加時は明示的に期を指定 */
+  cycleNo?: number;
 };
 // 機能別連絡窓口タグ（契約/広報/招待/各事業連絡）
 export type ContactFunction = "contract" | "pr" | "invitation" | "liaison";
@@ -188,6 +248,8 @@ export type Contact = {
   functions?: ContactFunction[];
   community?: ContactCommunityTier;
   personality?: ContactPersonality[];
+  /** 備考欄（自由記述）。趣味嗜好・関係性・関係構築のヒント等を記録 */
+  note?: string;
 };
 
 export const contacts: Contact[] = [
@@ -252,6 +314,62 @@ export const contacts: Contact[] = [
   }
 ];
 
+// ─────────────────────────────────────────────
+// 企業ドメインの自動シード
+//   - 既存 contacts.email から company → domain set を構築し、
+//     companies.domains 未指定なら埋める
+//   - フリーメール (gmail.com 等) は除外: 個人メール由来の汚染を避ける
+//   - 大文字小文字は無視（小文字に正規化）
+// ─────────────────────────────────────────────
+const FREE_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "yahoo.co.jp",
+  "yahoo.com",
+  "outlook.com",
+  "outlook.jp",
+  "hotmail.com",
+  "icloud.com",
+  "me.com",
+  "live.jp",
+  "live.com"
+]);
+
+function domainFromEmail(email: string): string | null {
+  const at = email.lastIndexOf("@");
+  if (at < 0 || at === email.length - 1) return null;
+  return email.slice(at + 1).toLowerCase().trim() || null;
+}
+
+const domainsByCompany = new Map<string, Set<string>>();
+for (const ct of contacts) {
+  const d = domainFromEmail(ct.email);
+  if (!d || FREE_EMAIL_DOMAINS.has(d)) continue;
+  const set = domainsByCompany.get(ct.companyId) ?? new Set<string>();
+  set.add(d);
+  domainsByCompany.set(ct.companyId, set);
+}
+// contacts カバレッジ外の会社向け補完シード
+//   entities.contacts 配列に登録されていないが mock email threads
+//   などで送信元として登場する企業に、デモ用ドメインを手当てする
+const SUPPLEMENT_DOMAIN_SEEDS: Record<string, string[]> = {
+  "c-jrq": ["jrkyushu.co.jp"],
+  "c-saibugas": ["saibugas.co.jp"],
+  "c-ffg": ["ffg.co.jp"],
+  "c-yamae": ["yamae.co.jp"],
+  "c-fukuokashi": ["city.fukuoka.lg.jp"],
+  "c-kyudenko": ["kyudenko.co.jp"]
+};
+for (const c of companies) {
+  if (c.domains && c.domains.length > 0) continue;
+  const seeded = domainsByCompany.get(c.id);
+  const supplement = SUPPLEMENT_DOMAIN_SEEDS[c.id];
+  const merged = new Set<string>([
+    ...(seeded ?? []),
+    ...(supplement ?? [])
+  ]);
+  if (merged.size > 0) c.domains = Array.from(merged).sort();
+}
+
 // 面談ログ（全研修混在・タグ付き）
 export type MeetingLog = {
   id: string;
@@ -266,6 +384,10 @@ export type MeetingLog = {
   next?: string;
   authorName: string;
   aiGenerated?: boolean;
+  /** 面談/商談 (mtg): Notion AI議事録の URL */
+  notionUrl?: string;
+  /** 電話 (call): 発信元の連絡先 (contacts.id) */
+  callerContactId?: string;
 };
 
 export const meetingLogs: MeetingLog[] = [

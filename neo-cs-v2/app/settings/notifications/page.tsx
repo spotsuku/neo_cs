@@ -83,7 +83,7 @@ export default function NotificationsSettingsPage() {
   return (
     <>
       <TopNavServer current="/settings" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
           ⚠ このページは UI モックです。Slack/メール通知ルールの永続化はまだ実装されていません（準備中）。
         </div>
@@ -95,7 +95,7 @@ export default function NotificationsSettingsPage() {
               <span className="mx-1.5 text-ink-300">/</span>
               <span>通知設定</span>
             </div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+            <h1 className="mt-1 text-xl font-bold tracking-tight">
               <span className="brand-text-gradient">通知設定</span>
             </h1>
             <div className="mt-1 text-sm text-ink-500">

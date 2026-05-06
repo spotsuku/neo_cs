@@ -1,8 +1,9 @@
 import { TopNavServer } from "@/components/TopNavServer";
+import { SectionSubNav, SIGNAL_SUBNAV } from "@/components/SectionSubNav";
 import { AttendanceClient } from "./AttendanceClient";
 import { participants, sessions, attendanceRecords } from "@/lib/mock/participants";
 import { allContracts } from "@/lib/mock/onboarding";
-import { companies } from "@/lib/mock/entities";
+import { companies, contacts } from "@/lib/mock/entities";
 import { products } from "@/lib/mock/data";
 
 export default async function AttendancePage({
@@ -15,12 +16,14 @@ export default async function AttendancePage({
   return (
     <>
       <TopNavServer current="/attendance" />
+      <SectionSubNav items={SIGNAL_SUBNAV} />
       <AttendanceClient
         initialParticipants={participants}
         initialSessions={sessions}
         initialRecords={attendanceRecords}
         contracts={allContracts}
         companies={companies}
+        contacts={contacts}
         products={products}
         initialSessionId={initialSessionId}
       />

@@ -8,7 +8,7 @@
 //   - admin: マネージャー / 横断ナビ全て表示。Manager/Member トグルが見える
 //   - manager: マネージャーリンクが表示される
 //   - member: マネージャーリンクは表示されない
-//   - external: マネージャー / 受信箱 / 事業ToDo 等の横断ナビが非表示
+//   - external: マネージャー / 受信箱 / 事業別ToDo 等の横断ナビが非表示
 //
 // 走らせる前に: `npx playwright install chromium` と `npm run dev` が必要。
 
@@ -56,10 +56,10 @@ test.describe("ロール別 TopNav", () => {
     await expect(page.getByRole("link", { name: "マネージャー" })).toHaveCount(0);
   });
 
-  test("external は横断ナビ（受信箱・事業ToDo・チーム等）が非表示", async ({ page }) => {
+  test("external は横断ナビ（受信箱・事業別ToDo・チーム等）が非表示", async ({ page }) => {
     await gotoWithUser(page, "external-demo@example.com", "/");
     await expect(page.getByRole("link", { name: "受信箱" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "事業ToDo" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "事業別ToDo" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "チーム" })).toHaveCount(0);
     // ダッシュボード / 企業 / マイページ等は見える
     await expect(page.getByRole("link", { name: "企業" })).toBeVisible();

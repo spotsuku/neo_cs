@@ -93,14 +93,17 @@ export const mockContractRepo: ContractRepo = {
           throw err;
         }
       }
-      // 同一 product の二重 active も禁止
+      // 同一 product の二重 active は原則禁止。
+      // ただし next-cycle 作成（previousContractId 指定）の場合は許可する。
+      // これは「内諾後に次期契約を起票し、現行サイクルが終了 → 自動 renewed
+      // 切替」というフローで一時的に2世代並走するため。
       const dupSameProduct = store.find(
         (c) =>
           c.companyId === input.companyId &&
           c.product === input.product &&
           ACTIVE.has(c.status)
       );
-      if (dupSameProduct) {
+      if (dupSameProduct && input.previousContractId !== dupSameProduct.id) {
         const err: Error & { code?: string } = new Error(
           `${input.product} の active 契約が既に存在します (${dupSameProduct.id})`
         );

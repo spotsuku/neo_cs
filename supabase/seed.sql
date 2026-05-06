@@ -66,6 +66,44 @@ insert into companies (id, organization_id, corporate_number, name, kana, indust
   ('c_omicron', '00000000-0000-0000-0000-000000000001', NULL, 'デモOmicron医療株式会社', 'でもおみくろん', '医療', '福岡市博多区', NULL, '132af423-6f3b-46da-8438-db1baaed1639', NULL, true)
 on conflict (id) do nothing;
 
+-- ロゴ画像 (0027_companies_logo.sql): SVG を base64 化した data URI でダミーを設定
+-- 実運用では Supabase Storage の公開 URL を入れる想定。
+do $$
+declare
+  rec record;
+  palette text[][] := array[
+    array['#0EA5E9', '#0369A1'],
+    array['#22C55E', '#15803D'],
+    array['#F97316', '#C2410C'],
+    array['#A855F7', '#6B21A8'],
+    array['#EF4444', '#991B1B'],
+    array['#14B8A6', '#0F766E'],
+    array['#EAB308', '#854D0E'],
+    array['#EC4899', '#9D174D']
+  ];
+  bg text;
+  fg text;
+  ch text;
+  svg text;
+  idx int;
+begin
+  for rec in select id, name from companies where logo_url is null loop
+    idx := (abs(hashtext(rec.id)) % 8) + 1;
+    bg  := palette[idx][1];
+    fg  := palette[idx][2];
+    -- 「株式会社」等を除いた最初の文字 (multibyte 対応)
+    ch  := upper(substr(regexp_replace(rec.name, '^(株式会社|合同会社|一般社団法人|公益社団法人)', ''), 1, 1));
+    svg := '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+        || '<rect width="64" height="64" rx="12" fill="' || bg || '"/>'
+        || '<text x="32" y="44" text-anchor="middle" '
+        || 'font-family="system-ui,sans-serif" font-size="32" font-weight="700" fill="' || fg || '">'
+        || ch || '</text></svg>';
+    update companies
+       set logo_url = 'data:image/svg+xml;base64,' || encode(convert_to(svg, 'UTF8'), 'base64')
+     where id = rec.id;
+  end loop;
+end $$;
+
 -- rows: 45
 insert into assignments (id, organization_id, company_id, user_id, role, assigned_by, note) values
   ('6e4c0e59-bf88-4f0b-8b8f-9866fb168c2b', '00000000-0000-0000-0000-000000000001', 'c_alpha', 'd659b5e1-f050-4cdf-842e-04cb71431ede', 'primary', 'e6696c4f-b397-4345-86ed-cd9d7820144c', NULL),
@@ -1768,12 +1806,12 @@ on conflict (id) do nothing;
 
 -- rows: 6
 insert into voc_items (id, organization_id, source_type, source_id, contract_id, company_id, excerpt, tags, status, priority, linked_pr_url, assigned_to, created_by, triaged_by, triaged_at, shipped_at, customer_notified_at, notified_at) values
-  ('voc_001', '00000000-0000-0000-0000-000000000001', 'survey_response', 'sr_sv_k_alpha_academia_q1_3', 'k_alpha_academia', 'c_alpha', 'もう少し実例を増やしてほしい', array['教材', '要望']::text[], 'new', 'high', NULL, NULL, 'e6696c4f-b397-4345-86ed-cd9d7820144c', NULL, NULL, NULL, NULL, NULL),
-  ('voc_002', '00000000-0000-0000-0000-000000000001', 'meeting_log', 'ml_c_beta_2', 'k_beta_hyogikai', 'c_beta', 'オンライン参加用の機能が欲しい', array['機能要望', 'UX']::text[], 'triaged', 'med', NULL, 'c1263593-a30b-4460-8e27-3bf887e40cfa', 'e6696c4f-b397-4345-86ed-cd9d7820144c', 'c1263593-a30b-4460-8e27-3bf887e40cfa', '2026-04-29T11:00:00+09:00', NULL, NULL, NULL),
-  ('voc_003', '00000000-0000-0000-0000-000000000001', 'weekly_review', 'wr_c_gamma_commu_2026w15', 'k_gamma_commu', 'c_gamma', '宿題管理の通知が来ない不満あり', array['不満', '通知']::text[], 'backlog', 'high', NULL, 'c1263593-a30b-4460-8e27-3bf887e40cfa', 'e6696c4f-b397-4345-86ed-cd9d7820144c', 'c1263593-a30b-4460-8e27-3bf887e40cfa', '2026-04-29T11:00:00+09:00', NULL, NULL, NULL),
-  ('voc_004', '00000000-0000-0000-0000-000000000001', 'survey_response', 'sr_sv_k_delta_aiken_q1_2', NULL, 'c_delta', '事前資料を早めに送ってほしい', array['要望', '運営']::text[], 'new', 'med', NULL, NULL, 'e6696c4f-b397-4345-86ed-cd9d7820144c', NULL, NULL, NULL, NULL, NULL),
-  ('voc_005', '00000000-0000-0000-0000-000000000001', 'meeting_log', 'ml_c_kappa_1', 'k_kappa_academia', 'c_kappa', '他社事例の共有会を増やしてほしい', array['提案', 'コミュニティ']::text[], 'triaged', 'med', NULL, 'c1263593-a30b-4460-8e27-3bf887e40cfa', 'e6696c4f-b397-4345-86ed-cd9d7820144c', 'c1263593-a30b-4460-8e27-3bf887e40cfa', '2026-04-29T11:00:00+09:00', NULL, NULL, NULL),
-  ('voc_006', '00000000-0000-0000-0000-000000000001', 'weekly_review', 'wr_c_nu_hyogikai_2026w16', 'k_nu_hyogikai', 'c_nu', 'ファシリテーター変更後に質が向上した', array['称賛', '運営']::text[], 'shipped', 'low', NULL, 'c1263593-a30b-4460-8e27-3bf887e40cfa', 'e6696c4f-b397-4345-86ed-cd9d7820144c', 'c1263593-a30b-4460-8e27-3bf887e40cfa', '2026-04-29T11:00:00+09:00', '2026-04-30T11:00:00+09:00', NULL, NULL)
+  ('voc_001', '00000000-0000-0000-0000-000000000001', 'survey_response', 'sr_sv_k_alpha_academia_q1_3', 'k_alpha_academia', 'c_alpha', 'もう少し実例を増やしてほしい', array['教材', '要望']::text[], 'open', 'high', NULL, NULL, 'e6696c4f-b397-4345-86ed-cd9d7820144c', NULL, NULL, NULL, NULL, NULL),
+  ('voc_002', '00000000-0000-0000-0000-000000000001', 'meeting_log', 'ml_c_beta_2', 'k_beta_hyogikai', 'c_beta', 'オンライン参加用の機能が欲しい', array['機能要望', 'UX']::text[], 'in_progress', 'med', NULL, 'c1263593-a30b-4460-8e27-3bf887e40cfa', 'e6696c4f-b397-4345-86ed-cd9d7820144c', 'c1263593-a30b-4460-8e27-3bf887e40cfa', '2026-04-29T11:00:00+09:00', NULL, NULL, NULL),
+  ('voc_003', '00000000-0000-0000-0000-000000000001', 'weekly_review', 'wr_c_gamma_commu_2026w15', 'k_gamma_commu', 'c_gamma', '宿題管理の通知が来ない不満あり', array['不満', '通知']::text[], 'in_progress', 'high', NULL, 'c1263593-a30b-4460-8e27-3bf887e40cfa', 'e6696c4f-b397-4345-86ed-cd9d7820144c', 'c1263593-a30b-4460-8e27-3bf887e40cfa', '2026-04-29T11:00:00+09:00', NULL, NULL, NULL),
+  ('voc_004', '00000000-0000-0000-0000-000000000001', 'survey_response', 'sr_sv_k_delta_aiken_q1_2', NULL, 'c_delta', '事前資料を早めに送ってほしい', array['要望', '運営']::text[], 'open', 'med', NULL, NULL, 'e6696c4f-b397-4345-86ed-cd9d7820144c', NULL, NULL, NULL, NULL, NULL),
+  ('voc_005', '00000000-0000-0000-0000-000000000001', 'meeting_log', 'ml_c_kappa_1', 'k_kappa_academia', 'c_kappa', '他社事例の共有会を増やしてほしい', array['提案', 'コミュニティ']::text[], 'in_progress', 'med', NULL, 'c1263593-a30b-4460-8e27-3bf887e40cfa', 'e6696c4f-b397-4345-86ed-cd9d7820144c', 'c1263593-a30b-4460-8e27-3bf887e40cfa', '2026-04-29T11:00:00+09:00', NULL, NULL, NULL),
+  ('voc_006', '00000000-0000-0000-0000-000000000001', 'weekly_review', 'wr_c_nu_hyogikai_2026w16', 'k_nu_hyogikai', 'c_nu', 'ファシリテーター変更後に質が向上した', array['称賛', '運営']::text[], 'done', 'low', NULL, 'c1263593-a30b-4460-8e27-3bf887e40cfa', 'e6696c4f-b397-4345-86ed-cd9d7820144c', 'c1263593-a30b-4460-8e27-3bf887e40cfa', '2026-04-29T11:00:00+09:00', '2026-04-30T11:00:00+09:00', NULL, NULL)
 on conflict (id) do nothing;
 
 -- rows: 5

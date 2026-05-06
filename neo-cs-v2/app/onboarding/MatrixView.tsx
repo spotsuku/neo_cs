@@ -14,6 +14,7 @@ import {
 } from "@/lib/mock/data";
 import {
   productOnboardingTemplates,
+  filterTemplateByCourses,
   type ActiveContract
 } from "@/lib/mock/onboarding";
 import type {
@@ -57,7 +58,11 @@ export function MatrixView({
   today: string;
 }) {
   const p = productByCode[product];
-  const template = productOnboardingTemplates[product]
+  // 表示中契約の courseKey 集合に該当する項目（＋全コース共通）だけ列として残す
+  const template = filterTemplateByCourses(
+    productOnboardingTemplates[product],
+    contracts.map((c) => c.courseKey)
+  )
     .slice()
     .sort((a, b) => a.order - b.order);
 
@@ -140,9 +145,9 @@ export function MatrixView({
 
   function changeAssignee(item: ContractOnboardingItem, userId: string) {
     const next = userId || null;
-    const display = next ? userMap.get(next) ?? next : "";
     const original = item.assignee;
-    patchItem(item.contractId, item.id, { assignee: display });
+    // 楽観UI も保存値も userId に統一 (表示時に userMap で名前へ変換)
+    patchItem(item.contractId, item.id, { assignee: next ?? "" });
     startTransition(async () => {
       try {
         await setOnboardingItemAssignee(item.id, item.contractId, next);
@@ -208,9 +213,7 @@ export function MatrixView({
 
   // 列の責任者を一括設定
   function bulkApplyResponsible(catKey: string, itemKey: string, userId: string) {
-    setColResponsibleId((prev) => ({ ...prev, [colKey(catKey, itemKey)]: userId }));
     const next = userId || null;
-    const display = next ? userMap.get(next) ?? next : "";
     for (const c of contracts) {
       const items = localItems[c.id] ?? [];
       const item = items.find(
@@ -218,7 +221,7 @@ export function MatrixView({
       );
       if (!item) continue;
       if (item.status === "done" || item.status === "not_applicable") continue;
-      patchItem(c.id, item.id, { assignee: display });
+      patchItem(c.id, item.id, { assignee: next ?? "" });
       startTransition(async () => {
         try {
           await setOnboardingItemAssignee(item.id, c.id, next);
@@ -277,6 +280,13 @@ export function MatrixView({
             >
               企業
             </th>
+            <th
+              rowSpan={2}
+              style={{ minWidth: 80, width: 80 }}
+              className="sticky top-0 bg-white z-20 px-2 py-2 font-medium text-center border-l border-b border-ink-100"
+            >
+              進捗
+            </th>
             {template.map((cat) => (
               <th
                 key={cat.key}
@@ -286,12 +296,6 @@ export function MatrixView({
                 {cat.label}
               </th>
             ))}
-            <th
-              rowSpan={2}
-              className="sticky top-0 bg-white z-20 px-2 py-2 font-medium text-center min-w-[80px] border-l border-b border-ink-100"
-            >
-              進捗
-            </th>
           </tr>
           <tr>
             {allItems.map((it) => {
@@ -388,6 +392,12 @@ export function MatrixView({
                     </div>
                   </Link>
                 </td>
+                <td
+                  style={{ minWidth: 80, width: 80 }}
+                  className="px-2 py-2 text-center border-l border-b border-ink-100 text-[11px] font-bold whitespace-nowrap align-top"
+                >
+                  {prog.done}/{prog.total}
+                </td>
                 {allItems.map((it) => {
                   const item = findItem(c.id, it.catKey, it.key);
                   return (
@@ -445,9 +455,6 @@ export function MatrixView({
                     </td>
                   );
                 })}
-                <td className="px-2 py-2 text-center border-l border-b border-ink-100 text-[11px] font-bold whitespace-nowrap align-top">
-                  {prog.done}/{prog.total}
-                </td>
               </tr>
             );
           })}
@@ -510,19 +517,28 @@ export function MatrixView({
           );
         })()}
 
-      {/* 列ヘッダ 責任者プルダウン */}
+      {/* 列ヘッダ 責任者プルダウン (事業別ToDo と同型) */}
       {colResponsible &&
         (() => {
           const k = colKey(colResponsible.catKey, colResponsible.itemKey);
+          const cur = colResponsibleId[k] ?? null;
           return (
-            <AssigneeMenu
+            <ColumnResponsibleMenu
               x={colResponsible.x}
               y={colResponsible.y}
-              currentUserId={colResponsibleId[k] ?? null}
+              currentUserId={cur}
               users={users}
-              title="列の責任者 (一括設定)"
               onSelect={(uid) => {
-                bulkApplyResponsible(colResponsible.catKey, colResponsible.itemKey, uid);
+                // 列の責任者だけ更新 (セルへは反映しない)
+                setColResponsibleId((prev) => ({ ...prev, [k]: uid }));
+                setColResponsible(null);
+              }}
+              onApplyAll={() => {
+                bulkApplyResponsible(
+                  colResponsible.catKey,
+                  colResponsible.itemKey,
+                  cur ?? ""
+                );
                 setColResponsible(null);
               }}
               onClose={() => setColResponsible(null)}
@@ -577,12 +593,21 @@ function computeProgress(
   return { done, overdue, total };
 }
 
+// item.assignee は user id を保存する想定だが、既存 seed データは名前文字列を持つ。
+// 両者を吸収して「現在選択中の userId」を返す
 function userIdForAssignee(assignee: string, userMap: Map<string, string>): string | null {
   if (!assignee) return null;
+  if (userMap.has(assignee)) return assignee; // 既に id
   for (const [uid, name] of userMap) {
     if (name === assignee) return uid;
   }
   return null;
+}
+
+// 表示用: id なら名前、名前ならそのまま
+function displayAssignee(assignee: string, userMap: Map<string, string>): string {
+  if (!assignee) return "";
+  return userMap.get(assignee) ?? assignee;
 }
 
 function formatDate(d: string): string {
@@ -624,7 +649,7 @@ function CompactCell({
   onChangeDueDate: (d: string) => void;
 }) {
   const overdue = isOverdue(item, today);
-  const assigneeName = item.assignee || null;
+  const assigneeName = displayAssignee(item.assignee, userMap) || null;
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -867,6 +892,93 @@ function ColumnResponsibleTrigger({
     >
       {currentName ? `責任者: ${currentName}` : "責任者 +"}
     </button>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 列ヘッダ用: ユーザー選択 + 「全タスクをこの責任者に揃える」ボタン
+function ColumnResponsibleMenu({
+  x,
+  y,
+  currentUserId,
+  users,
+  onSelect,
+  onApplyAll,
+  onClose
+}: {
+  x: number;
+  y: number;
+  currentUserId: string | null;
+  users: { id: string; name: string }[];
+  onSelect: (uid: string) => void;
+  onApplyAll: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const click = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("[data-responsible-menu]")) return;
+      onClose();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("click", click);
+    window.addEventListener("keydown", key);
+    window.addEventListener("scroll", onClose, true);
+    return () => {
+      window.removeEventListener("click", click);
+      window.removeEventListener("keydown", key);
+      window.removeEventListener("scroll", onClose, true);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      role="menu"
+      data-responsible-menu
+      className="fixed z-50 bg-white rounded-xl border border-ink-200 shadow-liquid-lg py-1 w-[200px]"
+      style={{ left: x, top: y, transform: "translateX(-50%)" }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="px-3 py-1 text-[10px] text-ink-500 font-medium">
+        列の責任者
+      </div>
+      <button
+        type="button"
+        onClick={() => onSelect("")}
+        className={[
+          "w-full text-left px-3 py-1.5 text-xs hover:bg-ink-50",
+          !currentUserId ? "font-semibold bg-ink-50 text-ink-900" : "text-ink-700"
+        ].join(" ")}
+      >
+        未設定
+      </button>
+      {users.map((u) => (
+        <button
+          key={u.id}
+          type="button"
+          onClick={() => onSelect(u.id)}
+          className={[
+            "w-full text-left px-3 py-1.5 text-xs hover:bg-ink-50",
+            u.id === currentUserId
+              ? "font-semibold bg-ink-50 text-ink-900"
+              : "text-ink-700"
+          ].join(" ")}
+        >
+          {u.name}
+        </button>
+      ))}
+      <div className="border-t border-ink-100 my-1" />
+      <button
+        type="button"
+        onClick={onApplyAll}
+        disabled={!currentUserId}
+        className="w-full text-left px-3 py-2 text-xs text-sky-700 hover:bg-sky-50 disabled:text-ink-300 disabled:cursor-not-allowed"
+      >
+        ↻ 全タスクをこの責任者に揃える
+      </button>
+    </div>
   );
 }
 

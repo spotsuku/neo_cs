@@ -25,7 +25,6 @@ export async function setStakeholderEngagementTier(
     note: input.note
   });
   revalidatePath(`/companies/${input.companyId}`);
-  revalidatePath("/team");
   revalidatePath("/");
   return { ok: true };
 }

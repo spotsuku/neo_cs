@@ -40,7 +40,28 @@ export const dynamic = 'force-dynamic';
 
 const MAX_BODY_BYTES = 32 * 1024;
 const TIMEOUT_MS = 30_000;
-const MODEL = process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6';
+
+/**
+ * purpose → model の写像。質が KPI 直結する用途は Opus、
+ * 大量処理・定型抽出は Sonnet、超大量バッチ要約は Haiku。
+ * env で個別上書き可能。未指定 purpose は CLAUDE_MODEL_DEFAULT にフォールバック。
+ */
+const DEFAULT_MODEL = process.env.CLAUDE_MODEL_DEFAULT ?? process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6';
+const MODEL_BY_PURPOSE: Record<string, string> = {
+  survey_insight:  process.env.CLAUDE_MODEL_SURVEY_INSIGHT  ?? 'claude-opus-4-7',
+  weekly_review:   process.env.CLAUDE_MODEL_WEEKLY_REVIEW   ?? 'claude-opus-4-7',
+  voc_extraction:  process.env.CLAUDE_MODEL_VOC_EXTRACTION  ?? 'claude-opus-4-7',
+  mail_analysis:   process.env.CLAUDE_MODEL_MAIL_ANALYSIS   ?? 'claude-sonnet-4-6',
+  mail_extraction: process.env.CLAUDE_MODEL_MAIL_EXTRACTION ?? 'claude-sonnet-4-6',
+  mail_reply:      process.env.CLAUDE_MODEL_MAIL_REPLY      ?? 'claude-sonnet-4-6',
+  survey_import:   process.env.CLAUDE_MODEL_SURVEY_IMPORT   ?? 'claude-sonnet-4-6',
+  mail_summary:    process.env.CLAUDE_MODEL_MAIL_SUMMARY    ?? 'claude-haiku-4-5',
+};
+function resolveModel(purpose?: string): string {
+  if (purpose && MODEL_BY_PURPOSE[purpose]) return MODEL_BY_PURPOSE[purpose];
+  return DEFAULT_MODEL;
+}
+
 const MAX_TOKENS = Number(process.env.CLAUDE_MAX_TOKENS ?? 1024);
 
 export async function OPTIONS(req: NextRequest) {
@@ -108,6 +129,9 @@ export async function POST(req: NextRequest) {
     return json({ error: 'misconfigured', request_id: requestId }, 500, baseHeaders);
   }
 
+  const purpose = typeof body.purpose === 'string' ? body.purpose : undefined;
+  const model = resolveModel(purpose);
+
   const started = Date.now();
   let status = 0;
   let inputTokens: number | undefined;
@@ -124,7 +148,7 @@ export async function POST(req: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         max_tokens: MAX_TOKENS,
         messages: body.messages,
         ...(body.system ? { system: body.system } : {}),
@@ -162,6 +186,8 @@ export async function POST(req: NextRequest) {
     errorCode,
     inputTokens,
     outputTokens,
+    purpose,
+    model,
   });
 
   void logCall({
@@ -174,7 +200,8 @@ export async function POST(req: NextRequest) {
     outputTokens,
     latencyMs: latency,
     errorCode,
-    purpose: body.purpose,
+    purpose,
+    model,
   });
 
   if (errorCode) {
@@ -205,6 +232,7 @@ async function logCall(args: {
   latencyMs: number;
   errorCode?: string;
   purpose?: string;
+  model: string;
 }): Promise<void> {
   try {
     const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -223,7 +251,8 @@ async function logCall(args: {
     await svc.from('claude_api_calls').insert({
       actor_user_id: args.actor.userId,
       organization_id: args.actor.organizationId,
-      model: process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6',
+      model: args.model,
+      purpose: args.purpose ?? null,
       input_tokens: args.inputTokens ?? null,
       output_tokens: args.outputTokens ?? null,
       latency_ms: args.latencyMs,

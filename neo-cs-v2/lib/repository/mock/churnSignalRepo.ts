@@ -5,7 +5,6 @@
 import { activeContracts } from "@/lib/mock/onboarding";
 import { weeklyReviews, CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 import { meetingLogs } from "@/lib/mock/entities";
-import { generateRenewalMilestones } from "@/lib/mock/cycles";
 import { detectChurnSignals } from "@/lib/domain/churn";
 import { mockHealthSnapshotRepo } from "./healthSnapshotRepo";
 import { DEFAULT_ORG_ID } from "../types";
@@ -59,7 +58,9 @@ async function seedSignals(): Promise<ChurnSignalRecord[]> {
   const out: ChurnSignalRecord[] = [];
   for (const c of activeContracts) {
     const snapshots = await mockHealthSnapshotRepo.listByContract(c.id);
-    const milestones = c.endDate ? generateRenewalMilestones(c.id, c.endDate) : [];
+    // 旧 RenewalMilestone は廃止 → 検知ルール milestone_overdue は当面スキップ
+    // (program_company_tasks 連携は Phase 2 で対応)
+    const milestones: never[] = [];
     const meetings = deriveRecentMeetings(c.id, c.companyId, c.healthScore?.color);
     const activity = deriveActivity(c.companyId);
     // mock NPS: red→detractor、yellow→passive、green→promoter

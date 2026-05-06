@@ -1,6 +1,6 @@
 "use client";
 
-// 企業詳細ページ「業務ToDo」セクション (Client Component)
+// 企業詳細ページ「個社ToDo」セクション (Client Component)
 // - 状態別タブ (未着手/進行中/完了/スキップ)
 // - 期日順ソート、overdue 強調
 // - マーク完了/スキップ/取消 (ConfirmDialog 経由)
@@ -95,7 +95,7 @@ export function CompanyTasksSection({
     <section className="liquid-surface p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold text-ink-700">業務ToDo</div>
+          <div className="text-sm font-semibold text-ink-700">個社ToDo</div>
           <div className="text-[11px] text-ink-500 mt-0.5">
             オンボとは別の社内タスク (面談調整・提出物確認・資料送付など)
           </div>
@@ -139,7 +139,7 @@ export function CompanyTasksSection({
           {tab === "pending" ? "未着手のToDoはありません" : "該当するToDoはありません"}
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {visible.map((t) => {
             const overdue = isOverdue(t, TODAY);
             const member = members.find((m) => m.id === t.assignedTo);
@@ -314,7 +314,7 @@ function AddTaskModal({
         onSubmit={handleSubmit}
         className="relative bg-white rounded-2xl shadow-xl border border-ink-100 w-[min(560px,94vw)] p-6 space-y-4"
       >
-        <h2 className="text-base font-semibold text-ink-900">業務ToDoを追加</h2>
+        <h2 className="text-base font-semibold text-ink-900">個社ToDoを追加</h2>
 
         <div className="space-y-1">
           <label className="text-xs text-ink-700">タイトル *</label>

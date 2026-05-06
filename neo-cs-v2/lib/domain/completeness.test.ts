@@ -10,8 +10,7 @@ const baseInput = (): CompanyCompletenessInput => ({
   contacts: [],
   contracts: [],
   assignments: [],
-  onboarding: { taskCount: 0 },
-  stakeholders: []
+  onboarding: { taskCount: 0 }
 });
 
 const fullyFilled = (): CompanyCompletenessInput => ({
@@ -20,18 +19,9 @@ const fullyFilled = (): CompanyCompletenessInput => ({
     name: "テスト株式会社",
     industry: "IT",
     size: 500,
-    website: "https://example.com",
-    legalNumber: "1234567890123"
+    website: "https://example.com"
   },
-  contacts: [
-    {
-      isPrimary: true,
-      name: "田中太郎",
-      email: "tanaka@example.com",
-      title: "部長",
-      slackId: "U123"
-    }
-  ],
+  contacts: [],
   contracts: [
     {
       status: "active",
@@ -46,7 +36,6 @@ const fullyFilled = (): CompanyCompletenessInput => ({
     { role: "sales_owner" }
   ],
   onboarding: { taskCount: 3 },
-  stakeholders: [{ type: "champion" }],
   drive: { folderUrl: "https://drive.google.com/folder/abc" },
   postHandoff: true
 });
@@ -56,8 +45,8 @@ describe("checkCompanyCompleteness", () => {
     const r = checkCompanyCompleteness(baseInput());
     expect(r.score).toBe(0);
     expect(r.filledCount).toBe(0);
-    // 必須17項目 (drive と sales_owner は除外)
-    expect(r.totalCount).toBeGreaterThan(15);
+    // basic 4 + contract 4 + assign 1 (sales_owner除外) + onboard 2 = 11
+    expect(r.totalCount).toBeGreaterThan(9);
     // drive 項目は items に含まれるが scoreOptional=true
     const drive = r.items.find((i) => i.key === "drive.folderUrl");
     expect(drive?.scoreOptional).toBe(true);
@@ -132,25 +121,10 @@ describe("checkCompanyCompleteness", () => {
     expect(r.items.find((i) => i.key === "assign.primaryCs")?.filled).toBe(false);
   });
 
-  it("Champion stakeholder で onboard.champion が filled", () => {
-    const input = baseInput();
-    input.stakeholders = [{ type: "champion" }];
-    const r = checkCompanyCompleteness(input);
-    expect(r.items.find((i) => i.key === "onboard.champion")?.filled).toBe(true);
-  });
-
   it("missingByCategory はカテゴリ別に未入力項目を集約", () => {
     const r = checkCompanyCompleteness(baseInput());
-    expect(r.missingByCategory.basic.length).toBe(5);
-    expect(r.missingByCategory.contact.length).toBe(4);
-  });
-
-  it("primary 指定が無ければ最初の contact をフォールバック", () => {
-    const input = baseInput();
-    input.contacts = [{ name: "A", email: "a@x.jp" }];
-    const r = checkCompanyCompleteness(input);
-    expect(r.items.find((i) => i.key === "contact.primaryName")?.filled).toBe(true);
-    expect(r.items.find((i) => i.key === "contact.email")?.filled).toBe(true);
+    expect(r.missingByCategory.basic.length).toBe(4);
+    expect(r.missingByCategory.contract.length).toBe(4);
   });
 });
 

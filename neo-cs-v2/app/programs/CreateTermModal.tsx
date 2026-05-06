@@ -27,6 +27,8 @@ export function CreateTermModal({
   const [error, setError] = useState<string | null>(null);
 
   const [productCode, setProductCode] = useState<ProductCode>(defaultProductCode);
+  // スコープ: "common" = 全コース共通 / "course" = コース別
+  const [scope, setScope] = useState<"common" | "course">("common");
   const [courseKey, setCourseKey] = useState<string>("");
   const [cycleNo, setCycleNo] = useState<string>("");
   const [label, setLabel] = useState<string>("");
@@ -55,11 +57,19 @@ export function CreateTermModal({
       setError("ラベルを入力してください");
       return;
     }
+    if (showCourseSelect && scope === "course" && !courseKey) {
+      setError("コースを選択してください");
+      return;
+    }
     startTransition(async () => {
       try {
         const r = await createProgramTerm({
           productCode,
-          courseKey: showCourseSelect ? courseKey || null : courses[0]?.key ?? null,
+          courseKey: showCourseSelect
+            ? scope === "course"
+              ? courseKey
+              : null
+            : courses[0]?.key ?? null,
           cycleNo: cycleNo ? Number(cycleNo) : null,
           label: label.trim(),
           startedAt: startedAt || undefined,
@@ -94,79 +104,82 @@ export function CreateTermModal({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field
-            label="事業"
-            required
-            hint="どの研修ジャンルに属する期かを指定します"
+        <Field
+          label="事業"
+          required
+          hint="どの研修ジャンルに属する期かを指定します"
+        >
+          <select
+            value={productCode}
+            onChange={(e) => {
+              setProductCode(e.target.value as ProductCode);
+              setCourseKey("");
+              setScope("common");
+              setCopyFromTermId("");
+            }}
+            className="w-full px-2 py-1.5 text-sm rounded-lg border border-ink-200"
           >
-            <select
-              value={productCode}
-              onChange={(e) => {
-                setProductCode(e.target.value as ProductCode);
-                setCourseKey("");
-                setCopyFromTermId("");
-              }}
-              className="w-full px-2 py-1.5 text-sm rounded-lg border border-ink-200"
-            >
-              {products.map((p) => (
-                <option key={p.code} value={p.code}>
-                  {p.shortName}
-                </option>
-              ))}
-            </select>
-          </Field>
+            {products.map((p) => (
+              <option key={p.code} value={p.code}>
+                {p.shortName}
+              </option>
+            ))}
+          </select>
+        </Field>
 
-          {showCourseSelect ? (
-            <Field
-              label="コース"
-              hint="同じ事業内の細分コース。例: リーダー育成 / PJT共創。空なら全コース対象"
-            >
+        {showCourseSelect && (
+          <Field
+            label="ToDoの適用範囲"
+            required
+            hint="全コース共通のToDoか、特定コースのみのToDoかを選択します"
+          >
+            <div className="flex gap-2">
+              <ScopeOption
+                active={scope === "common"}
+                onClick={() => {
+                  setScope("common");
+                  setCourseKey("");
+                }}
+                title="全コース共通"
+                desc="この事業の全コースに適用"
+              />
+              <ScopeOption
+                active={scope === "course"}
+                onClick={() => setScope("course")}
+                title="コース別"
+                desc="特定コースだけに適用"
+              />
+            </div>
+            {scope === "course" && (
               <select
                 value={courseKey}
                 onChange={(e) => setCourseKey(e.target.value)}
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-ink-200"
+                className="mt-2 w-full px-2 py-1.5 text-sm rounded-lg border border-ink-200"
               >
-                <option value="">全コース対象</option>
+                <option value="">コースを選択…</option>
                 {courses.map((c) => (
                   <option key={c.key} value={c.key}>
                     {c.shortName}
                   </option>
                 ))}
               </select>
-            </Field>
-          ) : (
-            <Field
-              label="開催回 / 期"
-              hint="その期が何回目の開催か。例: 7 → 第7期。空なら未指定"
-            >
-              <input
-                type="number"
-                min={1}
-                value={cycleNo}
-                onChange={(e) => setCycleNo(e.target.value)}
-                placeholder="(任意)"
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-ink-200"
-              />
-            </Field>
-          )}
-        </div>
-
-        {showCourseSelect && (
-          <Field
-            label="開催回 / 期"
-            hint="その期が何回目の開催か。例: 7 → 第7期 / 3 → 3回目。空なら未指定 (期固有のスコープにしない場合)"
-          >
-            <input
-              type="number"
-              min={1}
-              value={cycleNo}
-              onChange={(e) => setCycleNo(e.target.value)}
-              placeholder="(任意)"
-              className="w-full px-2 py-1.5 text-sm rounded-lg border border-ink-200"
-            />
+            )}
           </Field>
         )}
+
+        <Field
+          label="開催回 / 期"
+          hint="その期が何回目の開催か。例: 7 → 第7期。空なら未指定"
+        >
+          <input
+            type="number"
+            min={1}
+            value={cycleNo}
+            onChange={(e) => setCycleNo(e.target.value)}
+            placeholder="(任意)"
+            className="w-full px-2 py-1.5 text-sm rounded-lg border border-ink-200"
+          />
+        </Field>
 
         <Field
           label="ラベル"
@@ -245,6 +258,34 @@ export function CreateTermModal({
         </div>
       </form>
     </div>
+  );
+}
+
+function ScopeOption({
+  active,
+  onClick,
+  title,
+  desc
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex-1 text-left px-3 py-2 rounded-lg border transition",
+        active
+          ? "border-ink-900 bg-ink-50/60 ring-1 ring-ink-900"
+          : "border-ink-200 hover:bg-ink-50/40"
+      ].join(" ")}
+    >
+      <div className="text-sm font-medium text-ink-900">{title}</div>
+      <div className="text-[11px] text-ink-500 mt-0.5">{desc}</div>
+    </button>
   );
 }
 

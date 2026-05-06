@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
+import { SectionSubNav, SIGNAL_SUBNAV } from "@/components/SectionSubNav";
 import { ProductBadge } from "@/components/ProductBadge";
 import {
   surveys,
@@ -56,11 +57,12 @@ export default function SurveysPage() {
   return (
     <>
       <TopNav current="/surveys" />
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
+      <SectionSubNav items={SIGNAL_SUBNAV} />
+      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-6">
         <section className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-500 font-medium">Survey</div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+            <h1 className="mt-1 text-xl font-bold tracking-tight">
               <span className="brand-text-gradient">アンケート</span>
             </h1>
             <div className="mt-1 text-sm text-ink-500">
