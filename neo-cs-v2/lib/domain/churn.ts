@@ -8,13 +8,14 @@
 //
 // 検知ルール:
 //   1. score_drop          直近4週で -15pt以上の急落
-//   2. score_low_streak    score < 55 が3週以上連続
+//   2. score_low_streak    score < HEALTH_THRESHOLDS.yellow (= 55) が3週以上連続
 //   3. consecutive_absence ミーティング欠席 直近2回連続
 //   4. milestone_overdue   T-60 を超過し未着手 (status=todo)
 //   5. usage_drop          直近4週の活動ペースがベースラインの50%以下
 //   6. survey_detractor    最新サーベイ NPS推奨度が 0..6 (detractor)
 
 import type { ProductCode } from "@/lib/mock/data";
+import { HEALTH_THRESHOLDS } from "./health";
 
 export type ChurnSignalRule =
   | "score_drop"
@@ -127,7 +128,7 @@ function ruleScoreLowStreak(input: DetectInput): Omit<ChurnSignal, "id" | "contr
   const sorted = [...input.snapshots].sort((a, b) => a.asOf.localeCompare(b.asOf));
   if (sorted.length < 3) return null;
   const last3 = sorted.slice(-3);
-  if (last3.every((s) => s.score < 55)) {
+  if (last3.every((s) => s.score < HEALTH_THRESHOLDS.yellow)) {
     return {
       rule: "score_low_streak",
       severity: SEVERITY_BY_RULE.score_low_streak,

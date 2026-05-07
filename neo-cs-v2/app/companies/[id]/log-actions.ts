@@ -5,8 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
-import type { ProductCode } from "@/lib/mock/data";
-import type { CompanyTaskPriority } from "@/lib/repository/types";
+import type { ProductCode, CompanyTaskPriority } from "@/lib/repository/types";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 
 export type LogTaskSuggestion = {

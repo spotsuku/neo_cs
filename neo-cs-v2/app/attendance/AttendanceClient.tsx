@@ -10,7 +10,8 @@ import type { ActiveContract } from "@/lib/mock/onboarding";
 import type { Company as MockCompany, Contact } from "@/lib/mock/entities";
 
 type Company = MockCompany;
-import type { ProductCode, products as ProductList } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/repository/types";
+import type { products as ProductList } from "@/lib/mock/data";
 import { AddSessionModal } from "./AddSessionModal";
 import { AddParticipantModal } from "./AddParticipantModal";
 import { ExpectedTargetModal } from "./ExpectedTargetModal";

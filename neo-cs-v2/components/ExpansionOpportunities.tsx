@@ -2,7 +2,7 @@
 // ChurnAlerts と並列配置を想定。score 高い順、kind バッジ付き。
 
 import Link from "next/link";
-import { expansionOpportunityRepo, companyRepo } from "@/lib/repository";
+import { expansionOpportunityRepo, companyRepo } from "@/lib/repository/server";
 import { ProductBadge } from "@/components/ProductBadge";
 import {
   EXPANSION_KIND_LABEL,

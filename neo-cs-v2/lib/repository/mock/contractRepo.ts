@@ -7,6 +7,7 @@ import type {
   ContractStatus
 } from "../types";
 import { useGlobalStore } from "./_global-store";
+import { mockMutate } from "./_mockMutate";
 
 const store = useGlobalStore<Contract[]>("__contractStore", () =>
   allContracts.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID }))
@@ -118,12 +119,28 @@ export const mockContractRepo: ContractRepo = {
       organizationId: input.organizationId ?? DEFAULT_ORG_ID
     };
     store.push(created);
+    await mockMutate({
+      entityType: "contracts",
+      entityId: created.id,
+      action: "create",
+      after: created,
+      organizationId: created.organizationId
+    });
     return { ...created };
   },
   async update(id, patch) {
     const idx = store.findIndex((c) => c.id === id);
     if (idx < 0) throw new Error(`Contract not found: ${id}`);
+    const before = { ...store[idx] };
     store[idx] = { ...store[idx], ...patch };
+    await mockMutate({
+      entityType: "contracts",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
     return { ...store[idx] };
   }
 };

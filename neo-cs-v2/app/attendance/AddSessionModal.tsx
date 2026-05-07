@@ -10,7 +10,7 @@ import {
   type Participant,
   type Session
 } from "@/lib/mock/participants";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/repository/types";
 
 type ScopeMode = "all" | "by_role";
 

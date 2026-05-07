@@ -2,7 +2,7 @@
 // 期日近い順 5 件。 isOverdue で強調。
 
 import Link from "next/link";
-import { companyTaskRepo, companyRepo, userRepo } from "@/lib/repository";
+import { companyTaskRepo, companyRepo, userRepo } from "@/lib/repository/server";
 import { isOverdue, sortByDueAsc, TASK_PRIORITY_LABEL } from "@/lib/domain/task";
 
 const TODAY = new Date().toISOString().slice(0, 10);

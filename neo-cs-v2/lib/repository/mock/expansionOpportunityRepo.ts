@@ -100,6 +100,7 @@ async function seedOpportunities(): Promise<ExpansionOpportunityRecord[]> {
 }
 
 import { useGlobalStore } from "./_global-store";
+import { mockMutate } from "./_mockMutate";
 const state = useGlobalStore<{
   store: ExpansionOpportunityRecord[];
   seeded: boolean;
@@ -159,8 +160,10 @@ export const mockExpansionOpportunityRepo: ExpansionOpportunityRepo = {
       id,
       evidence: { ...input.evidence }
     };
+    let before: ExpansionOpportunityRecord | undefined;
     if (idx >= 0) {
       const prev = store[idx];
+      before = clone(prev);
       merged.handedOffAt = prev.handedOffAt;
       merged.handedOffTo = prev.handedOffTo;
       merged.handedOffNote = prev.handedOffNote;
@@ -171,36 +174,71 @@ export const mockExpansionOpportunityRepo: ExpansionOpportunityRepo = {
     } else {
       store.push(merged);
     }
+    await mockMutate({
+      entityType: "expansion_opportunities",
+      entityId: id,
+      action: idx >= 0 ? "update" : "create",
+      before,
+      after: merged,
+      organizationId: merged.organizationId
+    });
     return clone(merged);
   },
   async handOff(id, opts) {
     await ensureSeeded();
     const idx = store.findIndex((o) => o.id === id);
     if (idx < 0) return;
+    const before = clone(store[idx]);
     store[idx] = {
       ...store[idx],
       handedOffAt: opts.handedOffAt ?? new Date().toISOString(),
       handedOffTo: opts.handedOffTo,
       handedOffNote: opts.note
     };
+    await mockMutate({
+      entityType: "expansion_opportunities",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
   },
   async close(id, opts) {
     await ensureSeeded();
     const idx = store.findIndex((o) => o.id === id);
     if (idx < 0) return;
+    const before = clone(store[idx]);
     store[idx] = {
       ...store[idx],
       closedAt: opts.closedAt ?? new Date().toISOString(),
       closedReason: opts.reason
     };
+    await mockMutate({
+      entityType: "expansion_opportunities",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
   },
   async markNotified(id, notifiedAt) {
     await ensureSeeded();
     const idx = store.findIndex((o) => o.id === id);
     if (idx < 0) return;
+    const before = clone(store[idx]);
     store[idx] = {
       ...store[idx],
       notifiedAt: notifiedAt ?? new Date().toISOString()
     };
+    await mockMutate({
+      entityType: "expansion_opportunities",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
   }
 };

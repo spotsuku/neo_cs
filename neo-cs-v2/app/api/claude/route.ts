@@ -91,11 +91,13 @@ export async function POST(req: NextRequest) {
   if (!actor) return json({ error: 'unauthorized', request_id: requestId }, 401, baseHeaders);
 
   const ip = getClientIp(req) ?? 'unknown';
-  const ipR  = consume(`claude:ip:${ip}`, RATE_IP_CLAUDE);
-  const usrR = consume(`claude:user:${actor.userId}`, RATE_USER_CLAUDE);
-  const orgR = actor.organizationId
-    ? consume(`claude:org:${actor.organizationId}`, RATE_ORG_CLAUDE)
-    : { allowed: true, retryAfterSec: 0, remaining: 0 };
+  const [ipR, usrR, orgR] = await Promise.all([
+    consume(`claude:ip:${ip}`, RATE_IP_CLAUDE),
+    consume(`claude:user:${actor.userId}`, RATE_USER_CLAUDE),
+    actor.organizationId
+      ? consume(`claude:org:${actor.organizationId}`, RATE_ORG_CLAUDE)
+      : Promise.resolve({ allowed: true, retryAfterSec: 0, remaining: 0 } as const)
+  ]);
   const blocked = [ipR, usrR, orgR].find((r) => !r.allowed);
   if (blocked) {
     log.warn({ kind: 'rate_limited', actorUserId: actor.userId, orgId: actor.organizationId, ip });

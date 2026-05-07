@@ -4,42 +4,43 @@ import { TopNavServer } from "@/components/TopNavServer";
 import { KpiCard } from "@/components/KpiCard";
 import { HealthDistribution } from "@/components/HealthDistribution";
 import { MrrSparkline } from "@/components/MrrSparkline";
-import { ProductBadge } from "@/components/ProductBadge";
-// コース表示に対応
+// 製品マスタ (config 扱い): 種別・コース定義はまだ mock を正本にしている。
+// 本番化する際は productRepo / productCourseRepo に切り出す。
 import {
   products,
   productByCode,
-  continuousSummary,
-  oneShotSummary,
-  health,
-  mrrTrend,
-  yen,
-  pct,
-  nrrFormat,
   ProductCode,
   hasMultipleCourses,
   productCourses
 } from "@/lib/mock/data";
 import { productJourney } from "@/lib/mock/onboarding";
-import type { Contract as MockContract } from "@/lib/mock/contracts";
-import type { Company as MockCompany } from "@/lib/mock/entities";
-import type { Survey as MockSurvey } from "@/lib/mock/surveys";
-import { companyHealthColor } from "@/lib/mock/health";
 import { aggregateSurvey } from "@/lib/mock/surveys";
+import {
+  companyRepo,
+  contractRepo,
+  surveyRepo,
+  healthSnapshotRepo
+} from "@/lib/repository/server";
+import type { Contract, Company, Survey } from "@/lib/repository/server";
+import { yen, pct, nrrFormat } from "@/lib/utils/format";
+import {
+  deriveContinuousSummary,
+  deriveOneShotSummary,
+  deriveHealthDistributionByProduct,
+  deriveCompanyHealthColor,
+  deriveNpsTimeline
+} from "@/lib/domain/dashboard-aggregates";
 
 // TODO: surveySchedules は repo 未実装のため空配列で運用中。
 // supabase に survey_schedules テーブルを追加し surveyRepo に listSchedules を
 // 生やすまで、スケジュール別NPS推移は表示されない。
 const surveySchedules: { id: string; product: ProductCode; name: string }[] = [];
-import {
-  companyRepo,
-  contractRepo,
-  surveyRepo
-} from "@/lib/repository/server";
 
 export const dynamic = "force-dynamic";
 
-const VALID_CODES: ProductCode[] = ["academia", "hyogikai", "aiken", "commu"];
+// productByCode を正本とし、ハードコードでなく派生する。
+// 製品マスタが追加された際は VALID_CODES の修正漏れが起きないようにする。
+const VALID_CODES: ProductCode[] = Object.keys(productByCode) as ProductCode[];
 
 const healthDotColor: Record<string, string> = {
   green: "#10B981",
@@ -60,17 +61,18 @@ export default async function ProductDashboard({
   const p = productByCode[code];
 
   // ── Repository から DB 由来データを並列取得 ─────────────
-  const [allCompanies, allContractsRaw, productSurveys] = await Promise.all([
+  const [allCompanies, allContractsRaw, productSurveys, latestSnapshots] = await Promise.all([
     companyRepo.list(),
     contractRepo.list(),
-    surveyRepo.list({ productCode: code })
+    surveyRepo.list({ productCode: code }),
+    healthSnapshotRepo.latestAll().catch(() => [])
   ]);
 
   // 契約は active 集合 (renewed / churned 以外) を派生
-  const activeContracts: MockContract[] = allContractsRaw.filter(
+  const activeContracts: Contract[] = allContractsRaw.filter(
     (c) => c.status !== "renewed" && c.status !== "churned"
   );
-  const allContracts: MockContract[] = allContractsRaw;
+  const allContracts: Contract[] = allContractsRaw;
 
   // 企業ごとに自身の active 契約 product から `contracts: ProductCode[]` を派生
   // (supabase の companyRepo は contracts:[] を返す可能性があるため)
@@ -80,7 +82,7 @@ export default async function ProductDashboard({
     set.add(c.product);
     productsByCompany.set(c.companyId, set);
   }
-  const companies: MockCompany[] = allCompanies.map((c) => ({
+  const companies: Company[] = allCompanies.map((c) => ({
     ...c,
     contracts:
       c.contracts && c.contracts.length > 0
@@ -88,6 +90,9 @@ export default async function ProductDashboard({
         : Array.from(productsByCompany.get(c.id) ?? [])
   }));
   const targetCompanies = companies.filter((c) => c.contracts.includes(code));
+
+  // ── Health 分布: latest snapshots から product 別に集計 ─────────────
+  const healthByProduct = deriveHealthDistributionByProduct(latestSnapshots, allContracts);
 
   return (
     <>
@@ -162,11 +167,15 @@ export default async function ProductDashboard({
             activeContracts={activeContracts}
             companies={companies}
             productSurveys={productSurveys}
+            healthByProduct={healthByProduct}
+            latestSnapshots={latestSnapshots}
           />
         ) : (
           <OneShotView
+            code={code}
             targetCompanies={targetCompanies}
             accent={p.accent}
+            allContracts={allContracts}
             activeContracts={activeContracts}
             companies={companies}
           />
@@ -199,24 +208,27 @@ function ContinuousView({
   allContracts,
   activeContracts,
   companies,
-  productSurveys
+  productSurveys,
+  healthByProduct,
+  latestSnapshots
 }: {
   code: "academia" | "hyogikai" | "commu";
-  targetCompanies: MockCompany[];
+  targetCompanies: Company[];
   accent: string;
-  allContracts: MockContract[];
-  activeContracts: MockContract[];
-  companies: MockCompany[];
-  productSurveys: MockSurvey[];
+  allContracts: Contract[];
+  activeContracts: Contract[];
+  companies: Company[];
+  productSurveys: Survey[];
+  healthByProduct: Record<ProductCode, { green: number; yellow: number; red: number }>;
+  latestSnapshots: import("@/lib/repository/server").HealthSnapshot[];
 }) {
-  const s = continuousSummary[code];
-  const h = health.byProduct[code];
+  // ── サマリーは contracts 由来の集計値 ─────────────
+  const s = deriveContinuousSummary(allContracts, code);
+  const h = healthByProduct[code];
 
-  // ダミーMRR推移（全体MRRを契約数で比例させる）
-  const localTrend = mrrTrend.map((m, i) => ({
-    month: m.month,
-    mrr: Math.round((m.mrr * s.mrr) / 8_420_000)
-  }));
+  // MRR 推移は repo に履歴データが無いため当面は空配列。
+  // kpi_snapshots テーブルの導入後にここを差し替える。
+  const localTrend: { month: string; mrr: number }[] = [];
 
   return (
     <>
@@ -230,9 +242,15 @@ function ContinuousView({
           <KpiCard label="アクティブ契約" value={`${s.activeContracts} 件`} accent={accent} />
           <KpiCard label="参加者" value={`${s.activeParticipants} 名`} accent={accent} />
           <KpiCard label="MRR" value={yen(s.mrr)} accent={accent} />
-          <KpiCard label="NRR" value={nrrFormat(s.nrr)} sub="Net Revenue Retention" accent={accent} />
-          <KpiCard label="更新率" value={pct(s.renewalRate)} sub="直近90日" accent={accent} />
-          <KpiCard label="出席率" value={pct(s.attendance)} accent={accent} />
+          <KpiCard label="更新率" value={pct(s.renewalRate90d)} sub="直近90日" accent={accent} />
+          <KpiCard
+            label="今後90日 更新予定"
+            value={`${s.upcomingRenewals} 件`}
+            accent={accent}
+          />
+          {/* NRR / 出席率は別 repo 依存のため未実装。
+              kpi_snapshots と attendance 集計が入り次第ここに差し替える。 */}
+          <KpiCard label="NRR" value="—" sub="集計バッチ未実装" accent={accent} />
         </div>
       </section>
 
@@ -248,14 +266,18 @@ function ContinuousView({
         <div className="liquid-surface p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs text-ink-500 font-medium">MRR推移</div>
+              <div className="text-xs text-ink-500 font-medium">MRR (現在)</div>
               <div className="mt-1 text-xl font-bold">{yen(s.mrr)}</div>
-              <div className="text-xs text-ink-500">過去12ヶ月</div>
+              <div className="text-xs text-ink-500">
+                {localTrend.length === 0 ? "推移は kpi_snapshots 導入後に表示" : "過去12ヶ月"}
+              </div>
             </div>
           </div>
-          <div className="mt-4">
-            <MrrSparkline data={localTrend} />
-          </div>
+          {localTrend.length > 0 && (
+            <div className="mt-4">
+              <MrrSparkline data={localTrend} />
+            </div>
+          )}
         </div>
       </section>
 
@@ -295,7 +317,8 @@ function ContinuousView({
             </thead>
             <tbody>
               {targetCompanies.map((c) => {
-                const healthColor = companyHealthColor(c.id);
+                const healthColor =
+                  deriveCompanyHealthColor(c.id, allContracts, latestSnapshots) ?? "green";
                 return (
                 <tr key={c.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50">
                   <td className="px-5 py-3">
@@ -339,23 +362,34 @@ function ContinuousView({
 }
 
 function OneShotView({
+  code,
   targetCompanies,
   accent,
+  allContracts,
   activeContracts,
   companies
 }: {
-  targetCompanies: MockCompany[];
+  code: ProductCode;
+  targetCompanies: Company[];
   accent: string;
-  activeContracts: MockContract[];
-  companies: MockCompany[];
+  allContracts: Contract[];
+  activeContracts: Contract[];
+  companies: Company[];
 }) {
-  const s = oneShotSummary.aiken;
+  // 単発型のサマリーは contracts から派生 (修了率/リピート率は出席集計が必要なため未実装)
+  const s = deriveOneShotSummary(allContracts, code);
 
-  // コース別ダミー
-  const courses = [
-    { id: "c1", name: "基礎コース", participants: 112, progress: 0.64, attendance: 0.91 },
-    { id: "c2", name: "応用コース", participants: 74, progress: 0.38, attendance: 0.86 }
-  ];
+  // コース別の進捗は active contracts を courseKey で集計
+  const codeContracts = activeContracts.filter((c) => c.product === code);
+  const courseKeys = Array.from(new Set(codeContracts.map((c) => c.courseKey)));
+  const courses = courseKeys.map((key) => {
+    const list = codeContracts.filter((c) => c.courseKey === key);
+    return {
+      id: key,
+      name: key,
+      participants: list.reduce((sum, c) => sum + c.participants, 0)
+    };
+  });
 
   return (
     <>
@@ -369,9 +403,11 @@ function OneShotView({
           <KpiCard label="開講中コース" value={`${s.activeCourses} 本`} accent={accent} />
           <KpiCard label="受講中" value={`${s.currentParticipants} 名`} accent={accent} />
           <KpiCard label="今年度GMV" value={yen(s.fyGmv)} accent={accent} />
-          <KpiCard label="今年度修了者" value={`${s.fyGraduates} 名`} accent={accent} />
-          <KpiCard label="修了率" value={pct(s.completionRate)} accent={accent} />
-          <KpiCard label="リピート率" value={pct(s.repeatRate)} accent={accent} />
+          {/* 修了者数 / 修了率 / リピート率は participants/sessions/attendance 集計が必要。
+              attendance バッチ実装後にここを差し替える。 */}
+          <KpiCard label="今年度修了者" value="—" sub="集計バッチ未実装" accent={accent} />
+          <KpiCard label="修了率" value="—" sub="集計バッチ未実装" accent={accent} />
+          <KpiCard label="リピート率" value="—" sub="集計バッチ未実装" accent={accent} />
         </div>
       </section>
 
@@ -379,7 +415,6 @@ function OneShotView({
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink-700">コース別 進行状況</h2>
-          <span className="text-[11px] text-ink-500">次回開講 {s.nextOpeningDate}</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {courses.map((c) => (
@@ -395,19 +430,11 @@ function OneShotView({
                 </div>
                 <div>
                   <div className="text-[11px] text-ink-500">進捗率</div>
-                  <div className="mt-1 text-lg font-bold">{pct(c.progress)}</div>
+                  <div className="mt-1 text-lg font-bold">—</div>
                 </div>
                 <div>
                   <div className="text-[11px] text-ink-500">平均出席率</div>
-                  <div className="mt-1 text-lg font-bold">{pct(c.attendance)}</div>
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="h-2 w-full rounded-full bg-ink-50 overflow-hidden">
-                  <div
-                    className="h-full"
-                    style={{ width: `${Math.round(c.progress * 100)}%`, background: accent }}
-                  />
+                  <div className="mt-1 text-lg font-bold">—</div>
                 </div>
               </div>
             </div>
@@ -417,7 +444,7 @@ function OneShotView({
 
       {/* フェーズ別企業数 */}
       <JourneyPhaseSection
-        code="aiken"
+        code={code}
         accent={accent}
         activeContracts={activeContracts}
         companies={companies}
@@ -473,7 +500,7 @@ function CourseSummarySection({
 }: {
   code: ProductCode;
   accent: string;
-  activeContracts: MockContract[];
+  activeContracts: Contract[];
 }) {
   const courses = productCourses[code];
   const contracts = activeContracts.filter((c) => c.product === code);
@@ -562,8 +589,8 @@ function NpsSection({
 }: {
   code: ProductCode;
   accent: string;
-  productSurveys: MockSurvey[];
-  allContracts: MockContract[];
+  productSurveys: Survey[];
+  allContracts: Contract[];
 }) {
   // surveyRepo.list({productCode}) は当該 product の survey をすでに返すが、
   // 念のため旧モデル (contractId 経由でしか紐付かない) も拾えるように互換実装。
@@ -827,8 +854,8 @@ function JourneyPhaseSection({
 }: {
   code: ProductCode;
   accent: string;
-  activeContracts: MockContract[];
-  companies: MockCompany[];
+  activeContracts: Contract[];
+  companies: Company[];
 }) {
   const phases = productJourney[code];
   const contractsForProduct = activeContracts.filter((c) => c.product === code);

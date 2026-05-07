@@ -12,6 +12,7 @@ import type {
 } from "../types";
 import { sortByDueAsc } from "@/lib/domain/task";
 import { useGlobalStore } from "./_global-store";
+import { mockMutate } from "./_mockMutate";
 
 function genId(): string {
   return `ct-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -140,17 +141,34 @@ export const mockCompanyTaskRepo: CompanyTaskRepo = {
       updatedAt: now
     };
     store.push(created);
+    await mockMutate({
+      entityType: "company_tasks",
+      entityId: created.id,
+      action: "create",
+      after: created,
+      organizationId: created.organizationId
+    });
     return clone(created);
   },
   async update(id, patch) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`CompanyTask not found: ${id}`);
+    const before = clone(store[i]);
     store[i] = { ...store[i], ...patch, updatedAt: new Date().toISOString() };
+    await mockMutate({
+      entityType: "company_tasks",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[i],
+      organizationId: store[i].organizationId
+    });
     return clone(store[i]);
   },
   async markDone(id, opts) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`CompanyTask not found: ${id}`);
+    const before = clone(store[i]);
     const now = new Date().toISOString();
     store[i] = {
       ...store[i],
@@ -159,18 +177,44 @@ export const mockCompanyTaskRepo: CompanyTaskRepo = {
       completedBy: opts.completedBy ?? store[i].assignedTo,
       updatedAt: now
     };
+    await mockMutate({
+      entityType: "company_tasks",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[i],
+      organizationId: store[i].organizationId
+    });
     return clone(store[i]);
   },
   async markSkipped(id) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`CompanyTask not found: ${id}`);
+    const before = clone(store[i]);
     store[i] = { ...store[i], status: "skipped", updatedAt: new Date().toISOString() };
+    await mockMutate({
+      entityType: "company_tasks",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[i],
+      organizationId: store[i].organizationId
+    });
     return clone(store[i]);
   },
   async markCancelled(id) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`CompanyTask not found: ${id}`);
+    const before = clone(store[i]);
     store[i] = { ...store[i], status: "cancelled", updatedAt: new Date().toISOString() };
+    await mockMutate({
+      entityType: "company_tasks",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[i],
+      organizationId: store[i].organizationId
+    });
     return clone(store[i]);
   }
 };

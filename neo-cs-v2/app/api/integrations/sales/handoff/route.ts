@@ -24,6 +24,7 @@
  */
 
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import {
   validatePayload,
   mapToCompanyData,
@@ -43,24 +44,10 @@ export const dynamic = "force-dynamic";
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL ?? "http://localhost:3000";
 
-// Idempotency-Key の in-memory メモ (24h TTL)
-const idemMemo = new Map<string, number>();
-const IDEM_TTL_MS = 24 * 60 * 60 * 1000;
-
-// inFlight ロック (同 deal の並行処理を防ぐ)
+// inFlight ロック (同インスタンス内での同 deal 並行処理を防ぐ best-effort)。
+// multi-instance 環境では DB の sales_handoffs.sales_deal_id UNIQUE と
+// idempotency_key UNIQUE が真の重複防止の責任を持つ。
 const inFlightDeals = new Set<string>();
-
-function checkIdem(key: string | null): boolean {
-  if (!key) return true;
-  const now = Date.now();
-  // GC
-  for (const [k, t] of idemMemo) {
-    if (now - t > IDEM_TTL_MS) idemMemo.delete(k);
-  }
-  if (idemMemo.has(key)) return false;
-  idemMemo.set(key, now);
-  return true;
-}
 
 function json(payload: unknown, status: number): Response {
   return new Response(JSON.stringify(payload), {
@@ -87,16 +74,44 @@ export async function POST(req: NextRequest) {
     return json({ error: "misconfigured", request_id: requestId }, 503);
   }
   const auth = req.headers.get("authorization") ?? "";
-  if (auth !== `Bearer ${secret}`) {
+  // タイミング攻撃対策で固定長比較する。長さが違う場合は早期失敗
+  const expected = `Bearer ${secret}`;
+  const authBuf = Buffer.from(auth);
+  const expectedBuf = Buffer.from(expected);
+  const authOk =
+    authBuf.length === expectedBuf.length && timingSafeEqual(authBuf, expectedBuf);
+  if (!authOk) {
     log.warn({ kind: "unauthorized" });
     return json({ error: "unauthorized", request_id: requestId }, 401);
   }
 
   // ── Idempotency-Key (任意) ──
+  // 旧来は in-memory Map で判定していたが、Vercel multi-instance 環境では
+  // 別インスタンスのリクエストで重複検出できないため、(organization_id,
+  // idempotency_key) UNIQUE を持つ sales_handoffs に事前レコードを置いて
+  // DB レベルで原子的に判定する (migration 0033)。
   const idemKey = req.headers.get("idempotency-key");
-  if (!checkIdem(idemKey)) {
-    log.info({ kind: "idempotent_skip", idemKey });
-    return json({ status: "duplicate", reason: "idempotency_key", request_id: requestId }, 200);
+  if (idemKey) {
+    const sbEarly = getServiceClient();
+    const { data: existingByIdem } = await sbEarly
+      .from("sales_handoffs")
+      .select("id, company_id, status")
+      .eq("organization_id", DEFAULT_ORG_ID)
+      .eq("idempotency_key", idemKey)
+      .maybeSingle();
+    if (existingByIdem) {
+      log.info({ kind: "idempotent_skip", idemKey, handoffId: existingByIdem.id });
+      return json(
+        {
+          status: "duplicate",
+          reason: "idempotency_key",
+          handoffId: existingByIdem.id,
+          companyId: existingByIdem.company_id ?? null,
+          request_id: requestId,
+        },
+        200,
+      );
+    }
   }
 
   // ── ペイロード ──
@@ -201,11 +216,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── sales_handoffs 確定 ──
+    // idempotency_key も同時に永続化 (multi-instance での重複防止)
     const { data: handoffRow, error: hErr } = await sb
       .from("sales_handoffs")
       .insert({
         organization_id: DEFAULT_ORG_ID,
         sales_deal_id: payload.salesDealId,
+        idempotency_key: idemKey,
         company_id: companyId,
         primary_contact_id: contactId,
         contract_id: contractId,

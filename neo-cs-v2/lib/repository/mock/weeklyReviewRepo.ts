@@ -7,6 +7,7 @@ import type {
   WeeklyReviewUpsert
 } from "../types";
 import { useGlobalStore } from "./_global-store";
+import { mockMutate } from "./_mockMutate";
 
 const store = useGlobalStore<WeeklyReview[]>("__weeklyReviewStore", () =>
   weeklyReviews.map((r) => ({
@@ -84,14 +85,37 @@ export const mockWeeklyReviewRepo: WeeklyReviewRepo = {
       updatedAt: now
     };
 
-    if (idx >= 0) store[idx] = merged;
-    else store.push(merged);
+    let before: WeeklyReview | undefined;
+    if (idx >= 0) {
+      before = clone(store[idx]);
+      store[idx] = merged;
+    } else {
+      store.push(merged);
+    }
+
+    await mockMutate({
+      entityType: "weekly_reviews",
+      entityId: id,
+      action: idx >= 0 ? "update" : "create",
+      before,
+      after: merged,
+      organizationId: merged.organizationId
+    });
 
     return clone(merged);
   },
   async setLocked(id, locked) {
     const idx = store.findIndex((r) => r.id === id);
     if (idx < 0) return;
+    const before = clone(store[idx]);
     store[idx] = { ...store[idx], locked };
+    await mockMutate({
+      entityType: "weekly_reviews",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
   }
 };

@@ -1,6 +1,7 @@
 import { DEFAULT_ORG_ID } from "../types";
 import type { OneOnOneLog, OneOnOneFilter, OneOnOneLogRepo } from "../types";
 import { useGlobalStore } from "./_global-store";
+import { mockMutate } from "./_mockMutate";
 
 const store = useGlobalStore<OneOnOneLog[]>("__oneOnOneStore", () => []);
 
@@ -40,16 +41,41 @@ export const mockOneOnOneLogRepo: OneOnOneLogRepo = {
       updatedAt: now
     };
     store.push(created);
+    await mockMutate({
+      entityType: "one_on_one_logs",
+      entityId: created.id,
+      action: "create",
+      after: created,
+      organizationId: created.organizationId
+    });
     return { ...created };
   },
   async update(id, patch) {
     const idx = store.findIndex((l) => l.id === id);
     if (idx < 0) throw new Error(`OneOnOneLog not found: ${id}`);
+    const before = { ...store[idx] };
     store[idx] = { ...store[idx], ...patch, updatedAt: new Date().toISOString() };
+    await mockMutate({
+      entityType: "one_on_one_logs",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
     return { ...store[idx] };
   },
   async delete(id) {
     const idx = store.findIndex((l) => l.id === id);
-    if (idx >= 0) store.splice(idx, 1);
+    if (idx < 0) return;
+    const before = { ...store[idx] };
+    store.splice(idx, 1);
+    await mockMutate({
+      entityType: "one_on_one_logs",
+      entityId: id,
+      action: "delete",
+      before,
+      organizationId: before.organizationId
+    });
   }
 };

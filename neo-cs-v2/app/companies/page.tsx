@@ -15,7 +15,7 @@ import {
   companyTaskRepo,
   companyWeatherRepo
 } from "@/lib/repository/server";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/repository/types";
 import CompaniesView from "./CompaniesView";
 
 export const dynamic = "force-dynamic";

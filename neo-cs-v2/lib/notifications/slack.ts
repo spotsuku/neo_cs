@@ -32,7 +32,8 @@ export type SlackChannel =
   | 'CHURN_ALERTS'
   | 'EXPANSION'
   | 'VOC'
-  | 'HANDOFF';
+  | 'HANDOFF'
+  | 'AUDIT_FAILURE';
 
 export interface SlackPayload {
   text: string;

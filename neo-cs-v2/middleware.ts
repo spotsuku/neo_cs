@@ -3,7 +3,7 @@
 // 役割:
 //  1. Supabase Auth の Cookie セッションを refresh し、未ログインなら /login へ
 //  2. パスごとのロール要件 (admin / manager / member) を強制
-//  3. lib/security/session.ts の idle 30min / abs 8h を適用
+//  3. lib/security/session.ts の idle 8h / abs 24h を適用
 //  4. 認可済みリクエストには下流の Server Components / Server Actions が
 //     actor を読めるよう x-app-user-* ヘッダを付与
 //
@@ -189,7 +189,15 @@ export async function middleware(req: NextRequest) {
   ).data as { id: string; role: string; organization_id: string | null; is_active: boolean } | null;
 
   // auth_user_id でヒットしない場合: email マッチで後付けリンク
-  if (!row && user.email) {
+  // ただし email 検証済 (email_confirmed_at != null) であることを必須にする。
+  // 検証無しを許すと、未検証 OAuth provider で同 email を取った攻撃者が
+  // 既存 app_users レコードの権限を乗っ取れてしまう。
+  const isEmailVerified =
+    Boolean(user.email_confirmed_at) ||
+    user.user_metadata?.email_verified === true ||
+    user.identities?.some((i) => i.identity_data?.email_verified === true) ===
+      true;
+  if (!row && user.email && isEmailVerified) {
     const { data: byEmail } = await sbAdmin
       .from("app_users")
       .select("id, role, organization_id, is_active")
@@ -208,10 +216,14 @@ export async function middleware(req: NextRequest) {
         .eq("id", e.id);
       row = { ...e, is_active: true };
     }
+  } else if (!row && user.email && !isEmailVerified) {
+    // 未検証 email は紐付けせずサインアウト誘導
+    return signOutAndRedirect(req, "email_unverified");
   }
 
   // それでも無く INITIAL_ADMIN_EMAIL と一致 → admin で自動登録 (初回ログイン)
-  if (!row && user.email) {
+  // ただし未検証 email では昇格しない (上記と同じ理由)
+  if (!row && user.email && isEmailVerified) {
     const initialAdmin = process.env.INITIAL_ADMIN_EMAIL?.toLowerCase();
     if (initialAdmin && user.email.toLowerCase() === initialAdmin) {
       const { data: orgRow } = await sbAdmin
@@ -255,8 +267,18 @@ export async function middleware(req: NextRequest) {
   if (required && !hasRole(role, required)) {
     const url = req.nextUrl.clone();
     url.pathname = "/";
-    url.searchParams.set("forbidden", "1");
-    return NextResponse.redirect(url);
+    const redirectRes = NextResponse.redirect(url);
+    // クエリ文字列は誰でも改ざんできるため 1 回限りのフラッシュ Cookie に格納する
+    redirectRes.cookies.set({
+      name: "neo-cs-flash-forbidden",
+      value: "1",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 30
+    });
+    return redirectRes;
   }
 
   // 7. 下流 (Server Component / Server Action) が actor を読めるようヘッダ付与。

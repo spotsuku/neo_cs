@@ -27,19 +27,9 @@ type SupabaseModule = {
   createClient: (url: string, key: string, opts?: unknown) => SupabaseClient;
 };
 
-export type AuditAction =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'login'
-  | 'logout'
-  | 'export'
-  | 'read_sensitive'
-  | 'consent_grant'
-  | 'consent_revoke'
-  | 'role_change'
-  | 'disable_user'
-  | 'enable_user';
+// 型は lib/repository/types.ts を正本とする (demo_wipe / impersonate_* も含む)
+export type { AuditAction } from './types';
+import type { AuditAction } from './types';
 
 export interface AuditActor {
   userId: string | null;
@@ -139,6 +129,57 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
         message: error.message,
         entry: { action: entry.action, target: entry.targetTable, id: entry.targetId },
       }) + '\n',
+    );
+    // セキュリティ上重要な action の audit 失敗は Slack に通知して気付ける
+    // ようにする。失敗を握りつぶしたままにすると監査証跡が静かに失われる。
+    if (SECURITY_SENSITIVE_ACTIONS.has(entry.action)) {
+      void notifyAuditFailure(entry, error.message);
+    }
+  }
+}
+
+/**
+ * 失敗時に Slack 通知すべき security-sensitive な action 集合。
+ * これらは法務/コンプライアンス上、監査証跡の欠落が直接リスクになるため
+ * 「失敗をサイレントに stderr に流すだけ」では足りない。
+ */
+const SECURITY_SENSITIVE_ACTIONS = new Set<AuditAction>([
+  'delete',
+  'role_change',
+  'consent_grant',
+  'consent_revoke',
+  'disable_user',
+  'enable_user',
+  'demo_wipe',
+  'impersonate_start',
+  'impersonate_stop',
+  'export',
+  'read_sensitive'
+]);
+
+async function notifyAuditFailure(entry: AuditEntry, message: string): Promise<void> {
+  // 動的 import で循環依存・テスト失敗を回避 (Slack 連携は server-only モジュール)
+  try {
+    const mod = await import('@/lib/notifications/slack');
+    await mod.notifySlack(
+      'AUDIT_FAILURE',
+      {
+        text:
+          `:rotating_light: audit_logs への書込みに失敗しました (${entry.action} on ${entry.targetTable}/${entry.targetId ?? 'n/a'})\n` +
+          `原因: ${message}\n` +
+          `actor: ${entry.actor.email ?? entry.actor.userId ?? 'unknown'}`
+      },
+      {
+        dedupKey: `audit-fail:${entry.action}:${entry.targetTable}:${entry.targetId ?? ''}`
+      }
+    );
+  } catch (e) {
+    process.stderr.write(
+      JSON.stringify({
+        at: new Date().toISOString(),
+        kind: 'audit_alert_failed',
+        message: e instanceof Error ? e.message : String(e)
+      }) + '\n'
     );
   }
 }

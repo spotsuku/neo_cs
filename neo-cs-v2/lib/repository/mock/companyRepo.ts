@@ -10,6 +10,7 @@ import type {
   DemoWipeResult
 } from "../types";
 import { filterDemoByRange } from "@/lib/domain/demo-data";
+import { mockMutate } from "./_mockMutate";
 
 // 既存の seed 企業はすべてデモ扱い (本番開始前のため)。
 // 0019_is_demo_flag.sql の方針と一致させる。
@@ -132,6 +133,13 @@ export const mockCompanyRepo: CompanyRepo = {
       createdAt: new Date().toISOString()
     };
     store.push(created);
+    await mockMutate({
+      entityType: "companies",
+      entityId: created.id,
+      action: "create",
+      after: created,
+      organizationId: created.organizationId
+    });
     return { ...created };
   },
   async setKaruteNo(id, newNo) {
@@ -159,28 +167,64 @@ export const mockCompanyRepo: CompanyRepo = {
       err.code = "KARUTE_NO_CONFLICT";
       throw err;
     }
+    const before = { ...target };
     store[idx] = { ...target, karuteNo: newNo };
+    await mockMutate({
+      entityType: "companies",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
     return { ...store[idx] };
   },
   async update(id, patch) {
     const idx = store.findIndex((c) => c.id === id);
     if (idx < 0) throw new Error(`Company not found: ${id}`);
+    const before = { ...store[idx] };
     store[idx] = { ...store[idx], ...patch };
+    await mockMutate({
+      entityType: "companies",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
     return { ...store[idx] };
   },
   async delete(id) {
     const idx = store.findIndex((c) => c.id === id);
-    if (idx >= 0) store.splice(idx, 1);
+    if (idx < 0) return;
+    const before = { ...store[idx] };
+    store.splice(idx, 1);
+    await mockMutate({
+      entityType: "companies",
+      entityId: id,
+      action: "delete",
+      before,
+      organizationId: before.organizationId
+    });
   },
   async setDriveFolder(id, drive) {
     const idx = store.findIndex((c) => c.id === id);
     if (idx < 0) throw new Error(`Company not found: ${id}`);
+    const before = { ...store[idx] };
     store[idx] = {
       ...store[idx],
       driveFolderId: drive.folderId,
       driveFolderUrl: drive.folderUrl,
       driveFolderCreatedAt: new Date().toISOString()
     };
+    await mockMutate({
+      entityType: "companies",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
   },
 
   async listDemo(opts) {

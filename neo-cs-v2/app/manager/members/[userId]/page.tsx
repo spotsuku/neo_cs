@@ -20,7 +20,7 @@ import {
   churnSignalRepo
 } from "@/lib/repository/server";
 import { productByCode } from "@/lib/mock/data";
-import { CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
+import { currentWeekMondayISO } from "@/lib/domain/week";
 
 export const metadata: Metadata = {
   title: "メンバー詳細 | マネージャー | NEO CS"
@@ -40,6 +40,9 @@ export default async function MemberDetailPage({
   const user = await userRepo.getById(userId);
   if (!user) return notFound();
   if (user.role === "external") return notFound(); // external はメンバー詳細対象外
+
+  // 「今週の月曜」をリクエスト時刻から動的に算出
+  const CURRENT_WEEK_MONDAY = currentWeekMondayISO();
 
   const [
     assignments,

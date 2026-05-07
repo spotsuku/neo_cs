@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
+    "prebuild": "node scripts/assert-prod-env.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=9999",

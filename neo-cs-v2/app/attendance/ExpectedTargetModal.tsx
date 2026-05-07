@@ -9,7 +9,7 @@ import {
   type Participant,
   type Session
 } from "@/lib/mock/participants";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/repository/types";
 
 /**
  * 出席対象の編集モーダル。

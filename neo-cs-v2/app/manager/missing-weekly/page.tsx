@@ -16,7 +16,7 @@ import {
   assignmentRepo,
   userRepo
 } from "@/lib/repository/server";
-import { CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
+import { currentWeekMondayISO } from "@/lib/domain/week";
 
 export const metadata: Metadata = {
   title: "週次未記入 | マネージャー | NEO CS"
@@ -40,6 +40,8 @@ export default async function MissingWeeklyPage({
   const targetCodes = productFilter
     ? myProductCodes.filter((c) => c === productFilter)
     : myProductCodes;
+  // 「今週の月曜」をリクエスト時刻から動的に算出
+  const CURRENT_WEEK_MONDAY = currentWeekMondayISO();
 
   const [contracts, weekly, companies, assignments, users] = await Promise.all([
     contractRepo.list({ activeOnly: true }),

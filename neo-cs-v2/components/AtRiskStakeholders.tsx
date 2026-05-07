@@ -5,7 +5,7 @@
 // 「最終接点が古い順」に並べる。ダッシュボード (/) に配置する。
 
 import Link from "next/link";
-import { stakeholderRepo, meetingLogRepo, companyRepo } from "@/lib/repository";
+import { stakeholderRepo, meetingLogRepo, companyRepo } from "@/lib/repository/server";
 import { computeStakeholderEngagement } from "@/lib/domain/engagement-builder";
 import { EngagementBadge } from "./StakeholderEngagementCard";
 import { stakeholderTypeLabel } from "@/lib/mock/cycles";

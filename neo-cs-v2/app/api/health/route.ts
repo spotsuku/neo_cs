@@ -65,8 +65,9 @@ export async function GET(req: NextRequest): Promise<Response> {
         timeoutMs: 4000,
         retries: 0,
       });
-      // 200 でも 4xx (認証/スキーマ) でも疎通自体はOKと判定
-      checks.anthropic = response.status < 500 ? 'ok' : 'fail';
+      // 認証エラー (401) や rate limit (429) も「正しく動いていない」として扱う。
+      // 200..399 のみ ok。それ以外（401/403/429/4xx/5xx）は fail。
+      checks.anthropic = response.status >= 200 && response.status < 400 ? 'ok' : 'fail';
       if (checks.anthropic === 'ok') markHealthy('anthropic');
       else markUnhealthy('anthropic');
     } catch {

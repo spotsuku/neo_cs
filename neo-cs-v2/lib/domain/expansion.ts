@@ -19,6 +19,7 @@
 //   - renewal_uplift          更新時の単価アップ
 
 import type { ProductCode } from "@/lib/mock/data";
+import { HEALTH_THRESHOLDS } from "./health";
 
 export type ExpansionKind =
   | "upsell_higher_plan"
@@ -100,6 +101,33 @@ const SCORE_BASE: Record<ExpansionRule, number> = {
   renewal_window_green: 78
 };
 
+/**
+ * ルール別の推定アップセル MRR 乗数 (現MRRに対する追加売上の見込み比率)。
+ *
+ * 根拠 (CS+セールス合意の現行ヒューリスティック / 2025Q4):
+ *   - healthy_streak (0.30):
+ *       3週連続 Health 80+ の安定運用は上位プラン (1on1付・コーチング等) への
+ *       移行余地が大きい。実績ベースで +20〜+40% 提示が成立しやすいため中央値 0.30。
+ *   - survey_signal (0.50):
+ *       「他コース」「全社展開」等のキーワード検出は cross-sell 対象。1事業に
+ *       追加で 1コース乗ることが多いため現MRRの ~50% を見込み。
+ *   - seat_at_capacity (0.25):
+ *       受講枠 80%+ は座席追加 (+3〜+5名) で MRR を 20〜30% 押し上げる事例が多い。
+ *   - champion_promoted (0.60):
+ *       Champion が決裁者に昇格した場合は全社展開フェーズ。実績で +50〜+70%。
+ *   - renewal_window_green (0.15):
+ *       更新時の単価アップは過去成立率から保守的に 15% に置く。
+ *
+ * 値変更時は本定数 1 箇所のみで完結する。テストは expansion.test.ts を参照。
+ */
+export const EXPANSION_UPSELL_MULTIPLIER: Record<ExpansionRule, number> = {
+  healthy_streak: 0.3,
+  survey_signal: 0.5,
+  seat_at_capacity: 0.25,
+  champion_promoted: 0.6,
+  renewal_window_green: 0.15
+};
+
 // ── 個別ルール ────────────────────────────────────────────────────
 
 function ruleHealthyStreak(input: DetectExpansionInput): Omit<ExpansionOpportunity, "id" | "contractId" | "companyId" | "product" | "detectedAt"> | null {
@@ -114,7 +142,9 @@ function ruleHealthyStreak(input: DetectExpansionInput): Omit<ExpansionOpportuni
     reason: `Healthスコア 80 以上が 3週連続 (${last3.map((s) => s.score).join(" → ")})`,
     evidence: { weeks: last3 },
     suggestedAction: "上位プラン (講師1on1付き等) を T-90 で提案",
-    estimatedUpsellJpy: input.mrr ? Math.round(input.mrr * 0.3) : undefined
+    estimatedUpsellJpy: input.mrr
+      ? Math.round(input.mrr * EXPANSION_UPSELL_MULTIPLIER.healthy_streak)
+      : undefined
   };
 }
 
@@ -150,7 +180,9 @@ function ruleSurveySignal(input: DetectExpansionInput): Omit<ExpansionOpportunit
     reason: `サーベイで拡張意向のキーワード検出 (${matched.length}件)`,
     evidence: { matches: matched },
     suggestedAction: "他研修プロダクトのデモ MTG を提案 (1週以内)",
-    estimatedUpsellJpy: input.mrr ? Math.round(input.mrr * 0.5) : undefined
+    estimatedUpsellJpy: input.mrr
+      ? Math.round(input.mrr * EXPANSION_UPSELL_MULTIPLIER.survey_signal)
+      : undefined
   };
 }
 
@@ -166,7 +198,9 @@ function ruleSeatAtCapacity(input: DetectExpansionInput): Omit<ExpansionOpportun
     reason: `受講枠 ${input.participantCount}/${input.participantCap} (${Math.round(ratio * 100)}%) — 枠拡張余地`,
     evidence: { count: input.participantCount, cap: input.participantCap, ratio },
     suggestedAction: "受講枠 +3 名 / 来期の追加プランを提案",
-    estimatedUpsellJpy: input.mrr ? Math.round(input.mrr * 0.25) : undefined
+    estimatedUpsellJpy: input.mrr
+      ? Math.round(input.mrr * EXPANSION_UPSELL_MULTIPLIER.seat_at_capacity)
+      : undefined
   };
 }
 
@@ -192,7 +226,9 @@ function ruleChampionPromoted(input: DetectExpansionInput): Omit<ExpansionOpport
         reason: `Champion (${sid}) が決裁者に昇格 — 拡大提案の好機`,
         evidence: { stakeholderId: sid, prevType: prev.type, newType: last.type, at: last.recordedAt },
         suggestedAction: "昇進祝い + 全社展開プラン提案 (4週以内)",
-        estimatedUpsellJpy: input.mrr ? Math.round(input.mrr * 0.6) : undefined
+        estimatedUpsellJpy: input.mrr
+          ? Math.round(input.mrr * EXPANSION_UPSELL_MULTIPLIER.champion_promoted)
+          : undefined
       };
     }
   }
@@ -209,7 +245,7 @@ function ruleRenewalWindowGreen(input: DetectExpansionInput): Omit<ExpansionOppo
   // 直近スコアが green
   const sorted = [...input.snapshots].sort((a, b) => b.asOf.localeCompare(a.asOf));
   const latest = sorted[0];
-  if (!latest || latest.score < 75) return null;
+  if (!latest || latest.score < HEALTH_THRESHOLDS.green) return null;
   return {
     rule: "renewal_window_green",
     kind: RULE_TO_KIND.renewal_window_green,
@@ -217,7 +253,9 @@ function ruleRenewalWindowGreen(input: DetectExpansionInput): Omit<ExpansionOppo
     reason: `更新窓 (T-${daysToEnd}日) + Health Green (${latest.score})`,
     evidence: { daysToEnd, latestScore: latest.score },
     suggestedAction: "更新時の単価アップ (年間契約 + 早期割引) を提案",
-    estimatedUpsellJpy: input.mrr ? Math.round(input.mrr * 0.15) : undefined
+    estimatedUpsellJpy: input.mrr
+      ? Math.round(input.mrr * EXPANSION_UPSELL_MULTIPLIER.renewal_window_green)
+      : undefined
   };
 }
 

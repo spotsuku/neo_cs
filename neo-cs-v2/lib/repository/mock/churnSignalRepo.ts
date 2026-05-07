@@ -103,6 +103,7 @@ async function seedSignals(): Promise<ChurnSignalRecord[]> {
 }
 
 import { useGlobalStore } from "./_global-store";
+import { mockMutate } from "./_mockMutate";
 const state = useGlobalStore<{ store: ChurnSignalRecord[]; seeded: boolean }>(
   "__churnSignalState",
   () => ({ store: [], seeded: false })
@@ -167,9 +168,11 @@ export const mockChurnSignalRepo: ChurnSignalRepo = {
       evidence: { ...input.evidence },
       detectedAt: input.detectedAt
     };
+    let before: ChurnSignalRecord | undefined;
     if (idx >= 0) {
       // 既存 resolved/notified 情報は維持
       const prev = store[idx];
+      before = clone(prev);
       merged.resolvedAt = prev.resolvedAt;
       merged.resolvedBy = prev.resolvedBy;
       merged.resolutionNote = prev.resolutionNote;
@@ -178,27 +181,53 @@ export const mockChurnSignalRepo: ChurnSignalRepo = {
     } else {
       store.push(merged);
     }
+    await mockMutate({
+      entityType: "churn_signals",
+      entityId: id,
+      action: idx >= 0 ? "update" : "create",
+      before,
+      after: merged,
+      organizationId: merged.organizationId
+    });
     return clone(merged);
   },
   async resolve(id, opts) {
     await ensureSeeded();
     const idx = store.findIndex((s) => s.id === id);
     if (idx < 0) return;
+    const before = clone(store[idx]);
     store[idx] = {
       ...store[idx],
       resolvedAt: opts.resolvedAt ?? new Date().toISOString(),
       resolvedBy: opts.resolvedBy,
       resolutionNote: opts.note
     };
+    await mockMutate({
+      entityType: "churn_signals",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
   },
   async markNotified(id, notifiedAt) {
     await ensureSeeded();
     const idx = store.findIndex((s) => s.id === id);
     if (idx < 0) return;
+    const before = clone(store[idx]);
     store[idx] = {
       ...store[idx],
       notifiedAt: notifiedAt ?? new Date().toISOString()
     };
+    await mockMutate({
+      entityType: "churn_signals",
+      entityId: id,
+      action: "update",
+      before,
+      after: store[idx],
+      organizationId: store[idx].organizationId
+    });
   }
 };
 

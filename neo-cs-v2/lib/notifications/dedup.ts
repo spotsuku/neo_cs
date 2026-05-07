@@ -75,6 +75,38 @@ export const memoryDedup: DedupDriverImpl = {
 // テスト用 (memory store の reset)
 export function resetMemoryDedupForTesting(): void {
   memMemo.clear();
+  if (memoryGcTimer) {
+    clearInterval(memoryGcTimer);
+    memoryGcTimer = null;
+  }
+}
+
+/**
+ * memory driver の定期 GC タイマー (起動 1 回限り)。
+ *
+ * acquire() 内でも inline cleanup しているが、長時間 acquire() が呼ばれない
+ * シナリオ (低頻度通知 + self-host long-running プロセス) では古い entry が
+ * heap に残るため、定期 cleanup を回して memory leak を防ぐ。
+ *
+ * Vercel serverless はインスタンスが短命なので実質影響なし。
+ * テストでは resetMemoryDedupForTesting() でタイマーも止める。
+ */
+let memoryGcTimer: ReturnType<typeof setInterval> | null = null;
+const MEMORY_GC_INTERVAL_MS = 5 * 60 * 1000; // 5分毎
+
+export function startMemoryDedupGc(): void {
+  if (memoryGcTimer) return;
+  memoryGcTimer = setInterval(() => {
+    void memoryDedup.cleanup();
+  }, MEMORY_GC_INTERVAL_MS);
+  // Node.js の終了を妨げない
+  if (typeof memoryGcTimer.unref === "function") memoryGcTimer.unref();
+}
+
+// memory driver が選択された場合のみタイマーを起動する。
+// supabase 駆動時は Supabase 側の cron (`notification_dedup_cleanup` RPC) で掃除。
+if ((process.env.NOTIFICATION_DEDUP_DRIVER ?? "memory") === "memory") {
+  startMemoryDedupGc();
 }
 
 // ─── supabase driver ────────────────────────────────────────────────

@@ -293,6 +293,7 @@ function seedVocItems(): VocItemRecord[] {
 }
 
 import { useGlobalStore } from "./_global-store";
+import { mockMutate } from "./_mockMutate";
 // v2: 4 値ステータス (open/in_progress/done/wontfix) への移行に伴い key を bump。
 // 旧キー (__vocItemStore) のキャッシュは破棄される。
 const store = useGlobalStore<VocItemRecord[]>("__vocItemStore_v2", seedVocItems);
@@ -303,6 +304,23 @@ function clone(v: VocItemRecord): VocItemRecord {
     tags: [...v.tags],
     comments: v.comments.map((c) => ({ ...c }))
   };
+}
+
+async function recordVocMutation(
+  action: "create" | "update" | "delete",
+  id: string,
+  before: VocItemRecord | undefined,
+  after: VocItemRecord | undefined,
+  organizationId: string | null
+): Promise<void> {
+  await mockMutate({
+    entityType: "voc_items",
+    entityId: id,
+    action,
+    before,
+    after,
+    organizationId
+  });
 }
 
 function applyFilter(list: VocItemRecord[], f?: VocItemFilter): VocItemRecord[] {
@@ -353,11 +371,13 @@ export const mockVocItemRepo: VocItemRepo = {
       updatedAt: now
     };
     store.push(created);
+    await recordVocMutation("create", created.id, undefined, created, created.organizationId);
     return clone(created);
   },
   async setStatus(id, opts) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`VocItem not found: ${id}`);
+    const before = clone(store[i]);
     const now = new Date().toISOString();
     const next: VocItemRecord = { ...store[i], status: opts.status, updatedAt: now };
     if (opts.status === "in_progress") {
@@ -369,36 +389,46 @@ export const mockVocItemRepo: VocItemRepo = {
       if (opts.customerNotifiedAt) next.customerNotifiedAt = opts.customerNotifiedAt;
     }
     store[i] = next;
+    await recordVocMutation("update", id, before, next, next.organizationId);
     return clone(next);
   },
   async setPriority(id, priority) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`VocItem not found: ${id}`);
+    const before = clone(store[i]);
     store[i] = { ...store[i], priority, updatedAt: new Date().toISOString() };
+    await recordVocMutation("update", id, before, store[i], store[i].organizationId);
     return clone(store[i]);
   },
   async setTags(id, tags) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`VocItem not found: ${id}`);
+    const before = clone(store[i]);
     const dedup = Array.from(new Set(tags.map((t) => t.trim()).filter((t) => t.length > 0)));
     store[i] = { ...store[i], tags: dedup, updatedAt: new Date().toISOString() };
+    await recordVocMutation("update", id, before, store[i], store[i].organizationId);
     return clone(store[i]);
   },
   async setLinkedPrUrl(id, url) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`VocItem not found: ${id}`);
+    const before = clone(store[i]);
     store[i] = { ...store[i], linkedPrUrl: url, updatedAt: new Date().toISOString() };
+    await recordVocMutation("update", id, before, store[i], store[i].organizationId);
     return clone(store[i]);
   },
   async setAssignedTo(id, userId) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`VocItem not found: ${id}`);
+    const before = clone(store[i]);
     store[i] = { ...store[i], assignedTo: userId, updatedAt: new Date().toISOString() };
+    await recordVocMutation("update", id, before, store[i], store[i].organizationId);
     return clone(store[i]);
   },
   async appendComment(id, comment) {
     const i = findIdx(id);
     if (i < 0) throw new Error(`VocItem not found: ${id}`);
+    const before = clone(store[i]);
     const c: VocComment = {
       id: `vc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       ...comment,
@@ -409,14 +439,17 @@ export const mockVocItemRepo: VocItemRepo = {
       comments: [...store[i].comments, c],
       updatedAt: new Date().toISOString()
     };
+    await recordVocMutation("update", id, before, store[i], store[i].organizationId);
     return clone(store[i]);
   },
   async markNotified(id, notifiedAt) {
     const i = findIdx(id);
     if (i < 0) return;
+    const before = clone(store[i]);
     store[i] = {
       ...store[i],
       notifiedAt: notifiedAt ?? new Date().toISOString()
     };
+    await recordVocMutation("update", id, before, store[i], store[i].organizationId);
   }
 };

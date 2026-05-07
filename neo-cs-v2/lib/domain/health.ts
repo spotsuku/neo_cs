@@ -13,10 +13,23 @@
 //   5. milestoneProgress (更新進捗)      重み 15
 //
 // 各 factor は 0..100 にスケール。重み付き加算で総合スコアを算出。
-// 閾値: green ≥ 75, yellow ≥ 55, red < 55
 
 import type { Contract } from "@/lib/mock/contracts";
 import type { ProductCode } from "@/lib/mock/data";
+
+/**
+ * Health Score の色分け閾値・トーン判定に使う共通定数。
+ * lib/domain/churn.ts (score_low_streak ルール) なども本定数を参照する。
+ * 値を変更する際は本ファイル 1 箇所のみで完結する。
+ */
+export const HEALTH_THRESHOLDS = {
+  /** score >= green は "green" 判定 */
+  green: 75,
+  /** score >= yellow は "yellow" 判定 (これ未満は "red") */
+  yellow: 55,
+  /** factor の "neutral" / "negative" 境界 */
+  neutralFloor: 50
+} as const;
 
 export type HealthColor = "green" | "yellow" | "red";
 
@@ -117,8 +130,8 @@ function normMilestoneProgress(progress: number | undefined): number {
 }
 
 function toneOf(normalized: number): "positive" | "neutral" | "negative" {
-  if (normalized >= 75) return "positive";
-  if (normalized >= 50) return "neutral";
+  if (normalized >= HEALTH_THRESHOLDS.green) return "positive";
+  if (normalized >= HEALTH_THRESHOLDS.neutralFloor) return "neutral";
   return "negative";
 }
 
@@ -139,7 +152,7 @@ function display(key: HealthFactorKey, raw: number | undefined): string {
 }
 
 function hintOf(key: HealthFactorKey, normalized: number): string {
-  const bad = normalized < 50;
+  const bad = normalized < HEALTH_THRESHOLDS.neutralFloor;
   switch (key) {
     case "attendance":
       return bad ? "出席が落ち込んでいる。原因把握とフォロー要" : "良好な出席率";
@@ -198,11 +211,16 @@ export function computeHealthScore(
     contributions.reduce((sum, c) => sum + (c.normalizedScore * c.weight) / 100, 0)
   );
 
-  const color: HealthColor = score >= 75 ? "green" : score >= 55 ? "yellow" : "red";
+  const color: HealthColor =
+    score >= HEALTH_THRESHOLDS.green
+      ? "green"
+      : score >= HEALTH_THRESHOLDS.yellow
+        ? "yellow"
+        : "red";
 
   // ネガティブで重みの大きい順 (寄与の "失われ方" が大きいもの)
   const lossSorted = [...contributions]
-    .filter((c) => c.normalizedScore < 75)
+    .filter((c) => c.normalizedScore < HEALTH_THRESHOLDS.green)
     .sort((a, b) => {
       const lossA = ((100 - a.normalizedScore) * a.weight) / 100;
       const lossB = ((100 - b.normalizedScore) * b.weight) / 100;
@@ -299,7 +317,7 @@ export function colorScore(color: HealthColor | undefined): number | null {
 }
 
 export function colorOfScore(score: number): HealthColor {
-  if (score >= 75) return "green";
-  if (score >= 55) return "yellow";
+  if (score >= HEALTH_THRESHOLDS.green) return "green";
+  if (score >= HEALTH_THRESHOLDS.yellow) return "yellow";
   return "red";
 }

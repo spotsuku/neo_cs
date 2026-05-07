@@ -35,7 +35,7 @@ import {
   onboardingItemRepo
 } from "@/lib/repository/server";
 import { summarizeProgress } from "@/lib/domain/program";
-import { CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
+import { currentWeekMondayISO } from "@/lib/domain/week";
 import { surveys as allSurveys, surveyResponses as allSurveyResponses } from "@/lib/mock/surveys";
 
 export const metadata: Metadata = {
@@ -64,6 +64,8 @@ export default async function ManagerPage() {
       : assignedProductCodes(ctx);
 
   const horizon = addDays(TODAY, 60);
+  // 「今週の月曜」はリクエスト時刻から動的に算出 (旧: lib/mock/weekly.CURRENT_WEEK_MONDAY)
+  const CURRENT_WEEK_MONDAY = currentWeekMondayISO();
 
   // ───────────────────────────────────────────────
   // データ取得（並列）

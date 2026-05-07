@@ -1,29 +1,34 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { consume } from "./rate-limit";
 
-describe("consume — Token Bucket", () => {
-  it("capacity分は連続消費可", () => {
+// memory フォールバックで動かす (Supabase 接続なし)
+beforeEach(() => {
+  process.env.RATE_LIMIT_DRIVER = "memory";
+});
+
+describe("consume — Token Bucket (memory フォールバック)", () => {
+  it("capacity分は連続消費可", async () => {
     const cfg = { capacity: 3, refillPerSec: 1 };
     const key = `test-${Math.random()}`;
-    expect(consume(key, cfg).allowed).toBe(true);
-    expect(consume(key, cfg).allowed).toBe(true);
-    expect(consume(key, cfg).allowed).toBe(true);
-    const r = consume(key, cfg);
+    expect((await consume(key, cfg)).allowed).toBe(true);
+    expect((await consume(key, cfg)).allowed).toBe(true);
+    expect((await consume(key, cfg)).allowed).toBe(true);
+    const r = await consume(key, cfg);
     expect(r.allowed).toBe(false);
     expect(r.retryAfterSec).toBeGreaterThan(0);
   });
 
-  it("キー別にバケット独立", () => {
+  it("キー別にバケット独立", async () => {
     const cfg = { capacity: 1, refillPerSec: 0.1 };
-    expect(consume(`a-${Math.random()}`, cfg).allowed).toBe(true);
-    expect(consume(`b-${Math.random()}`, cfg).allowed).toBe(true);
+    expect((await consume(`a-${Math.random()}`, cfg)).allowed).toBe(true);
+    expect((await consume(`b-${Math.random()}`, cfg)).allowed).toBe(true);
   });
 
-  it("拒否時の remaining は 0", () => {
+  it("拒否時の remaining は 0", async () => {
     const cfg = { capacity: 1, refillPerSec: 0.01 };
     const k = `c-${Math.random()}`;
-    consume(k, cfg);
-    const r = consume(k, cfg);
+    await consume(k, cfg);
+    const r = await consume(k, cfg);
     expect(r.remaining).toBe(0);
   });
 });
