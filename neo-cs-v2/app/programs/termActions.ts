@@ -1,9 +1,13 @@
 "use server";
 
 // 事業内ToDo の期 (term) 作成・複製アクション
+// 権限: role_permissions.program_term_manage (既定 manager 以上)。
+// admin が /settings/permissions で min_role を変更可能。
 
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
+import { getPermissionContext } from "@/lib/auth/server";
+import { requirePermission } from "@/lib/auth/role-permissions";
 import type { ProgramTermStatus } from "@/lib/repository/types";
 
 export type CreateTermInput = {
@@ -27,6 +31,9 @@ export async function createProgramTerm(input: CreateTermInput): Promise<{
   templatesCopied: number;
   cellsCreated: number;
 }> {
+  const ctx = await getPermissionContext();
+  await requirePermission(ctx, "program_term_manage");
+
   if (!input.label || !input.label.trim()) {
     throw new Error("label is required");
   }
@@ -67,6 +74,8 @@ export async function createProgramTerm(input: CreateTermInput): Promise<{
 
 /** 期を完全削除する。関連テンプレ・セルも全部消える */
 export async function deleteProgramTerm(termId: string): Promise<void> {
+  const ctx = await getPermissionContext();
+  await requirePermission(ctx, "program_term_manage");
   const repo = getRepo();
   await repo.programs.deleteTerm(termId);
   revalidatePath("/programs");

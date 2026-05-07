@@ -6,6 +6,8 @@ import Link from "next/link";
 import { ProductBadge } from "@/components/ProductBadge";
 import { WeeklyReviewPanel } from "./WeeklyReviewPanel";
 import { AddLogModal } from "./AddLogModal";
+import { ContractFormModal } from "./ContractFormModal";
+import { CancelContractModal } from "./CancelContractModal";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { CompanyTasksSection } from "@/components/CompanyTasksSection";
 import type { CompanyTask } from "@/lib/repository/types";
@@ -203,6 +205,7 @@ function ProductTabs({
 export function CompanyDetail({
   viewerRole,
   accessibleProductCodes = [],
+  canManageContracts = false,
   company,
   contacts,
   logs,
@@ -237,6 +240,8 @@ export function CompanyDetail({
   viewerRole?: string;
   /** 閲覧者が担当する事業 productCode 一覧（admin は全 product） */
   accessibleProductCodes?: string[];
+  /** role_permissions.contract_manage で許可されているか */
+  canManageContracts?: boolean;
   company: Company;
   contacts: Contact[];
   logs: MeetingLog[];
@@ -513,6 +518,7 @@ export function CompanyDetail({
           businessSuggestions={businessSuggestions}
           checkpointStatusesByContract={checkpointStatusesByContract}
           companyId={company.id}
+          canManageContracts={canManageContracts}
         />
       )}
       {/* 解約モーダルの管理は ContractsTab 内で完結 */}
@@ -2308,7 +2314,8 @@ function ContractsTab({
   businessStageDefs,
   businessSuggestions,
   checkpointStatusesByContract,
-  companyId
+  companyId,
+  canManageContracts = false
 }: {
   allCycles: ActiveContract[];
   successPlans: SuccessPlan[];
@@ -2317,12 +2324,17 @@ function ContractsTab({
   businessSuggestions: Record<string, JourneySuggestion>;
   checkpointStatusesByContract: Record<string, JourneyCheckpointStatus[]>;
   companyId: string;
+  canManageContracts?: boolean;
 }) {
   const cycleIds = new Set(allCycles.map((c) => c.id));
   const [records, setRecords] = useState<ChurnRecord[]>(
     initialChurnRecords.filter((r) => cycleIds.has(r.contractId))
   );
   const [churnTarget, setChurnTarget] = useState<ActiveContract | null>(null);
+  // 契約 CRUD モーダルの開閉状態
+  const [contractFormMode, setContractFormMode] = useState<"create" | "edit" | null>(null);
+  const [editingContract, setEditingContract] = useState<ActiveContract | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<ActiveContract | null>(null);
 
   // 研修ごとにグルーピング
   const byProduct = new Map<ProductCode, ActiveContract[]>();
@@ -2371,6 +2383,25 @@ function ContractsTab({
 
   return (
     <section className="space-y-4">
+      {/* 契約管理 (CRUD) — role_permissions.contract_manage で許可されている時だけ表示 */}
+      {canManageContracts && (
+        <div className="liquid-surface p-4 flex items-center justify-between gap-3">
+          <div className="text-xs text-ink-500">
+            <span className="text-ink-700 font-medium">契約管理</span> ・ 新規契約の追加 / 既存契約の編集 / 解約
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingContract(null);
+              setContractFormMode("create");
+            }}
+            className="text-xs px-3 py-1.5 rounded-md bg-ink-900 text-white hover:bg-ink-800"
+          >
+            ＋ 新規契約を追加
+          </button>
+        </div>
+      )}
+
       {/* 事業切替 */}
       {productCodes.length > 1 && (
         <div className="flex items-center justify-between">
@@ -2406,6 +2437,65 @@ function ContractsTab({
         onChurnClick={(c) => setChurnTarget(c)}
       />
 
+      {/* 契約管理: 各契約の編集・解約 (role_permissions.contract_manage 必須) */}
+      {canManageContracts && (
+        <div className="liquid-surface p-4">
+          <div className="text-xs text-ink-700 font-medium mb-3">
+            この事業の全契約 (編集・解約)
+          </div>
+          <div className="space-y-2">
+            {cycles.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-white border border-ink-100 text-xs"
+              >
+                <div className="min-w-0">
+                  <span className="text-ink-900 font-medium">第{c.cycleNumber}期</span>
+                  <span className="ml-2 text-ink-500">
+                    {c.startDate}
+                    {c.endDate ? ` 〜 ${c.endDate}` : ""}
+                  </span>
+                  <span className="ml-2 text-ink-500">担当: {c.ownerName}</span>
+                  <span
+                    className={[
+                      "ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] border",
+                      c.status === "churned"
+                        ? "border-rose-200 text-rose-700 bg-rose-50"
+                        : c.status === "renewed"
+                          ? "border-ink-200 text-ink-500 bg-ink-50"
+                          : "border-emerald-200 text-emerald-700 bg-emerald-50"
+                    ].join(" ")}
+                  >
+                    {c.status}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingContract(c);
+                      setContractFormMode("edit");
+                    }}
+                    className="text-ink-700 px-2 py-1 rounded border border-ink-200 hover:bg-ink-50"
+                  >
+                    編集
+                  </button>
+                  {c.status !== "churned" && c.status !== "renewed" && (
+                    <button
+                      type="button"
+                      onClick={() => setCancelTarget(c)}
+                      className="text-rose-600 px-2 py-1 rounded border border-rose-200 hover:bg-rose-50"
+                    >
+                      解約
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 解約履歴 (この事業の) */}
       <ChurnHistorySection
         records={records.filter((r) =>
@@ -2420,6 +2510,26 @@ function ContractsTab({
           existing={records.find((r) => r.contractId === churnTarget.id)}
           onClose={() => setChurnTarget(null)}
           onSave={handleSave}
+        />
+      )}
+
+      {contractFormMode && (
+        <ContractFormModal
+          mode={contractFormMode}
+          companyId={companyId}
+          initial={editingContract ?? undefined}
+          onClose={() => {
+            setContractFormMode(null);
+            setEditingContract(null);
+          }}
+        />
+      )}
+
+      {cancelTarget && (
+        <CancelContractModal
+          contract={cancelTarget}
+          companyId={companyId}
+          onClose={() => setCancelTarget(null)}
         />
       )}
     </section>

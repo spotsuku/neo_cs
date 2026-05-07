@@ -4,6 +4,7 @@ import { programRepo, companyRepo, userRepo } from "@/lib/repository/server";
 import { summarizeProgress } from "@/lib/domain/program";
 import { ProgramsView, type EnrichedTerm } from "./ProgramsView";
 import { getPermissionContext } from "@/lib/auth/server";
+import { canPerform } from "@/lib/auth/role-permissions";
 import { products } from "@/lib/mock/data";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function ProgramsListPage() {
     ctx.actor?.role === "admin"
       ? products.map((p) => p.code)
       : ctx.programs.map((p) => p.productCode);
+  const canManageTerm = await canPerform(ctx, "program_term_manage");
 
   const [terms, companies, users] = await Promise.all([
     programRepo.listTerms(),
@@ -53,6 +55,7 @@ export default async function ProgramsListPage() {
         users={users.map((u) => ({ id: u.id, name: u.name }))}
         today={TODAY}
         allowedProductCodes={allowedProductCodes}
+        canManageTerm={canManageTerm}
       />
     </>
   );

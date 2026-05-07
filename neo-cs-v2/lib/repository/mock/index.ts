@@ -38,6 +38,7 @@ import { mockSessionRepo } from "./sessionRepo";
 import { mockAttendanceRepo } from "./attendanceRepo";
 import { mockEmailRepo } from "./emailRepo";
 import { mockAiExtractionRepo } from "./aiExtractionRepo";
+import { mockRolePermissionRepo } from "./rolePermissionRepo";
 
 export const mockRepository: Repository = {
   companies: mockCompanyRepo,
@@ -78,5 +79,6 @@ export const mockRepository: Repository = {
   sessions: mockSessionRepo,
   attendance: mockAttendanceRepo,
   emails: mockEmailRepo,
-  aiExtractions: mockAiExtractionRepo
+  aiExtractions: mockAiExtractionRepo,
+  rolePermissions: mockRolePermissionRepo
 };

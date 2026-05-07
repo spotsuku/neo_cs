@@ -54,6 +54,8 @@ import { supabaseAttendanceRepo } from "./attendanceRepo";
 // メール / AI 抽出: migration 0031 + 各 supabase repo で実装済
 import { supabaseEmailRepo } from "./emailRepo";
 import { supabaseAiExtractionRepo } from "./aiExtractionRepo";
+// ロール権限マトリクス: migration 0035 で導入
+import { supabaseRolePermissionRepo } from "./rolePermissionRepo";
 
 export const supabaseRepository: Repository = {
   users: supabaseUserRepo,
@@ -94,5 +96,6 @@ export const supabaseRepository: Repository = {
   sessions: supabaseSessionRepo,
   attendance: supabaseAttendanceRepo,
   emails: supabaseEmailRepo,
-  aiExtractions: supabaseAiExtractionRepo
+  aiExtractions: supabaseAiExtractionRepo,
+  rolePermissions: supabaseRolePermissionRepo
 };

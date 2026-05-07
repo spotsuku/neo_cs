@@ -40,7 +40,8 @@ export function ProgramsView({
   companyMap,
   users,
   today,
-  allowedProductCodes
+  allowedProductCodes,
+  canManageTerm = false
 }: {
   enriched: EnrichedTerm[];
   companyMap: Record<string, string>;
@@ -48,6 +49,8 @@ export function ProgramsView({
   today: string;
   /** 担当事業の productCode 一覧（admin は全 product）。タブ表示の絞り込みに使う */
   allowedProductCodes?: string[];
+  /** role_permissions.program_term_manage で許可されているか */
+  canManageTerm?: boolean;
 }) {
   // 担当事業のうち、最初の product を初期選択（未指定なら academia）
   const visibleProducts =
@@ -275,50 +278,58 @@ export function ProgramsView({
               })}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="text-xs text-ink-500 hover:text-ink-700 underline"
-          >
-            詳細設定で新規作成…
-          </button>
+          {canManageTerm && (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="text-xs text-ink-500 hover:text-ink-700 underline"
+            >
+              詳細設定で新規作成…
+            </button>
+          )}
         </div>
         {active.length === 0 ? (
           <div className="liquid-surface p-10 text-center space-y-3">
             <div className="text-sm text-ink-500">
               このスコープのテーブルはまだありません
             </div>
-            <button
-              type="button"
-              disabled={creating || cycleFilter == null}
-              onClick={() => {
-                const courseKey =
-                  showCourseToggle && courseFilter !== "common" ? courseFilter : null;
-                const cycleNo = cycleFilter ?? 1;
-                const courseLabel = courseKey
-                  ? courseShortName(product, courseKey)
-                  : showCourseToggle
-                    ? "全コース共通"
-                    : "";
-                const label = [p.shortName, courseLabel, `第${cycleNo}期`]
-                  .filter(Boolean)
-                  .join(" ");
-                startCreate(async () => {
-                  const r = await createProgramTerm({
-                    productCode: product,
-                    courseKey,
-                    cycleNo,
-                    label
+            {canManageTerm ? (
+              <button
+                type="button"
+                disabled={creating || cycleFilter == null}
+                onClick={() => {
+                  const courseKey =
+                    showCourseToggle && courseFilter !== "common" ? courseFilter : null;
+                  const cycleNo = cycleFilter ?? 1;
+                  const courseLabel = courseKey
+                    ? courseShortName(product, courseKey)
+                    : showCourseToggle
+                      ? "全コース共通"
+                      : "";
+                  const label = [p.shortName, courseLabel, `第${cycleNo}期`]
+                    .filter(Boolean)
+                    .join(" ");
+                  startCreate(async () => {
+                    const r = await createProgramTerm({
+                      productCode: product,
+                      courseKey,
+                      cycleNo,
+                      label
+                    });
+                    router.refresh();
+                    router.push(`/programs/${r.termId}/edit`);
                   });
-                  router.refresh();
-                  router.push(`/programs/${r.termId}/edit`);
-                });
-              }}
-              className="text-sm px-4 py-2 rounded-full bg-ink-900 text-white hover:bg-ink-800 disabled:opacity-50"
-            >
-              {creating ? "作成中…" : "＋ このスコープのテーブルを追加"}
-            </button>
-            {cycleFilter == null && (
+                }}
+                className="text-sm px-4 py-2 rounded-full bg-ink-900 text-white hover:bg-ink-800 disabled:opacity-50"
+              >
+                {creating ? "作成中…" : "＋ このスコープのテーブルを追加"}
+              </button>
+            ) : (
+              <div className="text-[11px] text-ink-500">
+                期 (第◯期 / 第◯回) の作成権限がありません。管理者にお問い合わせください。
+              </div>
+            )}
+            {canManageTerm && cycleFilter == null && (
               <div className="text-[11px] text-ink-400">
                 期を選択するか、詳細設定から作成してください
               </div>

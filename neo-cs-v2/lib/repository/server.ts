@@ -89,3 +89,4 @@ export const sessionRepo = _repo.sessions;
 export const attendanceRepo = _repo.attendance;
 export const emailRepo = _repo.emails;
 export const aiExtractionRepo = _repo.aiExtractions;
+export const rolePermissionRepo = _repo.rolePermissions;

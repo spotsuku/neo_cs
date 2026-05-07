@@ -34,6 +34,14 @@ const menu: MenuItem[] = [
     adminOnly: true
   },
   {
+    href: "/settings/permissions",
+    title: "機能権限",
+    description: "契約管理・期管理など、各機能を実行できる最低ロールを設定",
+    icon: "🔐",
+    accent: "#0EA5E9",
+    adminOnly: true
+  },
+  {
     href: "/settings/gmail",
     title: "Gmail連携",
     description: "メール自動取り込み・要約対象のラベル設定",

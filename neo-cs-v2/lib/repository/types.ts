@@ -1460,6 +1460,29 @@ export interface AiExtractionRepo {
   markReviewed(id: string, userId: string): Promise<void>;
 }
 
+// ─────────────────────────────────────────────
+// ロール権限マトリクス (admin が機能ごとの最低ロールを設定可能にする)
+// ─────────────────────────────────────────────
+export type PermissionKey = "contract_manage" | "program_term_manage";
+
+export type RolePermission = {
+  permissionKey: PermissionKey;
+  minRole: AppUserRole; // "admin" | "manager" | "member" | "viewer"
+  description?: string | null;
+  updatedBy?: string | null;
+  updatedAt?: string;
+};
+
+export interface RolePermissionRepo {
+  list(): Promise<RolePermission[]>;
+  getByKey(key: PermissionKey): Promise<RolePermission | null>;
+  upsert(input: {
+    permissionKey: PermissionKey;
+    minRole: AppUserRole;
+    updatedBy?: string | null;
+  }): Promise<RolePermission>;
+}
+
 export interface Repository {
   companies: CompanyRepo;
   contracts: ContractRepo;
@@ -1510,4 +1533,6 @@ export interface Repository {
   // メール (スレッド / メッセージ / AI 抽出)
   emails: EmailRepo;
   aiExtractions: AiExtractionRepo;
+  // ロール権限マトリクス (admin が機能ごとの最低ロールを設定可能)
+  rolePermissions: RolePermissionRepo;
 }

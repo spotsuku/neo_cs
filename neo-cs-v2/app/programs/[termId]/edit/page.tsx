@@ -5,6 +5,8 @@ import { programRepo } from "@/lib/repository/server";
 import { PROGRAM_TASK_CATEGORY_LABEL } from "@/lib/domain/program";
 import { TemplateEditor } from "./TemplateEditor";
 import { DeleteTermButton } from "./DeleteTermButton";
+import { getPermissionContext } from "@/lib/auth/server";
+import { canPerform } from "@/lib/auth/role-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,8 @@ export default async function ProgramTermEditPage({
   const term = await programRepo.getTerm(termId);
   if (!term) notFound();
   const templates = await programRepo.listTemplates(termId);
+  const ctx = await getPermissionContext();
+  const canManageTerm = await canPerform(ctx, "program_term_manage");
 
   return (
     <>
@@ -80,16 +84,18 @@ export default async function ProgramTermEditPage({
           </p>
         </section>
 
-        {/* 危険ゾーン: 期そのものの削除 */}
-        <section className="liquid-surface p-5 border border-rose-200 bg-rose-50/30 space-y-3">
-          <div>
-            <h2 className="text-base font-semibold text-rose-700">この期を削除</h2>
-            <p className="text-xs text-ink-500 mt-1">
-              タスク列・各社の進捗 (セル) ・メモ・期日もすべて削除されます。元に戻せません。
-            </p>
-          </div>
-          <DeleteTermButton termId={termId} termLabel={term.label} />
-        </section>
+        {/* 危険ゾーン: 期そのものの削除 (role_permissions.program_term_manage 必要) */}
+        {canManageTerm && (
+          <section className="liquid-surface p-5 border border-rose-200 bg-rose-50/30 space-y-3">
+            <div>
+              <h2 className="text-base font-semibold text-rose-700">この期を削除</h2>
+              <p className="text-xs text-ink-500 mt-1">
+                タスク列・各社の進捗 (セル) ・メモ・期日もすべて削除されます。元に戻せません。
+              </p>
+            </div>
+            <DeleteTermButton termId={termId} termLabel={term.label} />
+          </section>
+        )}
       </main>
     </>
   );

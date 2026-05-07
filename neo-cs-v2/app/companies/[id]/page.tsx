@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { TopNavServer } from "@/components/TopNavServer";
 import { CompanyDetail } from "./CompanyDetail";
 import { getPermissionContext } from "@/lib/auth/server";
+import { canPerform } from "@/lib/auth/role-permissions";
 import { products } from "@/lib/mock/data";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness";
 import { computeStakeholderEngagement } from "@/lib/domain/engagement-builder";
@@ -62,6 +63,8 @@ export default async function CompanyDetailPage({
     viewerRole === "admin"
       ? products.map((p) => p.code as string)
       : ctx.programs.map((p) => p.productCode);
+  // 契約 CRUD の操作可否 (role_permissions.contract_manage)
+  const canManageContracts = await canPerform(ctx, "contract_manage");
 
   // ─── 第1段: 親キーで完結する 5 リソースを並列取得 ───────────
   const [
@@ -226,6 +229,7 @@ export default async function CompanyDetailPage({
       <CompanyDetail
         viewerRole={viewerRole}
         accessibleProductCodes={accessibleProductCodes}
+        canManageContracts={canManageContracts}
         company={company}
         contacts={contacts}
         logs={meetings}
