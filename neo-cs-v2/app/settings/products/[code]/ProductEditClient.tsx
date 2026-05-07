@@ -5,6 +5,7 @@ import { useState } from "react";
 import { TopNav } from "@/components/TopNav";
 import { products, productByCode, ProductCode, productCourses } from "@/lib/mock/data";
 import CoursesEditor from "./CoursesEditor";
+import { OnboardingTemplateEditor } from "./OnboardingTemplateEditor";
 import {
   productOnboardingTemplates,
   OnboardingCategory,
@@ -40,11 +41,15 @@ const tabs: { key: TabKey; label: string }[] = [
 export default function ProductEditClient({
   code,
   contracts,
-  companies
+  companies,
+  onboardingTemplate,
+  canManageOnboarding
 }: {
   code: ProductCode;
   contracts: ActiveContract[];
   companies: CompanyLite[];
+  onboardingTemplate: import("@/lib/repository/types").OnboardingTemplateCategoryRecord[];
+  canManageOnboarding: boolean;
 }) {
   const p = productByCode[code];
   const [tab, setTab] = useState<TabKey>("basic");
@@ -137,7 +142,17 @@ export default function ProductEditClient({
           {tab === "courses" && <CoursesTab accent={p.accent} code={code} />}
           {tab === "contract" && <ContractTab product={p} />}
           {tab === "participants" && <ParticipantsTab product={p} />}
-          {tab === "onboarding" && <OnboardingTab accent={p.accent} code={code} />}
+          {tab === "onboarding" && (
+            <OnboardingTemplateEditor
+              productCode={code}
+              initialTemplate={onboardingTemplate}
+              canManage={canManageOnboarding}
+              productCourses={(productCourses[code] ?? []).map((c) => ({
+                key: c.key,
+                shortName: c.shortName
+              }))}
+            />
+          )}
           {tab === "sessions" && (
             <SessionsTab
               accent={p.accent}

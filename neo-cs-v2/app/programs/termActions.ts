@@ -72,6 +72,37 @@ export async function createProgramTerm(input: CreateTermInput): Promise<{
   };
 }
 
+/** 期の基本情報 (label / 開始日 / 終了日 / status) を更新 */
+export async function updateProgramTerm(input: {
+  termId: string;
+  label?: string;
+  startedAt?: string | null;
+  closedAt?: string | null;
+  status?: ProgramTermStatus;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const ctx = await getPermissionContext();
+    await requirePermission(ctx, "program_term_manage");
+    const repo = getRepo();
+    const patch: Parameters<typeof repo.programs.updateTerm>[1] = {};
+    if (input.label !== undefined) {
+      const trimmed = input.label.trim();
+      if (!trimmed) return { ok: false, message: "ラベルは空にできません" };
+      patch.label = trimmed;
+    }
+    if (input.startedAt !== undefined) patch.startedAt = input.startedAt ?? undefined;
+    if (input.closedAt !== undefined) patch.closedAt = input.closedAt ?? undefined;
+    if (input.status !== undefined) patch.status = input.status;
+    await repo.programs.updateTerm(input.termId, patch);
+    revalidatePath(`/programs/${input.termId}`);
+    revalidatePath(`/programs/${input.termId}/edit`);
+    revalidatePath("/programs");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
+
 /** 期を完全削除する。関連テンプレ・セルも全部消える */
 export async function deleteProgramTerm(termId: string): Promise<void> {
   const ctx = await getPermissionContext();

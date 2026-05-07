@@ -1051,6 +1051,11 @@ export interface ProgramRepo {
   getTerm(id: string): Promise<ProgramTerm | null>;
   createTerm(input: ProgramTermCreateInput): Promise<ProgramTerm>;
   closeTerm(id: string): Promise<ProgramTerm>;
+  /** 期の基本情報 (label / startedAt / closedAt / status) を更新 */
+  updateTerm(
+    id: string,
+    patch: Partial<Pick<ProgramTerm, "label" | "startedAt" | "closedAt" | "status">>
+  ): Promise<ProgramTerm>;
   /** 期を完全削除する (テンプレ・セル・関連データもまとめて消える) */
   deleteTerm(id: string): Promise<void>;
 
@@ -1461,6 +1466,57 @@ export interface AiExtractionRepo {
 }
 
 // ─────────────────────────────────────────────
+// オンボテンプレ (DB 化)
+// migration 0036 で seed。productOnboardingTemplates と同じ shape を返す
+// ─────────────────────────────────────────────
+export type OnboardingTemplateItemRecord = {
+  id: string;
+  categoryId: string;
+  itemKey: string;
+  name: string;
+  dueOffsetDays: number;
+  required: boolean;
+  defaultAssigneeRole?: "cs" | "pr" | "ops" | "finance" | null;
+  /** null = 全コース共通、文字列 = 特定 courseKey のみ */
+  courseKey?: string | null;
+};
+
+export type OnboardingTemplateCategoryRecord = {
+  id: string;
+  productCode: string;
+  categoryKey: string;
+  label: string;
+  displayOrder: number;
+  items: OnboardingTemplateItemRecord[];
+};
+
+export interface OnboardingTemplateRepo {
+  /** product 別にカテゴリ + items をまとめて取得 (UI が一括描画する用途) */
+  listByProduct(productCode: string): Promise<OnboardingTemplateCategoryRecord[]>;
+  /** カテゴリの追加 / 編集 (label / display_order)。category_key は変更不可 */
+  upsertCategory(input: {
+    id?: string;
+    productCode: string;
+    categoryKey: string;
+    label: string;
+    displayOrder: number;
+  }): Promise<OnboardingTemplateCategoryRecord>;
+  deleteCategory(id: string): Promise<void>;
+  /** 項目の追加 / 編集 */
+  upsertItem(input: {
+    id?: string;
+    categoryId: string;
+    itemKey: string;
+    name: string;
+    dueOffsetDays: number;
+    required: boolean;
+    defaultAssigneeRole?: "cs" | "pr" | "ops" | "finance" | null;
+    courseKey?: string | null;
+  }): Promise<OnboardingTemplateItemRecord>;
+  deleteItem(id: string): Promise<void>;
+}
+
+// ─────────────────────────────────────────────
 // ロール権限マトリクス (admin が機能ごとの最低ロールを設定可能にする)
 // ─────────────────────────────────────────────
 export type PermissionKey = "contract_manage" | "program_term_manage";
@@ -1535,4 +1591,6 @@ export interface Repository {
   aiExtractions: AiExtractionRepo;
   // ロール権限マトリクス (admin が機能ごとの最低ロールを設定可能)
   rolePermissions: RolePermissionRepo;
+  // オンボテンプレ (DB 化)
+  onboardingTemplates: OnboardingTemplateRepo;
 }

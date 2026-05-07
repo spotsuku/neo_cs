@@ -375,6 +375,18 @@ export const mockProgramRepo: ProgramRepo = {
     return clone(termsStore[i]);
   },
 
+  async updateTerm(id, patch) {
+    const i = termsStore.findIndex((x) => x.id === id);
+    if (i < 0) throw new Error(`ProgramTerm not found: ${id}`);
+    const next = {
+      ...termsStore[i],
+      ...patch,
+      updatedAt: new Date().toISOString()
+    };
+    termsStore[i] = next;
+    return clone(next);
+  },
+
   async deleteTerm(id) {
     const i = termsStore.findIndex((x) => x.id === id);
     if (i < 0) return; // すでに無いなら no-op

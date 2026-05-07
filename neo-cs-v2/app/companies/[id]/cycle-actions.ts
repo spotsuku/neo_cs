@@ -11,7 +11,8 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
-import { productOnboardingTemplates, filterTemplateByCourse } from "@/lib/mock/onboarding";
+import { filterTemplateByCourse } from "@/lib/mock/onboarding";
+import { categoryRecordsToOnboardingCategories } from "@/lib/domain/onboarding-template";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { ContractOnboardingItem } from "@/lib/repository/types";
 
@@ -76,9 +77,11 @@ export async function createNextCycleAction(input: {
     });
 
     // ─── 3. 次期契約のオンボードチェックリスト自動生成 ───
-    // 次期契約の courseKey に該当する項目（＋全コース共通）だけを展開
+    // 次期契約の courseKey に該当する項目（＋全コース共通）だけを展開。
+    // テンプレは onboarding_template_categories / _items から読込み (mig 0036)
+    const tplCats = await repo.onboardingTemplates.listByProduct(current.product);
     const template = filterTemplateByCourse(
-      productOnboardingTemplates[current.product] ?? [],
+      categoryRecordsToOnboardingCategories(tplCats),
       nextContract.courseKey
     );
     const newItems: ContractOnboardingItem[] = template.flatMap((cat) =>

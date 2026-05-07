@@ -209,6 +209,38 @@ export const supabaseProgramRepo: ProgramRepo = {
     return updated;
   },
 
+  async updateTerm(id, patch) {
+    const sb = getServiceClient();
+    const ctx = getActorContext();
+    const { data: before } = await sb
+      .from("program_terms")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.label !== undefined) dbPatch.label = patch.label;
+    if (patch.startedAt !== undefined) dbPatch.started_at = patch.startedAt ?? null;
+    if (patch.closedAt !== undefined) dbPatch.closed_at = patch.closedAt ?? null;
+    if (patch.status !== undefined) dbPatch.status = patch.status;
+    const { data, error } = await sb
+      .from("program_terms")
+      .update(dbPatch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(`program_terms.updateTerm: ${error.message}`);
+    const updated = toTerm(data as TermRow);
+    await runAfterWrite({
+      entityType: "program_terms",
+      entityId: id,
+      before,
+      after: updated,
+      action: "update",
+      ctx
+    });
+    return updated;
+  },
+
   async deleteTerm(id) {
     const sb = getServiceClient();
     const ctx = getActorContext();

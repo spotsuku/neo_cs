@@ -19,8 +19,10 @@ import {
   companyRepo,
   contractRepo,
   surveyRepo,
-  healthSnapshotRepo
+  healthSnapshotRepo,
+  programRepo
 } from "@/lib/repository/server";
+import { summarizeProgress } from "@/lib/domain/program";
 import type { Contract, Company, Survey } from "@/lib/repository/server";
 import { yen, pct, nrrFormat } from "@/lib/utils/format";
 import {
@@ -61,12 +63,29 @@ export default async function ProductDashboard({
   const p = productByCode[code];
 
   // ── Repository から DB 由来データを並列取得 ─────────────
-  const [allCompanies, allContractsRaw, productSurveys, latestSnapshots] = await Promise.all([
-    companyRepo.list(),
-    contractRepo.list(),
-    surveyRepo.list({ productCode: code }),
-    healthSnapshotRepo.latestAll().catch(() => [])
-  ]);
+  const [allCompanies, allContractsRaw, productSurveys, latestSnapshots, allTerms] =
+    await Promise.all([
+      companyRepo.list(),
+      contractRepo.list(),
+      surveyRepo.list({ productCode: code }),
+      healthSnapshotRepo.latestAll().catch(() => []),
+      programRepo.listTerms().catch(() => [])
+    ]);
+
+  // この研修の期一覧 + 各期の進捗集計
+  const productTerms = allTerms.filter((t) => t.productCode === code);
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const termsWithStats = await Promise.all(
+    productTerms.map(async (term) => {
+      const cells = await programRepo.listCells(term.id).catch(() => []);
+      const summary = summarizeProgress(cells, TODAY);
+      const companyIds = Array.from(new Set(cells.map((c) => c.companyId)));
+      return { term, summary, companyCount: companyIds.length };
+    })
+  );
+  // 期 ID と Contract.cycleNumber を緩く突き合わせるためのマップ
+  // (term.cycleNo ⇄ contract.cycleNumber、courseKey が一致 or null)
+  void termsWithStats;
 
   // 契約は active 集合 (renewed / churned 以外) を派生
   const activeContracts: Contract[] = allContractsRaw.filter(
@@ -157,6 +176,13 @@ export default async function ProductDashboard({
             })}
           </div>
         </section>
+
+        {/* 期一覧セクション (この研修のサイクル運用ハブ) */}
+        <CycleListSection
+          productCode={code}
+          accent={p.accent}
+          terms={termsWithStats}
+        />
 
         {p.type === "continuous" ? (
           <ContinuousView
@@ -911,6 +937,128 @@ function JourneyPhaseSection({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 期一覧セクション (B): この研修のサイクル運用ハブ
+// 各期カードから /programs/[termId] (期ハブ) に飛ぶ
+// ─────────────────────────────────────────────
+function CycleListSection({
+  productCode,
+  accent,
+  terms
+}: {
+  productCode: ProductCode;
+  accent: string;
+  terms: {
+    term: import("@/lib/repository/types").ProgramTerm;
+    summary: import("@/lib/domain/program").ProgressSummary;
+    companyCount: number;
+  }[];
+}) {
+  const sorted = [...terms].sort((a, b) => {
+    const statusOrder: Record<string, number> = { active: 0, draft: 1, closed: 2 };
+    const sa = statusOrder[a.term.status] ?? 9;
+    const sb = statusOrder[b.term.status] ?? 9;
+    if (sa !== sb) return sa - sb;
+    return (b.term.cycleNo ?? 0) - (a.term.cycleNo ?? 0);
+  });
+
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-ink-700">期 (サイクル) 一覧</h2>
+          <div className="mt-0.5 text-[11px] text-ink-500">
+            この研修で運用中の各期を一覧表示。クリックで参加企業・オンボ・ToDo の管理画面へ
+          </div>
+        </div>
+        <Link
+          href={`/programs?product=${productCode}`}
+          className="text-[11px] text-ink-700 hover:underline font-medium"
+        >
+          期管理ページで詳細設定 →
+        </Link>
+      </div>
+      {sorted.length === 0 ? (
+        <div className="liquid-surface p-6 text-center text-sm text-ink-500">
+          まだ期が作成されていません
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {sorted.map(({ term, summary, companyCount }) => (
+            <Link
+              key={term.id}
+              href={`/programs/${term.id}`}
+              className="liquid-surface p-4 hover:shadow-liquid-lg transition group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-semibold text-ink-900">
+                  {term.label}
+                </div>
+                <span
+                  className={[
+                    "text-[10px] px-2 py-0.5 rounded-full border",
+                    term.status === "active"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                      : term.status === "closed"
+                        ? "bg-ink-50 text-ink-500 border-ink-100"
+                        : "bg-amber-50 text-amber-700 border-amber-100"
+                  ].join(" ")}
+                >
+                  {term.status}
+                </span>
+              </div>
+              <div className="text-[11px] text-ink-500 space-x-2">
+                {term.cycleNo != null && <span>第{term.cycleNo}期</span>}
+                {term.courseKey && <span>{term.courseKey}</span>}
+                {term.startedAt && (
+                  <span>
+                    {term.startedAt.replace(/-/g, "/")}〜
+                    {term.closedAt ? term.closedAt.replace(/-/g, "/") : ""}
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 flex items-end justify-between gap-2">
+                <div>
+                  <div className="text-[10px] text-ink-500">参加企業</div>
+                  <div
+                    className="text-xl font-bold tabular-nums"
+                    style={{ color: accent }}
+                  >
+                    {companyCount}
+                    <span className="ml-1 text-xs text-ink-500 font-normal">社</span>
+                  </div>
+                </div>
+                <div className="flex-1 ml-3">
+                  <div className="flex items-center justify-between text-[10px] text-ink-500 mb-1">
+                    <span>ToDo 進捗</span>
+                    <span className="tabular-nums text-ink-700 font-medium">
+                      {summary.pct}% ({summary.done}/{summary.total})
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${summary.pct}%`, background: accent }}
+                    />
+                  </div>
+                  {summary.overdue > 0 && (
+                    <div className="mt-1 text-[10px] text-rose-500 font-medium">
+                      期日超過 {summary.overdue} 件
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 text-[11px] text-ink-500 group-hover:text-ink-700">
+                参加企業 / オンボ / ToDo の管理 →
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

@@ -56,6 +56,8 @@ import { supabaseEmailRepo } from "./emailRepo";
 import { supabaseAiExtractionRepo } from "./aiExtractionRepo";
 // ロール権限マトリクス: migration 0035 で導入
 import { supabaseRolePermissionRepo } from "./rolePermissionRepo";
+// オンボテンプレ: migration 0036 で seed
+import { supabaseOnboardingTemplateRepo } from "./onboardingTemplateRepo";
 
 export const supabaseRepository: Repository = {
   users: supabaseUserRepo,
@@ -97,5 +99,6 @@ export const supabaseRepository: Repository = {
   attendance: supabaseAttendanceRepo,
   emails: supabaseEmailRepo,
   aiExtractions: supabaseAiExtractionRepo,
-  rolePermissions: supabaseRolePermissionRepo
+  rolePermissions: supabaseRolePermissionRepo,
+  onboardingTemplates: supabaseOnboardingTemplateRepo
 };
