@@ -38,6 +38,13 @@ type ContactRow = {
   is_primary: boolean;
 };
 
+type ContactRoleRow = {
+  contact_id: string;
+  scope: "overall" | ProductCode;
+  level: "executive" | "approver" | "lead" | "member";
+  cycle_no: number | null;
+};
+
 export const supabaseContactRepo: ContactRepo = {
   async listByCompany(companyId) {
     const sb = getServiceClient();
@@ -46,9 +53,35 @@ export const supabaseContactRepo: ContactRepo = {
       .select("id,organization_id,company_id,name,department,title,email,tel,is_primary")
       .eq("company_id", companyId);
     if (error) throw new Error(`company_contacts.listByCompany: ${error.message}`);
-    return (data ?? []).map((r: ContactRow) => {
-      // products は company_contact_products 経由 (個別 fetch)。
-      // 本ヘルパは N+1 解消が目的なので products は呼び出し側で必要なら別途取得する。
+    const contacts = data ?? [];
+    if (contacts.length === 0) return [];
+    // 役割 (scope/level/cycle_no) を一括 join
+    const ids = contacts.map((c: { id: string }) => c.id);
+    const { data: rolesData, error: rolesErr } = await sb
+      .from("company_contact_roles")
+      .select("contact_id,scope,level,cycle_no")
+      .in("contact_id", ids);
+    if (rolesErr) {
+      // table 未作成の環境では無視 (mock fallback と同等の挙動)
+      process.stderr.write(
+        JSON.stringify({
+          at: new Date().toISOString(),
+          kind: "company_contact_roles_unavailable",
+          message: rolesErr.message
+        }) + "\n"
+      );
+    }
+    const rolesByContact = new Map<string, { scope: "overall" | ProductCode; level: "executive" | "approver" | "lead" | "member"; cycleNo?: number }[]>();
+    for (const r of (rolesData ?? []) as ContactRoleRow[]) {
+      const arr = rolesByContact.get(r.contact_id) ?? [];
+      arr.push({
+        scope: r.scope,
+        level: r.level,
+        cycleNo: r.cycle_no ?? undefined
+      });
+      rolesByContact.set(r.contact_id, arr);
+    }
+    return (contacts as ContactRow[]).map((r) => {
       return {
         id: r.id,
         organizationId: r.organization_id,
@@ -59,7 +92,8 @@ export const supabaseContactRepo: ContactRepo = {
         email: r.email ?? "",
         tel: r.tel ?? undefined,
         isPrimary: r.is_primary,
-        products: [] as ProductCode[]
+        products: [] as ProductCode[],
+        roles: rolesByContact.get(r.id) ?? []
       } satisfies Contact;
     });
   },

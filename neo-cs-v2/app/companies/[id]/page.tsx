@@ -28,7 +28,8 @@ import {
   contractLifecycleRepo,
   companyWeatherRepo,
   companyVisionRepo,
-  emailRepo
+  emailRepo,
+  participantRepo
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import {
@@ -216,6 +217,12 @@ export default async function CompanyDetailPage({
     (b): b is NonNullable<typeof b> => b !== null
   );
 
+  // 派遣社員 (アカデミア生 / AIKEN受講者 等): contract 単位で取得
+  const participantsNested = await Promise.all(
+    allCycles.map((c) => participantRepo.listByContract(c.id).catch(() => []))
+  );
+  const participantList = participantsNested.flat();
+
   // メールタブ用: この企業に紐づく全スレッドとそのメッセージ
   const emailThreads = await emailRepo.listThreads({ companyId: company.id });
   const emailMessagesNested = await Promise.all(
@@ -264,6 +271,7 @@ export default async function CompanyDetailPage({
         programData={programData}
         emailThreads={emailThreads}
         emailMessages={emailMessages}
+        initialParticipants={participantList}
       />
     </>
   );

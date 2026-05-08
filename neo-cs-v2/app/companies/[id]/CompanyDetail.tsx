@@ -234,7 +234,8 @@ export function CompanyDetail({
   weeklyReviews = [],
   programData = [],
   emailThreads = [],
-  emailMessages = []
+  emailMessages = [],
+  initialParticipants
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -280,6 +281,8 @@ export function CompanyDetail({
   emailThreads?: EmailThread[];
   /** メールメッセージ一覧 (上記スレッド配下のもの) */
   emailMessages?: EmailMessage[];
+  /** 派遣社員 (アカデミア生 / 受講者 等) — supabase 由来。未指定なら mock を使う */
+  initialParticipants?: Participant[];
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -545,6 +548,7 @@ export function CompanyDetail({
           contacts={contactList}
           allCycles={allCycles}
           onUpdateContact={updateContact}
+          initialParticipants={initialParticipants}
         />
       )}
         </section>
@@ -1086,12 +1090,14 @@ function OrgChartTab({
   companyId,
   contacts,
   allCycles,
-  onUpdateContact
+  onUpdateContact,
+  initialParticipants
 }: {
   companyId: string;
   contacts: Contact[];
   allCycles: ActiveContract[];
   onUpdateContact: (next: Contact) => void;
+  initialParticipants?: Participant[];
 }) {
   // 担当者ゼロでも参加者の追加導線を残すため早期 return しない
   return (
@@ -1101,6 +1107,7 @@ function OrgChartTab({
         contacts={contacts}
         allCycles={allCycles}
         onUpdate={onUpdateContact}
+        initialParticipants={initialParticipants}
       />
 
       {contacts.length > 0 && (
@@ -3611,17 +3618,22 @@ function ContactOrgTree({
   companyId,
   contacts,
   allCycles,
-  onUpdate
+  onUpdate,
+  initialParticipants
 }: {
   companyId: string;
   contacts: Contact[];
   allCycles: ActiveContract[];
   onUpdate: (next: Contact) => void;
+  initialParticipants?: Participant[];
 }) {
   const [editing, setEditing] = useState<Contact | null>(null);
   // 参加者状態 (組織図タブ内に統合表示)
+  // initialParticipants が渡されていれば supabase 由来データを使う、無ければ mock fallback
   const [participantList, setParticipantList] = useState<Participant[]>(() =>
-    allParticipants.filter((p) => p.companyId === companyId)
+    initialParticipants
+      ? initialParticipants
+      : allParticipants.filter((p) => p.companyId === companyId)
   );
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(
     null
