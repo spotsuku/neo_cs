@@ -558,6 +558,7 @@ export function CompanyDetail({
         <ContactEditDialog
           contact={editingContact}
           availableScopes={availableScopes}
+          allCycles={allCycles}
           onClose={() => setEditingContact(null)}
           onSave={(next) => {
             updateContact(next);
@@ -3677,14 +3678,32 @@ function ContactOrgTree({
       : allCycles
           .filter((c) => (c.product as string) === (selectedScope as string))
           .sort((a, b) => a.cycleNumber - b.cycleNumber);
-  const [selectedContractId, setSelectedContractId] = useState<string | undefined>(
-    cyclesForSelected[0]?.id
+  // 選択中の期キー: "common" = 全期共通, それ以外は ActiveContract.id
+  const [selectedTermKey, setSelectedTermKey] = useState<string>(
+    cyclesForSelected[0]?.id ?? "common"
   );
-  // scope 切替時に期もリセット
+  // scope 切替時に期もリセット (該当事業に期があれば最新期、無ければ全期共通)
   useEffect(() => {
-    setSelectedContractId(cyclesForSelected[0]?.id);
+    setSelectedTermKey(cyclesForSelected[0]?.id ?? "common");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedScope]);
+
+  // 選択期に対応する cycleNumber。"common" or overall は undefined。
+  const activeCycleNo: number | undefined =
+    selectedTermKey === "common" || selectedScope === "overall"
+      ? undefined
+      : cyclesForSelected.find((c) => c.id === selectedTermKey)?.cycleNumber;
+  // 参加者セクション (期に紐づく) の互換用エイリアス。全期共通選択時は undefined。
+  const selectedContractId: string | undefined =
+    selectedTermKey === "common" ? undefined : selectedTermKey;
+
+  // ロールが「現在の scope × 期」に表示されるべきか
+  // - scope 不一致 → false
+  // - cycleNo 未指定 (全期共通) → 常に true
+  // - cycleNo 一致 → true
+  const isRoleVisibleHere = (r: ContactRole, scope: ContactRoleScope) =>
+    r.scope === scope &&
+    (r.cycleNo == null || r.cycleNo === activeCycleNo);
 
   if (scopes.length === 0) {
     return (
@@ -3694,15 +3713,15 @@ function ContactOrgTree({
     );
   }
 
-  // 選択 scope に該当する役割を持つ担当者だけを表示。overall は all。
+  // 選択 scope×期 に該当する役割を持つ担当者だけを表示。
   const filteredContacts = contacts.filter((c) =>
-    (c.roles ?? []).some((r) => r.scope === selectedScope)
+    (c.roles ?? []).some((r) => isRoleVisibleHere(r, selectedScope))
   );
 
-  // 各 contact の scope/level 一覧 (現在 scope に絞ったものを表示)
+  // 各 contact の scope/level 一覧 (現在 scope×期 に絞ったものを表示)
   const rolesByContact = (c: Contact) =>
     (c.roles ?? [])
-      .filter((r) => r.scope === selectedScope)
+      .filter((r) => isRoleVisibleHere(r, selectedScope))
       .map((r) => ({ scope: r.scope, level: r.level }));
 
   return (
@@ -3714,6 +3733,8 @@ function ContactOrgTree({
           {scopes.map((scope) => {
             const accent = scopeAccent(scope);
             const active = scope === selectedScope;
+            // 担当者数バッジ: 当該 scope に属するロールがあるかで集計。
+            // 期未確定の段階では cycleNo を考慮せず scope のみで数える (UI 統一感を優先)。
             const count = contacts.filter((c) =>
               (c.roles ?? []).some((r) => r.scope === scope)
             ).length;
@@ -3742,17 +3763,37 @@ function ContactOrgTree({
           })}
         </div>
 
-        {/* 期ボタン — 商材選択時のみ表示。担当者は期に依存しないが、UI 統一のため切替UIを置く */}
+        {/* 期ボタン — 商材選択時のみ表示。「全期共通」+ 各期で組織図メンバーを切替える。 */}
         {selectedScope !== "overall" && cyclesForSelected.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] text-ink-500 mr-1">期</span>
+            {/* 全期共通: cycleNo 未指定のロールのみ表示 */}
+            {(() => {
+              const active = selectedTermKey === "common";
+              return (
+                <button
+                  key="common"
+                  type="button"
+                  onClick={() => setSelectedTermKey("common")}
+                  className={[
+                    "px-2.5 py-1 rounded-full text-xs transition border",
+                    active
+                      ? "bg-ink-900 text-white border-ink-900"
+                      : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                  ].join(" ")}
+                  title="期に紐づかない全期共通の担当者のみを表示"
+                >
+                  全期共通
+                </button>
+              );
+            })()}
             {cyclesForSelected.map((c) => {
-              const active = c.id === selectedContractId;
+              const active = c.id === selectedTermKey;
               return (
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => setSelectedContractId(c.id)}
+                  onClick={() => setSelectedTermKey(c.id)}
                   className={[
                     "px-2.5 py-1 rounded-full text-xs transition border",
                     active
@@ -3772,7 +3813,7 @@ function ContactOrgTree({
               );
             })}
             <span className="ml-auto text-[10px] text-ink-400">
-              ※ 担当者は期に依らず会社単位で管理
+              全期共通ロールはどの期でも常に表示
             </span>
           </div>
         )}
@@ -3999,6 +4040,7 @@ function ContactOrgTree({
         <ContactEditDialog
           contact={editing}
           availableScopes={scopes}
+          allCycles={allCycles}
           onClose={() => setEditing(null)}
           onSave={(next) => {
             onUpdate(next);
@@ -5539,11 +5581,13 @@ function ParticipantAddDialog({
 function ContactEditDialog({
   contact,
   availableScopes,
+  allCycles,
   onClose,
   onSave
 }: {
   contact: Contact;
   availableScopes: ContactRoleScope[];
+  allCycles: ActiveContract[];
   onClose: () => void;
   onSave: (next: Contact) => void;
 }) {
@@ -5558,14 +5602,86 @@ function ContactEditDialog({
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
     );
   const [roles, setRoles] = useState<ContactRole[]>(contact.roles ?? []);
-  const hasRole = (scope: ContactRoleScope, level: ContactRoleLevel) =>
-    roles.some((r) => r.scope === scope && r.level === level);
-  const toggleRole = (scope: ContactRoleScope, level: ContactRoleLevel) =>
-    setRoles((prev) =>
-      prev.some((r) => r.scope === scope && r.level === level)
-        ? prev.filter((r) => !(r.scope === scope && r.level === level))
-        : [...prev, { scope, level }]
+
+  // 編集対象の期キー: "common" = 全期共通, "<product>#<cycleNo>" = 当該事業×期
+  const [editingTermKey, setEditingTermKey] = useState<string>("common");
+  // (scope, cycleNo) 組合せの一覧。overall は "common" にまとめる前提。
+  const cyclesByScope: Record<string, number[]> = {};
+  for (const c of allCycles) {
+    const code = c.product as string;
+    (cyclesByScope[code] ??= []).push(c.cycleNumber);
+  }
+  for (const k of Object.keys(cyclesByScope)) {
+    cyclesByScope[k] = Array.from(new Set(cyclesByScope[k])).sort((a, b) => a - b);
+  }
+  const productScopes = availableScopes.filter(
+    (s) => s !== "overall"
+  ) as Exclude<ContactRoleScope, "overall">[];
+  const termChips: {
+    key: string;
+    label: string;
+    scope: ContactRoleScope;
+    cycleNo?: number;
+  }[] = [{ key: "common", label: "全期共通", scope: "overall" }];
+  for (const s of productScopes) {
+    for (const n of cyclesByScope[s] ?? []) {
+      termChips.push({
+        key: `${s}#${n}`,
+        label: `${scopeLabel(s)} 第${n}期`,
+        scope: s,
+        cycleNo: n
+      });
+    }
+  }
+  const editingTerm =
+    termChips.find((t) => t.key === editingTermKey) ?? termChips[0];
+  // 各 scope 行に対する「現在編集中の cycleNo」を返す。
+  // - 全期共通タブ: 全 scope について undefined (= 全期共通ロールを編集)
+  // - 期タブ: その期の scope と一致する行のみ cycleNo を、他は undefined。
+  //   overall 行は cycleNo を持たない仕様なので常に undefined。
+  const cycleNoForRowScope = (rowScope: ContactRoleScope): number | undefined => {
+    if (editingTerm.key === "common") return undefined;
+    if (rowScope === "overall") return undefined;
+    if (rowScope === editingTerm.scope) return editingTerm.cycleNo;
+    return undefined;
+  };
+  const sameRole = (
+    r: ContactRole,
+    scope: ContactRoleScope,
+    level: ContactRoleLevel,
+    cycleNo: number | undefined
+  ) =>
+    r.scope === scope &&
+    r.level === level &&
+    (r.cycleNo ?? undefined) === cycleNo;
+  const hasRole = (scope: ContactRoleScope, level: ContactRoleLevel) => {
+    const cycleNo = cycleNoForRowScope(scope);
+    return roles.some((r) => sameRole(r, scope, level, cycleNo));
+  };
+  // 「他期に同じ scope×level 設定がある」ヒント表示用
+  const hasRoleInOtherTerm = (
+    scope: ContactRoleScope,
+    level: ContactRoleLevel
+  ) => {
+    const cycleNo = cycleNoForRowScope(scope);
+    return roles.some(
+      (r) =>
+        r.scope === scope &&
+        r.level === level &&
+        (r.cycleNo ?? undefined) !== cycleNo
     );
+  };
+  const toggleRole = (scope: ContactRoleScope, level: ContactRoleLevel) => {
+    const cycleNo = cycleNoForRowScope(scope);
+    setRoles((prev) =>
+      prev.some((r) => sameRole(r, scope, level, cycleNo))
+        ? prev.filter((r) => !sameRole(r, scope, level, cycleNo))
+        : [
+            ...prev,
+            cycleNo == null ? { scope, level } : { scope, level, cycleNo }
+          ]
+    );
+  };
   const [functions, setFunctions] = useState<ContactFunction[]>(
     contact.functions ?? []
   );
@@ -5687,13 +5803,49 @@ function ContactEditDialog({
           </div>
         </div>
 
-        {/* 担当ロール（scope × level） */}
+        {/* 担当ロール（scope × level × 期） */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="text-xs font-semibold text-ink-700">担当ロール</div>
             <div className="text-[10px] text-ink-400">
-              スコープ × 役割でチェック（兼務可）
+              期を切替えてスコープ × 役割をチェック（兼務可）
             </div>
+          </div>
+          {/* 期切替チップ: 全期共通 + 各 (商材, 期) */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-ink-500 mr-0.5">期</span>
+            {termChips.map((t) => {
+              const active = t.key === editingTermKey;
+              const accent =
+                t.scope === "overall" ? "#475569" : scopeAccent(t.scope);
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setEditingTermKey(t.key)}
+                  className={[
+                    "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] border transition",
+                    active
+                      ? "bg-ink-900 text-white border-ink-900"
+                      : "bg-white border-ink-200 text-ink-700 hover:bg-ink-50"
+                  ].join(" ")}
+                >
+                  <span
+                    className="inline-block w-1.5 h-1.5 rounded-full"
+                    style={{ background: accent }}
+                  />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-[10px] text-ink-500">
+            編集中: <span className="font-medium text-ink-700">{editingTerm.label}</span>
+            {editingTerm.key !== "common" && (
+              <span className="ml-1 text-ink-400">
+                (NEO全体行は常に「全期共通」として保存)
+              </span>
+            )}
           </div>
           <div className="rounded-lg border border-ink-100 overflow-hidden">
             <table className="w-full text-[11px]">
@@ -5708,7 +5860,14 @@ function ContactEditDialog({
                 </tr>
               </thead>
               <tbody>
-                {availableScopes.map((scope) => (
+                {availableScopes.map((scope) => {
+                  // 期タブ編集中で、この行が当該事業以外なら「全期共通として書込」
+                  // 注釈を控えめに表示する。
+                  const isCrossTermRow =
+                    editingTerm.key !== "common" &&
+                    scope !== "overall" &&
+                    scope !== editingTerm.scope;
+                  return (
                   <tr key={scope} className="border-t border-ink-100">
                     <td className="px-2 py-1">
                       <span
@@ -5720,21 +5879,37 @@ function ContactEditDialog({
                           style={{ background: scopeAccent(scope) }}
                         />
                         {scopeLabel(scope)}
+                        {isCrossTermRow && (
+                          <span className="ml-1 text-[9px] text-ink-400">
+                            (全期共通)
+                          </span>
+                        )}
                       </span>
                     </td>
                     {ROLE_LEVEL_ORDER.map((lv) => (
                       <td key={lv} className="px-1 py-1 text-center">
-                        <input
-                          type="checkbox"
-                          checked={hasRole(scope, lv)}
-                          onChange={() => toggleRole(scope, lv)}
-                          className="cursor-pointer"
-                          aria-label={`${scopeLabel(scope)} ${ROLE_LEVEL_META[lv].label}`}
-                        />
+                        <label className="inline-flex items-center justify-center gap-0.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={hasRole(scope, lv)}
+                            onChange={() => toggleRole(scope, lv)}
+                            className="cursor-pointer"
+                            aria-label={`${scopeLabel(scope)} ${ROLE_LEVEL_META[lv].label}`}
+                          />
+                          {hasRoleInOtherTerm(scope, lv) && (
+                            <span
+                              className="text-[9px] leading-none text-ink-400"
+                              title="他の期に同じ役割の設定あり"
+                            >
+                              •
+                            </span>
+                          )}
+                        </label>
                       </td>
                     ))}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
