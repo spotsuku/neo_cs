@@ -13,8 +13,10 @@ import {
   companyJourneyRepo,
   onboardingItemRepo,
   companyTaskRepo,
-  companyWeatherRepo
+  companyWeatherRepo,
+  healthSnapshotRepo
 } from "@/lib/repository/server";
+import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { ProductCode } from "@/lib/repository/types";
 import CompaniesView from "./CompaniesView";
 
@@ -22,13 +24,14 @@ export const dynamic = "force-dynamic";
 
 export default async function CompaniesPage() {
   // ─── 第1段: 親キー単独で取れるリソースを並列取得 ───────────
-  const [companies, allContracts, journeys, weatherOverrides, openTasks] =
+  const [companies, allContracts, journeys, weatherOverrides, openTasks, latestHealthSnapshots] =
     await Promise.all([
       companyRepo.list(),
       contractRepo.list(),
       companyJourneyRepo.list(),
       companyWeatherRepo.getAll(),
-      companyTaskRepo.list({ openOnly: true })
+      companyTaskRepo.list({ openOnly: true }),
+      healthSnapshotRepo.latestAll({ organizationId: DEFAULT_ORG_ID })
     ]);
 
   // active 集合 (UI デフォルト) を派生 — companies/[id]/page.tsx と同じ式
@@ -63,13 +66,21 @@ export default async function CompaniesPage() {
   }));
 
   // 2) 企業ごとの health 色 (active 契約の最悪値を集約)
+  //    health_score_snapshots の最新値を contractId キーで参照する。
+  //    Supabase ドライバの Contract には healthScore field が無いため、
+  //    必ず snapshot 経由で解決する (旧 ct.healthScore?.color は廃止)。
+  //    snapshot が無い契約は色なし扱い → UI 側のデフォルト (green) に流れる。
+  const colorByContract = new Map<string, "green" | "yellow" | "red">();
+  for (const s of latestHealthSnapshots) {
+    colorByContract.set(s.contractId, s.color);
+  }
   const healthByCompany: Record<string, "green" | "yellow" | "red"> = {};
+  const rank = { red: 2, yellow: 1, green: 0 } as const;
   for (const ct of activeContracts) {
-    const color = ct.healthScore?.color;
+    const color = colorByContract.get(ct.id);
     if (!color) continue;
     const prev = healthByCompany[ct.companyId];
     // red > yellow > green の順で「悪い方」を採用
-    const rank = { red: 2, yellow: 1, green: 0 } as const;
     if (!prev || rank[color] > rank[prev]) {
       healthByCompany[ct.companyId] = color;
     }

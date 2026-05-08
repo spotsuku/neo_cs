@@ -7,7 +7,9 @@
 //
 // 動作:
 //   - 全 active 契約をスキャン
-//   - lib/domain/health.computeFromContract() で score / color / factors を算出
+//   - lib/domain/health-factors.deriveFactorsFromSignals() で実シグナルから factor を導出
+//     (出席率 / 最終接点 / 期日超過オンボ / 未解決 churn signal / journey checkpoint 進捗)
+//   - lib/domain/health.computeHealthScore() で重み付き加算 → score / color
 //   - getRepo().healthSnapshots.upsert() で本日分を upsert
 //   - 認証: CRON_SECRET (環境変数) と Bearer 照合。未設定環境は 503
 //   - 同時実行ロック (in-memory) で重複起動時は skip
@@ -18,7 +20,8 @@
 import { NextRequest } from "next/server";
 import { getRepo } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/server";
-import { computeHealthScore, deriveMockFactors } from "@/lib/domain/health";
+import { computeHealthScore } from "@/lib/domain/health";
+import { deriveFactorsFromSignals } from "@/lib/domain/health-factors";
 import { getLogger } from "@/lib/observability/logger";
 import { captureException } from "@/lib/observability/sentry";
 
@@ -58,11 +61,11 @@ export async function GET(req: NextRequest) {
     let failed = 0;
     for (const c of contracts) {
       try {
-        const factors = deriveMockFactors({
-          contractId: c.id,
-          product: c.product,
-          baselineColor: c.healthScore?.color,
-          endDate: c.endDate,
+        // Phase B: 実シグナル (attendance / meeting / onboarding / churn / journey)
+        // から factor を導出する。シグナル未取得の factor は undefined → 中立 (70 点)
+        // として normalize 側に流れる。
+        const factors = await deriveFactorsFromSignals(repo, {
+          contract: c,
           asOf: today
         });
         const breakdown = computeHealthScore(factors, `${today}T00:00:00Z`);

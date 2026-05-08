@@ -91,8 +91,7 @@ import {
   setCompanyJourneyStageAction,
   setBusinessJourneyStageAction
 } from "./journey-actions";
-import { companyHealthColor } from "@/lib/mock/health";
-import { computeFromContract } from "@/lib/domain/health";
+import { computeFromContract, computeHealthScore } from "@/lib/domain/health";
 import { HealthExplain } from "@/components/HealthExplain";
 import { HealthSparkline } from "@/components/HealthSparkline";
 import { ContractChurnSignals } from "@/components/ContractChurnSignals";
@@ -235,7 +234,9 @@ export function CompanyDetail({
   programData = [],
   emailThreads = [],
   emailMessages = [],
-  initialParticipants
+  initialParticipants,
+  headerHealthColor = "green",
+  latestHealthByContract = {}
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -283,6 +284,18 @@ export function CompanyDetail({
   emailMessages?: EmailMessage[];
   /** 派遣社員 (アカデミア生 / 受講者 等) — supabase 由来。未指定なら mock を使う */
   initialParticipants?: Participant[];
+  /**
+   * ヘッダーバッジに表示するヘルスカラー。
+   * Server Component (page.tsx) で health_score_snapshots の最新値から
+   * worst-of-active で算出して渡す。snapshot 未生成の契約は green 扱い。
+   */
+  headerHealthColor?: HealthColor;
+  /**
+   * active 契約 ID → 最新 health_score_snapshot の Map。
+   * CompanyHealthSection で契約別 breakdown を実シグナル由来の factor から
+   * 再計算するために使う。snapshot 未生成の契約はキー未登録 = mock fallback。
+   */
+  latestHealthByContract?: Record<string, import("@/lib/repository/types").HealthSnapshot>;
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -321,7 +334,9 @@ export function CompanyDetail({
   })();
   const updateContact = (next: Contact) =>
     setContactList((prev) => prev.map((c) => (c.id === next.id ? next : c)));
-  const healthColor: HealthColor = companyHealthColor(company.id);
+  // ヘッダーのヘルスカラーは Server 側で health_score_snapshots から算出済みの値を使う。
+  // 旧来の lib/mock/health.companyHealthColor() (mock onboarding 直読み) は廃止。
+  const healthColor: HealthColor = headerHealthColor;
 
   return (
     <main className="mx-auto max-w-[1720px] px-6 pt-0 pb-8">
@@ -491,6 +506,7 @@ export function CompanyDetail({
           pastContracts={allCycles}
           companyVision={companyVision}
           companyVisionLogs={companyVisionLogs}
+          latestHealthByContract={latestHealthByContract}
         />
       )}
       {tab === "tasks" && (
@@ -873,7 +889,8 @@ function OverviewTab({
   lifecycleSnapshots,
   pastContracts,
   companyVision,
-  companyVisionLogs
+  companyVisionLogs,
+  latestHealthByContract
 }: {
   company: Company;
   companyId: string;
@@ -887,6 +904,7 @@ function OverviewTab({
   pastContracts: ActiveContract[];
   companyVision?: CompanyVision | null;
   companyVisionLogs?: CompanyVisionLog[];
+  latestHealthByContract: Record<string, import("@/lib/repository/types").HealthSnapshot>;
 }) {
   // 直近の動き: 面談ログ + 週次レビューを時系列でマージ
   const recentActivity = buildRecentActivity(logs, weeklyReviews, 6);
@@ -911,7 +929,10 @@ function OverviewTab({
       {/* 3. 直近の動き + 4. 健康スコア (2カラム) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentActivitySection items={recentActivity} />
-        <CompanyHealthSection contracts={contracts} />
+        <CompanyHealthSection
+          contracts={contracts}
+          latestHealthByContract={latestHealthByContract}
+        />
       </div>
 
       {/* 5. 過去契約事業 */}
@@ -1031,7 +1052,13 @@ function RecentActivitySection({ items }: { items: RecentActivityItem[] }) {
 }
 
 /* ──────────────── 健康スコア（契約ごと） ──────────────── */
-function CompanyHealthSection({ contracts }: { contracts: ActiveContract[] }) {
+function CompanyHealthSection({
+  contracts,
+  latestHealthByContract
+}: {
+  contracts: ActiveContract[];
+  latestHealthByContract: Record<string, import("@/lib/repository/types").HealthSnapshot>;
+}) {
   return (
     <section className="liquid-surface p-5 space-y-3">
       <div>
@@ -1047,7 +1074,12 @@ function CompanyHealthSection({ contracts }: { contracts: ActiveContract[] }) {
       ) : (
         <div className="space-y-2">
           {contracts.map((c) => {
-            const breakdown = computeFromContract(c);
+            // 最新 snapshot があれば factors から breakdown を再計算 (実シグナル由来)。
+            // 無ければ Contract から推定 (mock 互換のフォールバック)。
+            const snap = latestHealthByContract[c.id];
+            const breakdown = snap
+              ? computeHealthScore(snap.factors, snap.computedAt)
+              : computeFromContract(c);
             return (
               <div
                 key={c.id}
@@ -2968,9 +3000,14 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
     yellow: "#F59E0B",
     red: "#EF4444"
   };
-  const breakdown = computeFromContract(contract);
-  const healthColor = breakdown.color;
   const { snapshots } = useHealthSnapshots(contract.id);
+  // 最新 snapshot があればその factors から breakdown を再計算 (実シグナル由来)。
+  // 無ければ Contract から推定 (Phase A 時の暫定挙動 / mock onboarding シード由来)。
+  const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+  const breakdown = latestSnapshot
+    ? computeHealthScore(latestSnapshot.factors, latestSnapshot.computedAt)
+    : computeFromContract(contract);
+  const healthColor = breakdown.color;
   return (
     <div className="space-y-4 pt-4 border-t border-ink-100">
       {/* Health 説明セクション */}

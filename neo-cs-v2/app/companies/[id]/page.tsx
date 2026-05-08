@@ -29,9 +29,11 @@ import {
   companyWeatherRepo,
   companyVisionRepo,
   emailRepo,
-  participantRepo
+  participantRepo,
+  healthSnapshotRepo
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
+import type { HealthColor } from "@/lib/domain/health";
 import {
   suggestBusinessStage,
   suggestCompanyStage,
@@ -223,6 +225,27 @@ export default async function CompanyDetailPage({
   );
   const participantList = participantsNested.flat();
 
+  // ─── ヘッダーのヘルスバッジ色: health_score_snapshots の最新値から worst-of-active を算出 ───
+  // 旧コードは lib/mock/health.companyHealthColor() で activeContracts (mock) を直読みしていた。
+  // active 契約 ID 集合に対応する最新 snapshot のみを参照し、red > yellow > green の順で
+  // 最も悪い色をヘッダーに反映する。snapshot が無い契約は集約から除外。
+  const activeIds = new Set(contracts.map((c) => c.id));
+  const latestSnapshots = await healthSnapshotRepo.latestAll({
+    organizationId: DEFAULT_ORG_ID
+  });
+  const colorRank: Record<HealthColor, number> = { green: 0, yellow: 1, red: 2 };
+  let headerHealthColor: HealthColor = "green";
+  // 健康スコアセクション (CompanyHealthSection) で契約別 breakdown を実シグナル
+  // 由来の factors から再計算するため、active 契約の最新 snapshot を Map にして渡す。
+  const latestHealthByContract: Record<string, (typeof latestSnapshots)[number]> = {};
+  for (const s of latestSnapshots) {
+    if (!activeIds.has(s.contractId)) continue;
+    latestHealthByContract[s.contractId] = s;
+    if (colorRank[s.color] > colorRank[headerHealthColor]) {
+      headerHealthColor = s.color;
+    }
+  }
+
   // メールタブ用: この企業に紐づく全スレッドとそのメッセージ
   const emailThreads = await emailRepo.listThreads({ companyId: company.id });
   const emailMessagesNested = await Promise.all(
@@ -272,6 +295,8 @@ export default async function CompanyDetailPage({
         emailThreads={emailThreads}
         emailMessages={emailMessages}
         initialParticipants={participantList}
+        headerHealthColor={headerHealthColor}
+        latestHealthByContract={latestHealthByContract}
       />
     </>
   );

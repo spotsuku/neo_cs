@@ -4,7 +4,8 @@
 //   - 集約された Health 色を 1 行で表示。クリックでモーダル展開
 //   - モーダルでは契約ごとの healthScore (color / score / factors) を内訳表示
 //   - 集約ルール: 1つでも red → red、次に yellow → yellow、それ以外は green
-//     (lib/mock/health.ts の companyHealthColor と同じ)
+//     (worst-of-active 集約。Server 側 page.tsx で
+//      health_score_snapshots の最新値から同じルールで導出している)
 //
 // 設計理由:
 //   一覧では「天気 (CS 主観)」と「Health (自動算出)」が重複しがちなので、
