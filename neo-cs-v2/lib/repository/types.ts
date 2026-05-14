@@ -1670,6 +1670,8 @@ export interface Repository {
   onboardingTemplates: OnboardingTemplateRepo;
   // ユーザ通知 inbox (VOC / 週次未提出 / 解約予兆 / 更新 / オンボ を集約)
   userNotifications: UserNotificationRepo;
+  // ユーザ単位の Gmail OAuth 接続
+  gmailConnections: GmailConnectionRepo;
 }
 
 // ─────────────────────────────────────────────
@@ -1724,4 +1726,45 @@ export interface UserNotificationRepo {
   markAllRead(userId: string): Promise<number>;
   /** ヘッダのバッジ用: 未読件数のみカウント */
   countUnread(userId: string): Promise<number>;
+}
+
+// ─────────────────────────────────────────────
+// Gmail OAuth 接続 (user_gmail_connections)
+// マイグレーション: supabase/migrations/0042_user_gmail_connections.sql
+// ─────────────────────────────────────────────
+export type GmailConnection = {
+  id: string;
+  organizationId: string;
+  userId: string;
+  emailAddress: string;
+  /** refresh_token は server-only。クライアントに渡さないこと */
+  refreshToken: string;
+  accessToken?: string;
+  accessTokenExpiresAt?: string;
+  grantedScopes: string;
+  connectedAt: string;
+  lastSyncAt?: string;
+  lastSyncStatus?: "success" | "warning" | "error";
+  lastSyncNote?: string;
+};
+
+export type GmailConnectionUpsertInput = Omit<
+  GmailConnection,
+  "id" | "connectedAt" | "lastSyncAt" | "lastSyncStatus" | "lastSyncNote"
+>;
+
+export interface GmailConnectionRepo {
+  getByUserId(userId: string): Promise<GmailConnection | null>;
+  upsert(input: GmailConnectionUpsertInput): Promise<GmailConnection>;
+  updateSyncStatus(
+    userId: string,
+    patch: {
+      lastSyncAt?: string;
+      lastSyncStatus?: GmailConnection["lastSyncStatus"];
+      lastSyncNote?: string;
+      accessToken?: string;
+      accessTokenExpiresAt?: string;
+    }
+  ): Promise<void>;
+  delete(userId: string): Promise<void>;
 }

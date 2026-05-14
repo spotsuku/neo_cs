@@ -1,289 +1,197 @@
 import Link from "next/link";
 import { TopNavServer } from "@/components/TopNavServer";
+import { userRepo, gmailConnectionRepo } from "@/lib/repository/server";
+import { DisconnectButton } from "./DisconnectButton";
 
-type SyncLog = {
-  time: string;
-  count: number;
-  status: "success" | "warning" | "error";
-  note: string;
-};
+export const dynamic = "force-dynamic";
 
-const targetLabels = [
-  "顧客対応",
-  "週次レビュー",
-  "オンボーディング",
-  "問い合わせ",
-  "更新交渉"
-];
+type SearchParams = Promise<{ status?: string; error?: string }>;
 
-const excludeLabels = ["社内通知", "カレンダー招待", "ニュースレター"];
+export default async function GmailSettingsPage({
+  searchParams
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const me = await userRepo.getCurrent();
+  const connection = me?.id
+    ? await gmailConnectionRepo.getByUserId(me.id).catch(() => null)
+    : null;
 
-const intervalOptions = ["5分", "15分", "30分", "1時間"];
-
-const aiModels = ["Claude Opus 4.7", "Claude Sonnet 4.6", "Claude Haiku"];
-
-const syncLogs: SyncLog[] = [
-  { time: "2026-04-25 09:30", count: 24, status: "success", note: "正常に取り込み完了" },
-  { time: "2026-04-25 09:00", count: 18, status: "success", note: "正常に取り込み完了" },
-  { time: "2026-04-25 08:30", count: 31, status: "success", note: "正常に取り込み完了" },
-  { time: "2026-04-25 08:00", count: 12, status: "warning", note: "2件の企業マッピング失敗" },
-  { time: "2026-04-25 07:30", count: 9, status: "success", note: "正常に取り込み完了" },
-  { time: "2026-04-25 07:00", count: 0, status: "success", note: "新着メールなし" },
-  { time: "2026-04-25 06:30", count: 15, status: "error", note: "API接続エラー（リトライ成功）" },
-  { time: "2026-04-25 06:00", count: 22, status: "success", note: "正常に取り込み完了" }
-];
-
-const statusBadge = (status: SyncLog["status"]) => {
-  if (status === "success") {
-    return (
-      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
-        成功
-      </span>
-    );
-  }
-  if (status === "warning") {
-    return (
-      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
-        警告
-      </span>
-    );
-  }
-  return (
-    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100">
-      エラー
-    </span>
-  );
-};
-
-const Chip = ({ label }: { label: string }) => (
-  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-ink-50 border border-ink-100 text-xs text-ink-700">
-    {label}
-    <button
-      type="button"
-      disabled
-      title="準備中"
-      className="text-ink-300 cursor-not-allowed"
-    >
-      ×
-    </button>
-  </span>
-);
-
-const Toggle = ({ on }: { on: boolean }) => (
-  <button
-    type="button"
-    disabled
-    title="準備中: Gmail 連携の OAuth フローは別途実装予定"
-    className={`relative inline-flex h-6 w-11 items-center rounded-full transition cursor-not-allowed opacity-60 ${
-      on ? "bg-ink-900" : "bg-ink-100"
-    }`}
-  >
-    <span
-      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-        on ? "translate-x-5" : "translate-x-0.5"
-      }`}
-    />
-  </button>
-);
-
-export default function GmailSettingsPage() {
   return (
     <>
       <TopNavServer current="/settings" />
-      <main className="mx-auto max-w-[1720px] px-6 py-8 space-y-8">
-        {/* ヘッダー */}
+      <main className="mx-auto max-w-[1200px] px-6 py-8 space-y-8">
         <section>
           <div className="text-xs text-ink-500 font-medium">
             <Link href="/settings" className="hover:text-ink-700">
               設定
             </Link>
             <span className="mx-1.5">/</span>
-            <span>Gmail連携</span>
+            <span>Gmail 連携</span>
           </div>
           <h1 className="mt-1 text-xl font-bold tracking-tight">
-            <span className="brand-text-gradient">Gmail連携</span>
+            <span className="brand-text-gradient">Gmail 連携</span>
           </h1>
           <div className="mt-1 text-sm text-ink-500">
-            メールの自動取り込みと、AI要約対象とするラベルを設定します
+            自分の Gmail アカウントを接続すると、受信メールから VOC / 顧客対応の
+            通知が通知センターに届くようになります
           </div>
         </section>
 
-        {/* 接続状態カード */}
+        {params.status === "connected" && (
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-900">
+            ✅ Gmail への接続が完了しました
+          </div>
+        )}
+        {params.error && (
+          <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm text-rose-900">
+            ⚠ 接続に失敗しました: {humanizeError(params.error)}
+          </div>
+        )}
+
         <section className="liquid-surface p-6">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-              </span>
-              <div>
-                <div className="text-base font-semibold text-ink-900">
-                  接続済み: cs-team@neoacademia.jp
-                </div>
-                <div className="mt-0.5 text-xs text-ink-500">
-                  最終同期: 2026-04-25 09:30 ・ 次回同期予定: 2026-04-25 09:45
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
-                再認証
-              </button>
-              <button className="px-4 py-2 rounded-full border border-rose-200 text-sm text-rose-600 hover:bg-rose-50">
-                切断
-              </button>
-            </div>
-          </div>
+          {connection ? (
+            <ConnectedView
+              email={connection.emailAddress}
+              connectedAt={connection.connectedAt}
+              lastSyncAt={connection.lastSyncAt}
+              lastSyncStatus={connection.lastSyncStatus}
+              lastSyncNote={connection.lastSyncNote}
+            />
+          ) : (
+            <NotConnectedView />
+          )}
         </section>
 
-        {/* 同期設定フォーム */}
-        <section className="liquid-surface p-6 space-y-8">
-          <div>
-            <div className="text-base font-semibold text-ink-900">同期設定</div>
-            <div className="mt-0.5 text-xs text-ink-500">
-              Gmailから取得・要約対象とするラベルや動作を設定します
-            </div>
-          </div>
-
-          {/* 取得対象ラベル */}
-          <div>
-            <div className="text-sm font-medium text-ink-900 mb-2">取得対象ラベル</div>
-            <div className="flex flex-wrap items-center gap-2">
-              {targetLabels.map((l) => (
-                <Chip key={l} label={l} />
-              ))}
-              <button className="px-3 py-1 rounded-full border border-dashed border-ink-200 text-xs text-ink-500 hover:bg-ink-50">
-                + 追加
-              </button>
-            </div>
-          </div>
-
-          {/* 除外ラベル */}
-          <div>
-            <div className="text-sm font-medium text-ink-900 mb-2">除外ラベル</div>
-            <div className="flex flex-wrap items-center gap-2">
-              {excludeLabels.map((l) => (
-                <Chip key={l} label={l} />
-              ))}
-              <button className="px-3 py-1 rounded-full border border-dashed border-ink-200 text-xs text-ink-500 hover:bg-ink-50">
-                + 追加
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 同期間隔 */}
-            <div>
-              <label className="block text-sm font-medium text-ink-900 mb-2">同期間隔</label>
-              <select
-                defaultValue="15分"
-                className="px-3 py-2 rounded-lg border border-ink-100 text-sm w-full"
-              >
-                {intervalOptions.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-              <div className="mt-1 text-[11px] text-ink-500">
-                短い間隔ほどAPI使用量が増加します
-              </div>
-            </div>
-
-            {/* AI要約モデル */}
-            <div>
-              <label className="block text-sm font-medium text-ink-900 mb-2">AI要約モデル</label>
-              <select
-                defaultValue="Claude Opus 4.7"
-                className="px-3 py-2 rounded-lg border border-ink-100 text-sm w-full"
-              >
-                {aiModels.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-              <div className="mt-1 text-[11px] text-ink-500">
-                精度とコストのバランスでモデルを選択
-              </div>
-            </div>
-          </div>
-
-          {/* トグル群 */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between py-3 border-t border-ink-100">
-              <div>
-                <div className="text-sm font-medium text-ink-900">自動要約</div>
-                <div className="mt-0.5 text-xs text-ink-500">
-                  取り込んだメールをAIで自動要約してタイムラインに表示
-                </div>
-              </div>
-              <Toggle on={true} />
-            </div>
-            <div className="flex items-center justify-between py-3 border-t border-ink-100">
-              <div>
-                <div className="text-sm font-medium text-ink-900">自動企業マッピング</div>
-                <div className="mt-0.5 text-xs text-ink-500">
-                  送信元ドメインから企業を自動判定して紐付け
-                </div>
-              </div>
-              <Toggle on={true} />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4 border-t border-ink-100">
-            <button className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
-              キャンセル
-            </button>
-            <button className="px-4 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid">
-              設定を保存
-            </button>
-          </div>
-        </section>
-
-        {/* 直近の取り込みログ */}
         <section className="liquid-surface p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <div className="text-base font-semibold text-ink-900">直近の取り込みログ</div>
-              <div className="mt-0.5 text-xs text-ink-500">
-                直近8回分の同期実行結果
-              </div>
-            </div>
-            <button className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50">
-              今すぐ同期
-            </button>
+          <div className="text-sm font-semibold text-ink-900 mb-2">
+            この連携で取得する権限
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-ink-500 border-b border-ink-100">
-                  <th className="py-2 pr-4 font-medium">時刻</th>
-                  <th className="py-2 pr-4 font-medium">件数</th>
-                  <th className="py-2 pr-4 font-medium">結果</th>
-                  <th className="py-2 pr-4 font-medium">備考</th>
-                </tr>
-              </thead>
-              <tbody>
-                {syncLogs.map((log, i) => (
-                  <tr key={i} className="border-b border-ink-50 hover:bg-ink-50/50 transition">
-                    <td className="py-2.5 pr-4 text-ink-700 tabular-nums">{log.time}</td>
-                    <td className="py-2.5 pr-4 text-ink-900 font-medium tabular-nums">
-                      {log.count}件
-                    </td>
-                    <td className="py-2.5 pr-4">{statusBadge(log.status)}</td>
-                    <td className="py-2.5 pr-4 text-ink-500 text-xs">{log.note}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <ul className="text-xs text-ink-600 space-y-1 list-disc list-inside">
+            <li>
+              <code className="text-xs">gmail.readonly</code> — 受信メールの閲覧
+              (送信・削除はできません)
+            </li>
+            <li>
+              <code className="text-xs">userinfo.email</code> — 接続したアカウントの
+              メールアドレス取得
+            </li>
+          </ul>
+          <div className="mt-3 text-[11px] text-ink-500">
+            接続情報 (refresh_token) は本人のみアクセスできるよう RLS で保護されます。
+            「切断」を押すと即座に NEO CS から削除されます。
           </div>
         </section>
 
         <footer className="pt-8 pb-4 text-center text-[11px] text-ink-500">
-          NEO CS v2 — Gmail連携 / ダミーデータ
+          NEO CS v2 — Gmail 連携
         </footer>
       </main>
     </>
   );
+}
+
+function NotConnectedView() {
+  return (
+    <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-2.5 w-2.5 rounded-full bg-ink-300" />
+        <div>
+          <div className="text-base font-semibold text-ink-900">未接続</div>
+          <div className="mt-0.5 text-xs text-ink-500">
+            「Gmail に接続」を押すと Google の同意画面に移動します
+          </div>
+        </div>
+      </div>
+      <a
+        href="/api/auth/gmail/start"
+        className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-ink-900 text-white text-sm hover:bg-ink-700 shadow-liquid"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M22.05 11.23c0-.77-.07-1.5-.2-2.21H12v4.18h5.64c-.24 1.31-.99 2.42-2.11 3.17v2.62h3.41c2-1.84 3.11-4.55 3.11-7.76z"
+            fill="#4285F4"
+          />
+          <path
+            d="M12 22c2.86 0 5.26-.95 7.01-2.55l-3.41-2.62c-.95.64-2.16 1.02-3.6 1.02-2.77 0-5.12-1.87-5.96-4.39H2.5v2.7C4.24 19.65 7.86 22 12 22z"
+            fill="#34A853"
+          />
+          <path
+            d="M6.04 13.46c-.21-.64-.34-1.32-.34-2.04s.12-1.4.34-2.04v-2.7H2.5C1.7 8.27 1.25 10.07 1.25 12s.45 3.73 1.25 5.32l3.54-2.86z"
+            fill="#FBBC05"
+          />
+          <path
+            d="M12 5.57c1.56 0 2.96.54 4.06 1.59l3.03-3.03C17.26 2.4 14.86 1.5 12 1.5 7.86 1.5 4.24 3.85 2.5 7.32l3.54 2.7C6.88 7.44 9.23 5.57 12 5.57z"
+            fill="#EA4335"
+          />
+        </svg>
+        Gmail に接続
+      </a>
+    </div>
+  );
+}
+
+function ConnectedView({
+  email,
+  connectedAt,
+  lastSyncAt,
+  lastSyncStatus,
+  lastSyncNote
+}: {
+  email: string;
+  connectedAt: string;
+  lastSyncAt?: string;
+  lastSyncStatus?: "success" | "warning" | "error";
+  lastSyncNote?: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-center gap-3">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+        </span>
+        <div>
+          <div className="text-base font-semibold text-ink-900">接続済み: {email}</div>
+          <div className="mt-0.5 text-xs text-ink-500">
+            接続日 {connectedAt.slice(0, 10)}
+            {lastSyncAt ? ` ・ 最終同期 ${lastSyncAt.slice(0, 16).replace("T", " ")}` : " ・ 未同期"}
+            {lastSyncStatus && lastSyncStatus !== "success" && (
+              <span className="ml-2 text-amber-600">
+                ({lastSyncStatus}: {lastSyncNote ?? "詳細不明"})
+              </span>
+            )}
+          </div>
+          <div className="mt-2 text-[11px] text-ink-500">
+            ※ 受信箱の取得バッチは順次有効化予定です。現在は接続情報の保存のみ動作します。
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <a
+          href="/api/auth/gmail/start"
+          className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50"
+        >
+          再認証
+        </a>
+        <DisconnectButton />
+      </div>
+    </div>
+  );
+}
+
+function humanizeError(code: string): string {
+  switch (code) {
+    case "access_denied":
+      return "Google 側で同意がキャンセルされました";
+    case "state_mismatch":
+      return "セッションが切れています。もう一度お試しください";
+    case "missing_params":
+      return "コールバックのパラメータが不足しています";
+    case "callback_failed":
+      return "トークン交換に失敗しました";
+    default:
+      return code;
+  }
 }

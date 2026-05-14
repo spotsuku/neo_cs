@@ -41,6 +41,7 @@ import { mockAiExtractionRepo } from "./aiExtractionRepo";
 import { mockRolePermissionRepo } from "./rolePermissionRepo";
 import { mockOnboardingTemplateRepo } from "./onboardingTemplateRepo";
 import { mockUserNotificationRepo } from "./userNotificationRepo";
+import { mockGmailConnectionRepo } from "./gmailConnectionRepo";
 
 export const mockRepository: Repository = {
   companies: mockCompanyRepo,
@@ -84,5 +85,6 @@ export const mockRepository: Repository = {
   aiExtractions: mockAiExtractionRepo,
   rolePermissions: mockRolePermissionRepo,
   onboardingTemplates: mockOnboardingTemplateRepo,
-  userNotifications: mockUserNotificationRepo
+  userNotifications: mockUserNotificationRepo,
+  gmailConnections: mockGmailConnectionRepo
 };
