@@ -7,9 +7,118 @@ import type {
   Company,
   CompanyFilter,
   CompanyRepo,
+  ContractStatus,
   DemoWipeRange,
-  DemoWipeResult
+  DemoWipeResult,
+  ProductCode
 } from "../types";
+
+// 集計ヘルパ ─────────────────────────────────────────
+// docs/PARITY.md §1.1: 旧実装は contracts:[] / mrr:0 / lastTouchDays:0 固定で、
+// UI 側が「値が必ずある」前提で書かれているため本番表示が壊れていた。
+// 本ファイルで companies → contracts / meeting_logs を join 集計し、Domain 型を満たす。
+
+// Contract の「active」相当ステータス (supabaseContractRepo.ts と同じ集合)。
+// 期内 = ProductBadge / mrr 集計の対象 とする。
+const ACTIVE_CONTRACT_STATUSES: ContractStatus[] = [
+  "handoff",
+  "onboarding",
+  "active",
+  "renewal_window"
+];
+
+type ContractAggRow = {
+  company_id: string;
+  product_code: ProductCode;
+  mrr_amount: string | null;
+};
+
+type MeetingLogRow = {
+  company_id: string;
+  occurred_at: string;
+};
+
+type Aggregates = {
+  contracts: ProductCode[];
+  mrr: number;
+  lastTouchDays: number;
+};
+
+const EMPTY_AGG: Aggregates = { contracts: [], mrr: 0, lastTouchDays: 0 };
+
+async function loadAggregatesFor(
+  companyIds: readonly string[]
+): Promise<Map<string, Aggregates>> {
+  const out = new Map<string, Aggregates>();
+  if (companyIds.length === 0) return out;
+  const sb = getServiceClient();
+
+  const [contractsResult, logsResult] = await Promise.all([
+    sb
+      .from("contracts")
+      .select("company_id, product_code, mrr_amount, status")
+      .in("company_id", companyIds as string[])
+      .in("status", ACTIVE_CONTRACT_STATUSES),
+    sb
+      .from("meeting_logs")
+      .select("company_id, occurred_at")
+      .in("company_id", companyIds as string[])
+      .order("occurred_at", { ascending: false })
+  ]);
+
+  if (contractsResult.error) {
+    throw new Error(
+      `companies.aggregate.contracts: ${contractsResult.error.message}`
+    );
+  }
+  if (logsResult.error) {
+    throw new Error(`companies.aggregate.meeting_logs: ${logsResult.error.message}`);
+  }
+
+  // 契約集計: 企業ごとに product_code (重複排除 / 出現順) と mrr 合計
+  const productSeen = new Map<string, Set<ProductCode>>();
+  const productOrder = new Map<string, ProductCode[]>();
+  const mrrTotal = new Map<string, number>();
+  for (const row of (contractsResult.data ?? []) as ContractAggRow[]) {
+    if (!productSeen.has(row.company_id)) {
+      productSeen.set(row.company_id, new Set());
+      productOrder.set(row.company_id, []);
+    }
+    const seen = productSeen.get(row.company_id)!;
+    if (!seen.has(row.product_code)) {
+      seen.add(row.product_code);
+      productOrder.get(row.company_id)!.push(row.product_code);
+    }
+    if (row.mrr_amount != null) {
+      mrrTotal.set(
+        row.company_id,
+        (mrrTotal.get(row.company_id) ?? 0) + Number(row.mrr_amount)
+      );
+    }
+  }
+
+  // 最終接触: 企業ごとに最新 occurred_at を抽出 (order desc 済みなので先勝ち)
+  const lastTouchAt = new Map<string, string>();
+  for (const row of (logsResult.data ?? []) as MeetingLogRow[]) {
+    if (!lastTouchAt.has(row.company_id)) {
+      lastTouchAt.set(row.company_id, row.occurred_at);
+    }
+  }
+
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  for (const id of companyIds) {
+    const touch = lastTouchAt.get(id);
+    out.set(id, {
+      contracts: productOrder.get(id) ?? [],
+      mrr: mrrTotal.get(id) ?? 0,
+      lastTouchDays: touch
+        ? Math.max(0, Math.floor((now - new Date(touch).getTime()) / dayMs))
+        : 0
+    });
+  }
+  return out;
+}
 
 type Row = {
   id: string;
@@ -31,10 +140,14 @@ type Row = {
   logo_url?: string | null;
 };
 
-function toCompany(row: Row, ownerName: string = ""): Company {
-  // Domain型 (mock互換) は ownerName / contracts / mrr / lastTouchDays を持つが、
-  // これらは別テーブル / view に分離されているため本リポジトリでは省略 or 既定値。
-  // 後段の画面リファクタで Repository が contracts/health/touch を組み合わせて返す。
+function toCompany(
+  row: Row,
+  ownerName: string = "",
+  agg: Aggregates = EMPTY_AGG
+): Company {
+  // contracts / mrr / lastTouchDays は contracts / meeting_logs を join 集計した
+  // 結果を受け取る (loadAggregatesFor)。ownerName は owner_user_id → app_users.name
+  // の解決を呼び出し側で行ったときのみ渡す。
   return {
     id: row.id,
     organizationId: row.organization_id,
@@ -44,9 +157,9 @@ function toCompany(row: Row, ownerName: string = ""): Company {
     address: row.address ?? "",
     group: row.group_name ?? undefined,
     ownerName,
-    contracts: [],
-    mrr: 0,
-    lastTouchDays: 0,
+    contracts: agg.contracts,
+    mrr: agg.mrr,
+    lastTouchDays: agg.lastTouchDays,
     memo: row.memo ?? undefined,
     driveFolderId: row.drive_folder_id ?? null,
     driveFolderUrl: row.drive_folder_url ?? null,
@@ -84,14 +197,18 @@ export const supabaseCompanyRepo: CompanyRepo = {
     if (typeof filter?.isDemo === "boolean") q = q.eq("is_demo", filter.isDemo);
     const { data, error } = await q;
     if (error) throw new Error(`companies.list: ${error.message}`);
-    return (data ?? []).map((r: Row) => toCompany(r));
+    const rows = (data ?? []) as Row[];
+    const agg = await loadAggregatesFor(rows.map((r) => r.id));
+    return rows.map((r) => toCompany(r, "", agg.get(r.id) ?? EMPTY_AGG));
   },
 
   async getById(id: string) {
     const sb = getServiceClient();
     const { data, error } = await sb.from("companies").select("*").eq("id", id).maybeSingle();
     if (error) throw new Error(`companies.getById: ${error.message}`);
-    return data ? toCompany(data as Row) : null;
+    if (!data) return null;
+    const agg = await loadAggregatesFor([id]);
+    return toCompany(data as Row, "", agg.get(id) ?? EMPTY_AGG);
   },
 
   async create(input) {
@@ -223,7 +340,9 @@ export const supabaseCompanyRepo: CompanyRepo = {
     }
     const { data, error } = await q;
     if (error) throw new Error(`companies.listDemo: ${error.message}`);
-    return (data ?? []).map((r: Row) => toCompany(r));
+    const rows = (data ?? []) as Row[];
+    const agg = await loadAggregatesFor(rows.map((r) => r.id));
+    return rows.map((r) => toCompany(r, "", agg.get(r.id) ?? EMPTY_AGG));
   },
 
   async countDemo(opts) {

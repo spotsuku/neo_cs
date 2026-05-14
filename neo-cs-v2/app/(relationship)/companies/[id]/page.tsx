@@ -30,7 +30,9 @@ import {
   companyVisionRepo,
   emailRepo,
   participantRepo,
-  healthSnapshotRepo
+  healthSnapshotRepo,
+  churnSignalRepo,
+  vocItemRepo
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { HealthColor } from "@/lib/domain/health/health";
@@ -246,6 +248,25 @@ export default async function CompanyDetailPage({
     }
   }
 
+  // ─── 解約予兆 / VOC: Client から `@/lib/repository` 直接参照する旧経路を廃止。
+  // page.tsx (Server) で fetch して props で渡す (docs/PARITY.md §5 P0)。
+  const [churnSignalLists, vocItemsByCompany] = await Promise.all([
+    Promise.all(
+      allCycles.map((c) =>
+        churnSignalRepo
+          .listByContract(c.id, { unresolvedOnly: true })
+          .catch(() => [])
+      )
+    ),
+    vocItemRepo
+      .list({ companyId: company.id, status: ["open", "in_progress"] })
+      .catch(() => [])
+  ]);
+  const churnSignalsByContract: Record<string, typeof churnSignalLists[number]> = {};
+  allCycles.forEach((c, i) => {
+    churnSignalsByContract[c.id] = churnSignalLists[i];
+  });
+
   // メールタブ用: この企業に紐づく全スレッドとそのメッセージ
   const emailThreads = await emailRepo.listThreads({ companyId: company.id });
   const emailMessagesNested = await Promise.all(
@@ -297,6 +318,8 @@ export default async function CompanyDetailPage({
         initialParticipants={participantList}
         headerHealthColor={headerHealthColor}
         latestHealthByContract={latestHealthByContract}
+        churnSignalsByContract={churnSignalsByContract}
+        vocItemsByCompany={vocItemsByCompany}
       />
     </>
   );
