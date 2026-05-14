@@ -53,11 +53,11 @@ export const TODO_SUBNAV: SectionSubNavItem[] = [
   { href: "/tasks", label: "個社ToDo" }
 ];
 
-// 顧客シグナル配下: VOC / アンケート / 出席・参加状況
+// 顧客シグナル配下: VOC / アンケート
+// 出席・参加状況は独立した大項目に切り出したためここには含めない
 export const SIGNAL_SUBNAV: SectionSubNavItem[] = [
   { href: "/voc", label: "VOC" },
-  { href: "/surveys", label: "アンケート" },
-  { href: "/attendance", label: "出席・参加状況" }
+  { href: "/surveys", label: "アンケート" }
 ];
 
 // 旧名残（/programs/products から参照されている可能性に備えた後方互換）

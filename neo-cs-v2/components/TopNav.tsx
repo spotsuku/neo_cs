@@ -24,7 +24,8 @@ type NavItem = {
 
 // 大項目をシンプルに整理。
 //   - To-do (オンボ / 事業別ToDo / 個社ToDo) はサブナビへ
-//   - 顧客シグナル (VOC / アンケート / 出席・参加状況) はサブナビへ
+//   - 顧客シグナル (VOC / アンケート) はサブナビへ
+//   - 出席・参加状況は独立した大項目に昇格
 //   - 週次は単独
 const nav: NavItem[] = [
   { href: "/", label: "ダッシュボード" },
@@ -33,6 +34,7 @@ const nav: NavItem[] = [
   { href: "/tasks", label: "To-do", hideForExternal: true },
   { href: "/weekly", label: "週次", hideForExternal: true },
   { href: "/voc", label: "顧客シグナル", hideForExternal: true },
+  { href: "/attendance", label: "出席・参加状況", hideForExternal: true },
   { href: "/manager", label: "マネージャー", managerOnly: true }
 ];
 
@@ -45,10 +47,11 @@ const SECTION_MATCH: { prefix: string; section: string }[] = [
   { prefix: "/programs", section: "/tasks" },
   // 週次は単独
   { prefix: "/weekly", section: "/weekly" },
-  // 顧客シグナルグループ
+  // 顧客シグナルグループ (出席は独立大項目に切り出し済み)
   { prefix: "/voc", section: "/voc" },
   { prefix: "/surveys", section: "/voc" },
-  { prefix: "/attendance", section: "/voc" },
+  // 出席・参加状況は独立した大項目
+  { prefix: "/attendance", section: "/attendance" },
   { prefix: "/manager", section: "/manager" }
 ];
 

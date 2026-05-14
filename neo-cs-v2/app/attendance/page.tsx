@@ -1,5 +1,4 @@
 import { TopNavServer } from "@/components/TopNavServer";
-import { SectionSubNav, SIGNAL_SUBNAV } from "@/components/SectionSubNav";
 import { AttendanceClient } from "./AttendanceClient";
 import {
   participantRepo,
@@ -50,7 +49,6 @@ export default async function AttendancePage({
   return (
     <>
       <TopNavServer current="/attendance" />
-      <SectionSubNav items={SIGNAL_SUBNAV} />
       <AttendanceClient
         initialParticipants={participants}
         initialSessions={sessions}
