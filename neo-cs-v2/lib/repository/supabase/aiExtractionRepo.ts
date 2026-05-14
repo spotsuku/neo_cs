@@ -133,5 +133,28 @@ export const supabaseAiExtractionRepo: AiExtractionRepo = {
       action: "update",
       ctx
     });
+  },
+
+  async create(input) {
+    const sb = getServiceClient();
+    const id = `ax-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const { data, error } = await sb
+      .from("ai_extractions")
+      .insert({
+        id,
+        organization_id: input.organizationId,
+        source_type: input.sourceType,
+        source_id: input.sourceId,
+        company_id: input.companyId ?? null,
+        extraction_type: input.extractionType,
+        excerpt: input.excerpt.slice(0, 2000),
+        confidence: input.confidence ?? null,
+        suggested_action: input.suggestedAction ?? null,
+        reviewed: false
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(`ai_extractions.create: ${error.message}`);
+    return toDomain(data as Row);
   }
 };

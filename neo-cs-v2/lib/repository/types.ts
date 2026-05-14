@@ -1560,11 +1560,24 @@ export interface EmailRepo {
   findCompanyByEmail(organizationId: string, email: string): Promise<string | null>;
 }
 
+export type AiExtractionCreateInput = {
+  organizationId: string;
+  sourceType: AiExtractionSourceType;
+  sourceId: string;
+  companyId?: string;
+  extractionType: AiExtractionType;
+  excerpt: string;
+  confidence?: number;
+  suggestedAction?: string;
+};
+
 export interface AiExtractionRepo {
   listByCompany(companyId: string, opts?: AiExtractionListOpts): Promise<AiExtraction[]>;
   /** 担当する email_threads (assignee_user_id) 経由の email source 抽出を集める */
   listByMe(userId: string, opts?: AiExtractionListOpts): Promise<AiExtraction[]>;
   markReviewed(id: string, userId: string): Promise<void>;
+  /** AI 抽出の保存 (Phase 2 で email-ai から呼ぶ) */
+  create(input: AiExtractionCreateInput): Promise<AiExtraction>;
 }
 
 // ─────────────────────────────────────────────

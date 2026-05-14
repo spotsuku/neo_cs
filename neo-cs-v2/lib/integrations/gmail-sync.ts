@@ -26,6 +26,7 @@ import {
 import type { GmailConnection } from "@/lib/repository/server";
 import { refreshAccessToken } from "./gmail-oauth";
 import { enqueueNotification } from "@/lib/notifications/inbox";
+import { extractAndSaveEmailSignals } from "./email-ai";
 import { getServiceClient } from "@/lib/supabase/server";
 import { getLogger } from "@/lib/observability/logger";
 
@@ -362,7 +363,7 @@ export async function syncConnection(
       });
     if (!thread) continue;
 
-    await emailRepo
+    const insertedMsg = await emailRepo
       .insertMessageByGmailId({
         threadId: thread.id,
         gmailMessageId: id,
@@ -374,11 +375,26 @@ export async function syncConnection(
       })
       .catch((e) => {
         result.errors.push(`insertMessage ${id}: ${(e as Error).message}`);
+        return null;
       });
+    if (!insertedMsg) continue;
     result.inserted++;
 
-    // 受信メールのみ通知 (自分が送ったメールは通知しない)
+    // 受信メールのみ AI 抽出 + 通知 (自分が送ったメールはどちらもしない)
     if (direction === "inbound") {
+      // AI 抽出: 失敗してもメール取り込みは継続
+      await extractAndSaveEmailSignals({
+        organizationId: conn.organizationId,
+        messageId: insertedMsg.id,
+        companyId: companyId ?? undefined,
+        subject,
+        body,
+        senderEmail,
+        sentAt
+      }).catch((e) => {
+        result.errors.push(`ai_extract ${id}: ${(e as Error).message}`);
+      });
+
       await enqueueNotification({
         organizationId: conn.organizationId,
         userId: conn.userId,

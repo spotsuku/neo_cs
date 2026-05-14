@@ -100,5 +100,24 @@ export const mockAiExtractionRepo: AiExtractionRepo = {
       reviewedAt: new Date().toISOString(),
       reviewedBy: userId
     };
+  },
+
+  async create(input) {
+    const now = new Date().toISOString();
+    const row: AiExtraction = {
+      id: `ax-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      organizationId: input.organizationId,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      companyId: input.companyId,
+      extractionType: input.extractionType,
+      excerpt: input.excerpt,
+      confidence: input.confidence,
+      suggestedAction: input.suggestedAction,
+      reviewed: false,
+      createdAt: now
+    };
+    store.push(row);
+    return { ...row };
   }
 };
