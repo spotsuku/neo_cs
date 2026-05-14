@@ -376,3 +376,20 @@ export async function cloneFolderRecursive(
 
   return created;
 }
+
+// ─────────────────────────────────────────────
+// F4: テンプレート送付履歴の記録フック
+// マイグレーション: supabase/migrations/0045_drive_send_logs.sql
+//
+// Drive 共有リンクや Gmail 添付でテンプレ資料を送付した際に呼ぶ薄いラッパ。
+// 内部は driveSendLogRepo.create() を呼ぶだけ。Server Action 側の呼び出しは
+// 別 PR で配線する想定。
+// ─────────────────────────────────────────────
+import { driveSendLogRepo } from "@/lib/repository/server";
+import type { DriveSendLog, DriveSendLogCreateInput } from "@/lib/repository/types";
+
+export async function recordDriveSend(
+  input: DriveSendLogCreateInput,
+): Promise<DriveSendLog> {
+  return driveSendLogRepo.create(input);
+}

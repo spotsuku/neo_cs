@@ -42,6 +42,7 @@ import { mockRolePermissionRepo } from "./rolePermissionRepo";
 import { mockOnboardingTemplateRepo } from "./onboardingTemplateRepo";
 import { mockUserNotificationRepo } from "./userNotificationRepo";
 import { mockGmailConnectionRepo } from "./gmailConnectionRepo";
+import { mockDriveSendLogRepo } from "./driveSendLogRepo";
 
 export const mockRepository: Repository = {
   companies: mockCompanyRepo,
@@ -86,5 +87,6 @@ export const mockRepository: Repository = {
   rolePermissions: mockRolePermissionRepo,
   onboardingTemplates: mockOnboardingTemplateRepo,
   userNotifications: mockUserNotificationRepo,
-  gmailConnections: mockGmailConnectionRepo
+  gmailConnections: mockGmailConnectionRepo,
+  driveSendLogs: mockDriveSendLogRepo
 };

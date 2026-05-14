@@ -78,21 +78,20 @@
 
 > 型 import のみのファイル (ExecutiveDashboard, InboxView, VocBoard 等) は実害なし。上記 2 件以外で値 import している Client Component がないかは追加 grep で確認推奨 (今回の 2 つの調査で結論が分かれた箇所)。
 
-### 3.2 Supabase 実装が未整備の Repository
+### 3.2 ~~Supabase 実装が未整備の Repository~~  ✅ 誤情報を訂正 (2026-05-14)
 
-下記 8 Repo は `lib/repository/supabase/` に実装がなく、`mock` の `_global-store.ts` メモリストアで動いている → **本番でも mock 経由**:
+過去の audit が「Repo 名と同名の単体ファイル `lib/repository/supabase/<repoName>.ts` の有無」だけで判定しており、`_lookup.ts` に集約実装されている 6 Repo を誤って「未実装」と分類していた。**実体は全て実装済**:
 
-```
-accountJourneyRepo
-contactRepo
-meetingLogRepo
-onboardingItemRepo
-stakeholderRepo
-successPlanRepo
-+ 2 件 (未列挙)
-```
+| Repo | 実装場所 | 内容 |
+|---|---|---|
+| `contactRepo` | [`_lookup.ts:48-134`](../neo-cs-v2/lib/repository/supabase/_lookup.ts#L48-L134) | `company_contact_roles` join あり |
+| `meetingLogRepo` | [`_lookup.ts:156-238`](../neo-cs-v2/lib/repository/supabase/_lookup.ts#L156-L238) | list/create |
+| `stakeholderRepo` | [`_lookup.ts:280-345`](../neo-cs-v2/lib/repository/supabase/_lookup.ts#L280-L345) | engagement tier + audit hook |
+| `accountJourneyRepo` | [`_lookup.ts:358-376`](../neo-cs-v2/lib/repository/supabase/_lookup.ts#L358-L376) | listByCompany |
+| `onboardingItemRepo` | [`_lookup.ts:396-480`](../neo-cs-v2/lib/repository/supabase/_lookup.ts#L396-L480) | template_items join |
+| `successPlanRepo` | [`_lookup.ts:503-539`](../neo-cs-v2/lib/repository/supabase/_lookup.ts#L503-L539) | goals 並列取得 |
 
-→ DB スキーマは存在する可能性が高いので、Supabase 実装を順次追加する作業。
+→ **「未整備 8 Repo」という残課題は存在しなかった**。`_lookup.ts` を個別ファイルに分割するかは整理の観点 (P3) で別途検討。
 
 ### 3.3 Supabase 実装の値ズレ ([PARITY.md §1](PARITY.md))  ✅ 修正中 (PR 待ち)
 
@@ -163,8 +162,9 @@ successPlanRepo
 3. ✅ [PR #15](https://github.com/spotsuku/neo_cs/pull/15) P1-B: `CompaniesView` の null ガード + em dash 統一
 
 ### 残課題
-- 未整備 8 Repo の Supabase 実装
-- `lib/notifications/voc.test.ts` の mock パス不整合 (別会話で後追い予定)
+- ~~未整備 8 Repo の Supabase 実装~~ — 誤情報訂正済 (実体は全て実装済、§3.2 参照)
+- F4 送付履歴テーブル + Repository (進行中)
+- `lib/notifications/voc.test.ts` の mock パス不整合
 
 ### 議論が必要 (Phase 2)
 4. ヘルススコア → CCC 5 本柱 + 関与度 4 段階への再設計

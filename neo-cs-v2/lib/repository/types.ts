@@ -1714,6 +1714,8 @@ export interface Repository {
   userNotifications: UserNotificationRepo;
   // ユーザ単位の Gmail OAuth 接続
   gmailConnections: GmailConnectionRepo;
+  // F4 Drive テンプレート送付履歴 (supabase/migrations/0045)
+  driveSendLogs: DriveSendLogRepo;
 }
 
 // ─────────────────────────────────────────────
@@ -1809,4 +1811,60 @@ export interface GmailConnectionRepo {
     }
   ): Promise<void>;
   delete(userId: string): Promise<void>;
+}
+
+// ─────────────────────────────────────────────
+// F4: Drive テンプレート送付履歴
+// マイグレーション: supabase/migrations/0045_drive_send_logs.sql
+//
+// 「どの企業に / いつ / どの版の資料を / 誰が / どのチャネルで送ったか」
+// を遡るための履歴。Drive folder 複製とは別経路で、Gmail 添付や
+// Drive 共有リンクで送付した記録も統合的に残す。
+// ─────────────────────────────────────────────
+
+export type DriveSendChannel = "gmail" | "drive_share" | "other";
+
+export type DriveSendLog = {
+  id: string;
+  organizationId: string;
+  companyId: string;
+  contractId?: string | null;
+  productCode?: string | null;
+  driveFileId: string;
+  driveFileName: string;
+  driveFileVersionLabel?: string | null;
+  sentToEmail: string;
+  sentToContactId?: string | null;
+  sentByUserId: string;
+  sentVia: DriveSendChannel;
+  note?: string | null;
+  sentAt: string;
+  createdAt: string;
+};
+
+export type DriveSendLogCreateInput = Omit<
+  DriveSendLog,
+  "id" | "createdAt" | "sentAt" | "organizationId"
+> & {
+  organizationId?: string;
+  sentAt?: string;
+};
+
+export type DriveSendLogListFilter = {
+  companyId?: string;
+  contractId?: string;
+  productCode?: string;
+  sentByUserId?: string;
+  /** 期間指定 (sentAt の inclusive 範囲) */
+  sentAtFrom?: string;
+  sentAtTo?: string;
+  /** "sent_at desc" 等 (デフォルトは sent_at desc) */
+  sort?: string;
+  limit?: number;
+};
+
+export interface DriveSendLogRepo {
+  list(filter?: DriveSendLogListFilter): Promise<DriveSendLog[]>;
+  listByCompany(companyId: string, opts?: { limit?: number }): Promise<DriveSendLog[]>;
+  create(input: DriveSendLogCreateInput): Promise<DriveSendLog>;
 }

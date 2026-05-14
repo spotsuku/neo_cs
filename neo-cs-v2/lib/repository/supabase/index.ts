@@ -62,6 +62,8 @@ import { supabaseOnboardingTemplateRepo } from "./onboardingTemplateRepo";
 import { supabaseUserNotificationRepo } from "./userNotificationRepo";
 // Gmail per-user OAuth: migration 0042 で導入
 import { supabaseGmailConnectionRepo } from "./gmailConnectionRepo";
+// Drive テンプレ送付履歴: migration 0045 で導入
+import { supabaseDriveSendLogRepo } from "./driveSendLogRepo";
 
 export const supabaseRepository: Repository = {
   users: supabaseUserRepo,
@@ -106,5 +108,6 @@ export const supabaseRepository: Repository = {
   rolePermissions: supabaseRolePermissionRepo,
   onboardingTemplates: supabaseOnboardingTemplateRepo,
   userNotifications: supabaseUserNotificationRepo,
-  gmailConnections: supabaseGmailConnectionRepo
+  gmailConnections: supabaseGmailConnectionRepo,
+  driveSendLogs: supabaseDriveSendLogRepo
 };
