@@ -728,8 +728,14 @@ function CompanySidebarPanel({
           {company.kana && <SidebarField label="カナ" value={company.kana} />}
           {company.group && <SidebarField label="グループ" value={company.group} />}
           {company.address && <SidebarField label="所在地" value={company.address} />}
-          <SidebarField label="MRR" value={yen(company.mrr)} />
-          <SidebarField label="最終接点" value={`${company.lastTouchDays}日前`} />
+          <SidebarField
+            label="MRR"
+            value={company.mrr != null ? yen(company.mrr) : "—"}
+          />
+          <SidebarField
+            label="最終接点"
+            value={company.lastTouchDays != null ? `${company.lastTouchDays}日前` : "—"}
+          />
           {company.domains && company.domains.length > 0 && (
             <SidebarField
               label="ドメイン"

@@ -377,7 +377,9 @@ function ContinuousView({
                       {healthColor.toUpperCase()}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-ink-700">{yen(c.mrr)}</td>
+                  <td className="px-3 py-3 text-ink-700">
+                    {c.mrr != null ? yen(c.mrr) : "—"}
+                  </td>
                   <td className="px-3 py-3 text-ink-500 whitespace-nowrap">
                     {/* 次回MTG予定: 予定MTG用テーブルが導入されたら DB 由来に差し替え */}
                     —
