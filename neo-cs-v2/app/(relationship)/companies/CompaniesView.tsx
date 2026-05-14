@@ -280,8 +280,8 @@ export default function CompaniesView({
         const lower = q.toLowerCase();
         const hit =
           c.name.toLowerCase().includes(lower) ||
-          c.kana.toLowerCase().includes(lower) ||
-          c.industry.toLowerCase().includes(lower);
+          (c.kana ?? "").toLowerCase().includes(lower) ||
+          (c.industry ?? "").toLowerCase().includes(lower);
         if (!hit) return false;
       }
       if (health !== "all" && companyHealthColor(c.id) !== health) return false;
@@ -796,7 +796,9 @@ export default function CompaniesView({
                   </td>
                   <td className="px-5 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <span className="text-ink-500 text-xs">{c.lastTouchDays}日前</span>
+                      <span className="text-ink-500 text-xs">
+                        {c.lastTouchDays != null ? `${c.lastTouchDays}日前` : "—"}
+                      </span>
                       {(() => {
                         const h = companyHealthColor(c.id);
                         if (h === "green") return null;
