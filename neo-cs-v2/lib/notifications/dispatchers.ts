@@ -17,7 +17,7 @@ import {
   onboardingItemRepo,
   assignmentRepo
 } from "@/lib/repository/server";
-import { currentWeekMondayISO } from "@/lib/domain/week";
+import { currentWeekMondayISO } from "@/lib/domain/week/week";
 import { enqueueNotification } from "./inbox";
 import { getLogger } from "@/lib/observability/logger";
 

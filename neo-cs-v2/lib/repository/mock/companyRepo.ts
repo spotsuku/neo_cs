@@ -9,7 +9,7 @@ import type {
   DemoWipeRange,
   DemoWipeResult
 } from "../types";
-import { filterDemoByRange } from "@/lib/domain/demo-data";
+import { filterDemoByRange } from "@/lib/domain/demo-data/demo-data";
 import { mockMutate } from "./_mockMutate";
 
 // 既存の seed 企業はすべてデモ扱い (本番開始前のため)。

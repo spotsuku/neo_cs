@@ -4,7 +4,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
-import type { CompanyWeather } from "@/lib/domain/weather";
+import type { CompanyWeather } from "@/lib/domain/weather/weather";
 
 export async function setCompanyWeatherAction(input: {
   companyId: string;

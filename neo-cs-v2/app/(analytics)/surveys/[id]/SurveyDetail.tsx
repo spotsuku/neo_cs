@@ -18,7 +18,7 @@ import {
 } from "@/lib/mock/surveys";
 import { ProductCode } from "@/lib/mock/data";
 import { VocScanButton } from "@/components/voc/VocScanButton";
-import type { VocSourceTextInput } from "@/lib/domain/voc";
+import type { VocSourceTextInput } from "@/lib/domain/voc/voc";
 
 type Tab = "summary" | "insights" | "responses" | "imports";
 

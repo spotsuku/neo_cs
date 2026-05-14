@@ -22,7 +22,7 @@ import {
   healthSnapshotRepo,
   programRepo
 } from "@/lib/repository/server";
-import { summarizeProgress } from "@/lib/domain/program";
+import { summarizeProgress } from "@/lib/domain/program/program";
 import type {
   Contract,
   Company,
@@ -36,7 +36,7 @@ import {
   deriveHealthDistributionByProduct,
   deriveCompanyHealthColor,
   deriveNpsTimeline
-} from "@/lib/domain/dashboard-aggregates";
+} from "@/lib/domain/kpi/dashboard-aggregates";
 
 export const dynamic = "force-dynamic";
 
@@ -967,7 +967,7 @@ function CycleListSection({
   accent: string;
   terms: {
     term: import("@/lib/repository/types").ProgramTerm;
-    summary: import("@/lib/domain/program").ProgressSummary;
+    summary: import("@/lib/domain/program/program").ProgressSummary;
     companyCount: number;
   }[];
 }) {

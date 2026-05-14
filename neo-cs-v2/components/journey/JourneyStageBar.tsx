@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { JourneyStageDefinition } from "@/lib/repository/types";
-import type { JourneySuggestion } from "@/lib/domain/journey";
+import type { JourneySuggestion } from "@/lib/domain/journey/journey";
 
 export type JourneyStageBarProps = {
   title: string;

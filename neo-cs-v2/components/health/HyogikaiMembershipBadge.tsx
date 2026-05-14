@@ -2,8 +2,8 @@
 // 「評議会会員: アカデミア付帯」または「評議会会員: 単独契約」を小さく表示
 // 両方契約が存在する重複時は警告色で「⚠ 評議会単独契約は冗長」を出す
 
-import type { HyogikaiMembership } from "@/lib/domain/hyogikai-membership";
-import { grantedViaLabel } from "@/lib/domain/hyogikai-membership";
+import type { HyogikaiMembership } from "@/lib/domain/community/hyogikai-membership";
+import { grantedViaLabel } from "@/lib/domain/community/hyogikai-membership";
 
 export function HyogikaiMembershipBadge({
   membership,

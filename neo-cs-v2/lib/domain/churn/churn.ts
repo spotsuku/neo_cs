@@ -15,7 +15,7 @@
 //   6. survey_detractor    最新サーベイ NPS推奨度が 0..6 (detractor)
 
 import type { ProductCode } from "@/lib/mock/data";
-import { HEALTH_THRESHOLDS } from "./health";
+import { HEALTH_THRESHOLDS } from "../health/health";
 
 export type ChurnSignalRule =
   | "score_drop"

@@ -14,7 +14,7 @@ import type {
   ProgramCellPatch,
   ProgramTermStatus
 } from "../types";
-import { contractMatchesScope } from "@/lib/domain/program";
+import { contractMatchesScope } from "@/lib/domain/program/program";
 import { useGlobalStore } from "./_global-store";
 
 function genId(prefix: string): string {

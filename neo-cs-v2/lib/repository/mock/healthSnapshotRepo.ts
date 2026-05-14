@@ -2,7 +2,7 @@
 // 算出ロジックは lib/domain/health.ts の純関数を使う
 
 import { activeContracts } from "@/lib/mock/onboarding";
-import { computeHealthScore, deriveMockFactors } from "@/lib/domain/health";
+import { computeHealthScore, deriveMockFactors } from "@/lib/domain/health/health";
 import { DEFAULT_ORG_ID } from "../types";
 import type { HealthSnapshot, HealthSnapshotRepo } from "../types";
 

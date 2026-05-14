@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
-import type { ProgramCellStatus } from "@/lib/domain/program";
+import type { ProgramCellStatus } from "@/lib/domain/program/program";
 
 export async function setProgramCellStatus(
   cellId: string,

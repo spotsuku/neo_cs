@@ -15,7 +15,7 @@ import type { Contract } from "@/lib/mock/contracts";
 import type { ProgramTerm } from "@/lib/repository";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
-import { resolveSenderEmail } from "@/lib/domain/email-routing";
+import { resolveSenderEmail } from "@/lib/domain/email/email-routing";
 import { addContactFromEmailAction } from "./actions";
 import { ReplyEditor, type ReplySubmit } from "./ReplyEditor";
 import { sendReplyAction } from "./reply-actions";

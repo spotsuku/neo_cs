@@ -10,7 +10,7 @@ import type {
   CompanyTaskRepo,
   CompanyTaskUpdatePatch
 } from "../types";
-import { sortByDueAsc } from "@/lib/domain/task";
+import { sortByDueAsc } from "@/lib/domain/tasks/task";
 import { useGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
 

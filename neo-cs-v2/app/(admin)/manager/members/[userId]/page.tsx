@@ -20,7 +20,7 @@ import {
   churnSignalRepo
 } from "@/lib/repository/server";
 import { productByCode } from "@/lib/mock/data";
-import { currentWeekMondayISO } from "@/lib/domain/week";
+import { currentWeekMondayISO } from "@/lib/domain/week/week";
 
 export const metadata: Metadata = {
   title: "メンバー詳細 | マネージャー | NEO CS"

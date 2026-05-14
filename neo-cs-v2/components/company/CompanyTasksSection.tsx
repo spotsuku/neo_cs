@@ -14,7 +14,7 @@ import {
   TASK_STATUS_LABEL,
   isOverdue,
   sortByDueAsc
-} from "@/lib/domain/task";
+} from "@/lib/domain/tasks/task";
 import type {
   CompanyTask,
   CompanyTaskPriority,

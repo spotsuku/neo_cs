@@ -8,7 +8,7 @@ import {
   engagementTierLabel,
   engagementTierOrder,
   type EngagementTier
-} from "@/lib/domain/engagement";
+} from "@/lib/domain/community/engagement";
 
 const BAR_COLOR: Record<EngagementTier, string> = {
   core: "#10B981",

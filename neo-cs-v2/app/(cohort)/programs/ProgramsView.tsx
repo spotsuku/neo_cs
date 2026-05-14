@@ -16,7 +16,7 @@ import {
 import {
   PROGRAM_TERM_STATUS_LABEL,
   type ProgressSummary
-} from "@/lib/domain/program";
+} from "@/lib/domain/program/program";
 import type {
   ProgramTerm,
   ProgramTaskTemplate,

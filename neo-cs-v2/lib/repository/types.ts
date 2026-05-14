@@ -897,7 +897,7 @@ import type {
   CompanyTaskCategory,
   CompanyTaskPriority,
   CompanyTaskStatus
-} from "@/lib/domain/task";
+} from "@/lib/domain/tasks/task";
 
 export type { CompanyTaskCategory, CompanyTaskPriority, CompanyTaskStatus };
 
@@ -968,7 +968,7 @@ import type {
   ProgramCellStatus,
   ProgramTaskCategory,
   ProgramTermStatus
-} from "@/lib/domain/program";
+} from "@/lib/domain/program/program";
 
 export type { ProgramCellStatus, ProgramTaskCategory, ProgramTermStatus };
 
@@ -1296,7 +1296,7 @@ export interface CompanyVisionRepo {
 // 企業天気の手動オーバーライド
 // 自動派生 (deriveCompanyWeather) を手動値で上書きする
 // ─────────────────────────────────────────────
-import type { CompanyWeather } from "@/lib/domain/weather";
+import type { CompanyWeather } from "@/lib/domain/weather/weather";
 
 export type CompanyWeatherOverride = {
   companyId: string;

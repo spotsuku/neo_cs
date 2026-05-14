@@ -6,7 +6,7 @@ import {
   WEATHER_ICON,
   WEATHER_TONE,
   type CompanyWeather
-} from "@/lib/domain/weather";
+} from "@/lib/domain/weather/weather";
 
 export function WeatherIcon({
   weather,

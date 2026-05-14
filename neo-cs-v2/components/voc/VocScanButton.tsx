@@ -5,7 +5,7 @@
 // - 1クリックで vocItemRepo.create にまとめて投入
 
 import { useMemo, useState } from "react";
-import { extractVocCandidates, VOC_TAG_LABEL, type VocSourceTextInput, type VocTag } from "@/lib/domain/voc";
+import { extractVocCandidates, VOC_TAG_LABEL, type VocSourceTextInput, type VocTag } from "@/lib/domain/voc/voc";
 import { createVocItemAction } from "@/app/(relationship)/voc/actions";
 
 export function VocScanButton({

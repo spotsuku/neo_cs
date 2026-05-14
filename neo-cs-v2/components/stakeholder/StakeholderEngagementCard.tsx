@@ -14,7 +14,7 @@ import {
   engagementTierLabel,
   engagementTierOrder,
   type EngagementTier
-} from "@/lib/domain/engagement";
+} from "@/lib/domain/community/engagement";
 import { setStakeholderEngagementTier } from "@/app/(relationship)/companies/[id]/engagement-actions";
 
 export type StakeholderEngagementMetrics = {

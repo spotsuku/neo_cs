@@ -5,7 +5,7 @@
 import { surveyResponses } from "@/lib/mock/surveys";
 import { meetingLogs } from "@/lib/mock/entities";
 import { weeklyReviews } from "@/lib/mock/weekly";
-import { extractVocCandidates, type VocSourceTextInput } from "@/lib/domain/voc";
+import { extractVocCandidates, type VocSourceTextInput } from "@/lib/domain/voc/voc";
 import { DEFAULT_ORG_ID } from "../types";
 import type {
   VocComment,

@@ -8,7 +8,7 @@ import {
   computeNrr,
   computeAtRiskMrr,
   periodFor
-} from "@/lib/domain/kpi";
+} from "@/lib/domain/kpi/kpi";
 import { mockChurnSignalRepo } from "./churnSignalRepo";
 import { DEFAULT_ORG_ID } from "../types";
 import type { KpiSnapshot, KpiSnapshotFilter, KpiSnapshotRepo } from "../types";

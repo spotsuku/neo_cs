@@ -20,8 +20,8 @@
 import { NextRequest } from "next/server";
 import { getRepo } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/server";
-import { computeHealthScore } from "@/lib/domain/health";
-import { deriveFactorsFromSignals } from "@/lib/domain/health-factors";
+import { computeHealthScore } from "@/lib/domain/health/health";
+import { deriveFactorsFromSignals } from "@/lib/domain/health/health-factors";
 import { getLogger } from "@/lib/observability/logger";
 import { captureException } from "@/lib/observability/sentry";
 

@@ -19,7 +19,7 @@ import {
   setVocTagsAction,
   appendVocCommentAction
 } from "./actions";
-import { VOC_TAG_LABEL, type VocTag } from "@/lib/domain/voc";
+import { VOC_TAG_LABEL, type VocTag } from "@/lib/domain/voc/voc";
 
 const COLUMNS: { key: VocStatus; label: string; accent: string; dot: string }[] = [
   { key: "open", label: "未対応", accent: "border-info-100", dot: "bg-info-500" },

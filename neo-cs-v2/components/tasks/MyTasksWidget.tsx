@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { companyTaskRepo, companyRepo, userRepo } from "@/lib/repository/server";
-import { isOverdue, sortByDueAsc, TASK_PRIORITY_LABEL } from "@/lib/domain/task";
+import { isOverdue, sortByDueAsc, TASK_PRIORITY_LABEL } from "@/lib/domain/tasks/task";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 

@@ -5,7 +5,7 @@ import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";
 import { runAfterWrite } from "../_base";
 import { getActorContext } from "./_actor";
-import type { CompanyWeather } from "@/lib/domain/weather";
+import type { CompanyWeather } from "@/lib/domain/weather/weather";
 import type { CompanyWeatherRepo, CompanyWeatherOverride } from "../types";
 
 type Row = {

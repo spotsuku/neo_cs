@@ -15,7 +15,7 @@ import "server-only";
 import { notifyVocItem, type VocItemNotification } from "./slack";
 import { vocItemRepo, companyRepo, userRepo } from "@/lib/repository/server";
 import type { VocItemRecord } from "@/lib/repository/server";
-import { VOC_TAG_LABEL, type VocTag } from "@/lib/domain/voc";
+import { VOC_TAG_LABEL, type VocTag } from "@/lib/domain/voc/voc";
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL ?? "http://localhost:3000";
 

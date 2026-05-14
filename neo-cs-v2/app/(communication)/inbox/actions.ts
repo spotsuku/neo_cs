@@ -5,7 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
-import { extractDomain, nameHintFromEmail } from "@/lib/domain/email-routing";
+import { extractDomain, nameHintFromEmail } from "@/lib/domain/email/email-routing";
 
 export type AddContactFromEmailInput = {
   companyId: string;

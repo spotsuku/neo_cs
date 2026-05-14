@@ -13,7 +13,7 @@ import {
   computePeriodPerformance,
   periodFor,
   type PeriodKey
-} from "@/lib/domain/kpi";
+} from "@/lib/domain/kpi/kpi";
 import { KpiExplainButton } from "../kpi/KpiExplainButton";
 
 const ASOF = "2026-04-24";

@@ -3,7 +3,7 @@
 // 自動派生 (lib/domain/weather.ts deriveCompanyWeather) に対する手動上書き。
 // 設定があれば優先表示、無ければ自動派生値を表示する。
 
-import type { CompanyWeather } from "@/lib/domain/weather";
+import type { CompanyWeather } from "@/lib/domain/weather/weather";
 import type { CompanyWeatherRepo, CompanyWeatherOverride } from "../types";
 import { useGlobalStore } from "./_global-store";
 

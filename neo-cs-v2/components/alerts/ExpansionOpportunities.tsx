@@ -7,7 +7,7 @@ import { ProductBadge } from "@/components/contract/ProductBadge";
 import {
   EXPANSION_KIND_LABEL,
   EXPANSION_RULE_LABEL
-} from "@/lib/domain/expansion";
+} from "@/lib/domain/expansion/expansion";
 
 const KIND_BADGE: Record<string, string> = {
   upsell_higher_plan: "bg-info-50 text-info-700 border-info-100",

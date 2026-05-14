@@ -60,14 +60,14 @@ export type ProgramBundle = {
   templates: ProgramTaskTemplate[];
   cells: ProgramCompanyTask[];
 };
-import type { JourneySuggestion } from "@/lib/domain/journey";
+import type { JourneySuggestion } from "@/lib/domain/journey/journey";
 import { JourneyStageBar } from "@/components/journey/JourneyStageBar";
 import { JourneyCheckpointPanel } from "@/components/journey/JourneyCheckpointPanel";
 import { BusinessLifecyclePanel } from "@/components/journey/BusinessLifecyclePanel";
 import { ContractHistorySection } from "@/components/contract/ContractHistorySection";
 import { CompanyWeatherPicker } from "@/components/company/CompanyWeatherPicker";
 import { CompanyHealthBadge } from "@/components/company/CompanyHealthBadge";
-import type { CompanyWeather } from "@/lib/domain/weather";
+import type { CompanyWeather } from "@/lib/domain/weather/weather";
 import { NextCycleModal, type NextCycleDefaults } from "@/components/journey/NextCycleModal";
 import { CompanyVisionSection } from "@/components/company/CompanyVisionSection";
 import { ChecklistView } from "@/app/(lifecycle)/onboarding/[contractId]/ChecklistView";
@@ -78,20 +78,20 @@ import {
   PROGRAM_CELL_STATUS_LABEL,
   type ProgramTaskCategory,
   type ProgramCellStatus
-} from "@/lib/domain/program";
+} from "@/lib/domain/program/program";
 import { KaruteNoBadge } from "@/components/company/KaruteNoBadge";
 import { CompletenessChecklistCard } from "@/components/kpi/CompletenessChecklistCard";
-import type { CompletenessResult } from "@/lib/domain/completeness";
+import type { CompletenessResult } from "@/lib/domain/completeness/completeness";
 import { HyogikaiMembershipBadge } from "@/components/health/HyogikaiMembershipBadge";
 import {
   getHyogikaiMembership,
   getHyogikaiMemberSince
-} from "@/lib/domain/hyogikai-membership";
+} from "@/lib/domain/community/hyogikai-membership";
 import {
   setCompanyJourneyStageAction,
   setBusinessJourneyStageAction
 } from "./journey-actions";
-import { computeFromContract, computeHealthScore } from "@/lib/domain/health";
+import { computeFromContract, computeHealthScore } from "@/lib/domain/health/health";
 import { HealthExplain } from "@/components/health/HealthExplain";
 import { HealthSparkline } from "@/components/health/HealthSparkline";
 import { ContractChurnSignals } from "@/components/contract/ContractChurnSignals";

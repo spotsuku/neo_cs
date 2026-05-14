@@ -34,8 +34,8 @@ import {
   assignmentRepo,
   onboardingItemRepo
 } from "@/lib/repository/server";
-import { summarizeProgress } from "@/lib/domain/program";
-import { currentWeekMondayISO } from "@/lib/domain/week";
+import { summarizeProgress } from "@/lib/domain/program/program";
+import { currentWeekMondayISO } from "@/lib/domain/week/week";
 import { surveys as allSurveys, surveyResponses as allSurveyResponses } from "@/lib/mock/surveys";
 
 export const metadata: Metadata = {

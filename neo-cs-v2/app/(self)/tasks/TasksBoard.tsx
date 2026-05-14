@@ -19,7 +19,7 @@ import {
   isDueByToday,
   isDueByWeekEnd,
   sortByDueAsc
-} from "@/lib/domain/task";
+} from "@/lib/domain/tasks/task";
 import type {
   CompanyTask,
   CompanyTaskCategory,

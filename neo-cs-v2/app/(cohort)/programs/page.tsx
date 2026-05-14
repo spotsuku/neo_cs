@@ -1,7 +1,7 @@
 import { TopNavServer } from "@/components/nav/TopNavServer";
 import { SectionSubNav, TODO_SUBNAV } from "@/components/nav/SectionSubNav";
 import { programRepo, companyRepo, userRepo } from "@/lib/repository/server";
-import { summarizeProgress } from "@/lib/domain/program";
+import { summarizeProgress } from "@/lib/domain/program/program";
 import { ProgramsView, type EnrichedTerm } from "./ProgramsView";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canPerform } from "@/lib/auth/role-permissions";

@@ -6,7 +6,7 @@ import {
   DEMO_WIPE_CONFIRM_TOKEN,
   filterDemoByRange,
   type DemoRange
-} from "@/lib/domain/demo-data";
+} from "@/lib/domain/demo-data/demo-data";
 import { deleteOneDemoCompany, wipeDemoData, promoteToProd } from "./actions";
 
 type Row = {

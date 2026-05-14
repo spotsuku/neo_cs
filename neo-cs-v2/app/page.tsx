@@ -7,8 +7,8 @@ import {
   computeProductActivity,
   CONTINUOUS_PRODUCTS,
   ONESHOT_PRODUCTS
-} from "@/lib/domain/exec-kpi";
-import { detectMissedCompanies } from "@/lib/domain/missed-response";
+} from "@/lib/domain/kpi/exec-kpi";
+import { detectMissedCompanies } from "@/lib/domain/churn/missed-response";
 import {
   vocItemRepo,
   companyJourneyRepo,

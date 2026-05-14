@@ -19,7 +19,7 @@
 //   - renewal_uplift          更新時の単価アップ
 
 import type { ProductCode } from "@/lib/mock/data";
-import { HEALTH_THRESHOLDS } from "./health";
+import { HEALTH_THRESHOLDS } from "../health/health";
 
 export type ExpansionKind =
   | "upsell_higher_plan"

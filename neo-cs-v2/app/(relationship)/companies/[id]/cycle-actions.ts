@@ -12,7 +12,7 @@
 import { revalidatePath } from "next/cache";
 import { getRepo } from "@/lib/repository/server";
 import { filterTemplateByCourse } from "@/lib/mock/onboarding";
-import { categoryRecordsToOnboardingCategories } from "@/lib/domain/onboarding-template";
+import { categoryRecordsToOnboardingCategories } from "@/lib/domain/onboarding/onboarding-template";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { ContractOnboardingItem } from "@/lib/repository/types";
 

@@ -17,13 +17,13 @@ import type {
   ContinuousKpis,
   OneShotKpis,
   ProductActivity
-} from "@/lib/domain/exec-kpi";
-import { PRODUCT_LABEL } from "@/lib/domain/exec-kpi";
+} from "@/lib/domain/kpi/exec-kpi";
+import { PRODUCT_LABEL } from "@/lib/domain/kpi/exec-kpi";
 import {
   MISSED_REASON_LABEL,
   type MissedCompany,
   type MissedReason
-} from "@/lib/domain/missed-response";
+} from "@/lib/domain/churn/missed-response";
 import type { JourneyStageDefinition, CompanyJourney } from "@/lib/repository";
 
 type CompanyLite = { id: string; name: string; ownerName?: string };

@@ -10,7 +10,7 @@ import {
   WEATHER_ICON,
   WEATHER_LABEL,
   type CompanyWeather
-} from "@/lib/domain/weather";
+} from "@/lib/domain/weather/weather";
 import {
   setCompanyWeatherAction,
   clearCompanyWeatherAction

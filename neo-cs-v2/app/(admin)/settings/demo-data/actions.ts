@@ -9,7 +9,7 @@ import { getRepo } from "@/lib/repository/server";
 import {
   canExecuteWipe,
   type DemoRange
-} from "@/lib/domain/demo-data";
+} from "@/lib/domain/demo-data/demo-data";
 import type { DemoWipeRange } from "@/lib/repository/types";
 
 type DeleteOneResult = { ok: true } | { ok: false; error: string };

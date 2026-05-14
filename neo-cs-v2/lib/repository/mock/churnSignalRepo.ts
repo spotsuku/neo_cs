@@ -5,7 +5,7 @@
 import { activeContracts } from "@/lib/mock/onboarding";
 import { weeklyReviews, CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
 import { meetingLogs } from "@/lib/mock/entities";
-import { detectChurnSignals } from "@/lib/domain/churn";
+import { detectChurnSignals } from "@/lib/domain/churn/churn";
 import { mockHealthSnapshotRepo } from "./healthSnapshotRepo";
 import { DEFAULT_ORG_ID } from "../types";
 import type {

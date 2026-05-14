@@ -11,7 +11,7 @@ import {
   completenessLevel,
   type ChecklistCategory,
   type CompletenessResult
-} from "@/lib/domain/completeness";
+} from "@/lib/domain/completeness/completeness";
 
 const LEVEL_COLOR: Record<ReturnType<typeof completenessLevel>, { fg: string; bg: string; ring: string }> = {
   high: { fg: "#10B981", bg: "#10B98114", ring: "#10B98133" },

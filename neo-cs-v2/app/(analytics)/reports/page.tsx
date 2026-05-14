@@ -8,7 +8,7 @@ import {
   computeNrr,
   periodFor,
   formatPct
-} from "@/lib/domain/kpi";
+} from "@/lib/domain/kpi/kpi";
 import { contractRepo } from "@/lib/repository/server";
 import { ReportExportButtons } from "./ReportExportButtons";
 

@@ -12,7 +12,7 @@ import type {
   Survey,
   ProductCode
 } from "@/lib/repository/types";
-import { colorOfScore, type HealthColor } from "./health";
+import { colorOfScore, type HealthColor } from "../health/health";
 
 /** 有効契約 (renewed/churned 以外) を product で絞る */
 export function activeContractsOf(

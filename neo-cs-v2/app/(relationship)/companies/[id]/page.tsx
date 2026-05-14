@@ -4,8 +4,8 @@ import { CompanyDetail } from "./CompanyDetail";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canPerform } from "@/lib/auth/role-permissions";
 import { products } from "@/lib/mock/data";
-import { checkCompanyCompleteness } from "@/lib/domain/completeness";
-import { computeStakeholderEngagement } from "@/lib/domain/engagement-builder";
+import { checkCompanyCompleteness } from "@/lib/domain/completeness/completeness";
+import { computeStakeholderEngagement } from "@/lib/domain/community/engagement-builder";
 import type { StakeholderEngagementMetrics } from "@/components/stakeholder/StakeholderEngagementCard";
 import {
   companyRepo,
@@ -33,12 +33,12 @@ import {
   healthSnapshotRepo
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
-import type { HealthColor } from "@/lib/domain/health";
+import type { HealthColor } from "@/lib/domain/health/health";
 import {
   suggestBusinessStage,
   suggestCompanyStage,
   type JourneySuggestion
-} from "@/lib/domain/journey";
+} from "@/lib/domain/journey/journey";
 import type {
   BusinessJourney,
   CompanyJourney,

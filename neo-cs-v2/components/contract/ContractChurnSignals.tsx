@@ -5,8 +5,8 @@
 import { useEffect, useState } from "react";
 import { churnSignalRepo } from "@/lib/repository";
 import type { ChurnSignalRecord } from "@/lib/repository";
-import { RULE_LABEL } from "@/lib/domain/churn";
-import type { ChurnSignalRule } from "@/lib/domain/churn";
+import { RULE_LABEL } from "@/lib/domain/churn/churn";
+import type { ChurnSignalRule } from "@/lib/domain/churn/churn";
 
 const SEVERITY_BADGE: Record<ChurnSignalRecord["severity"], string> = {
   high: "bg-danger-50 text-danger-700 border-danger-100",

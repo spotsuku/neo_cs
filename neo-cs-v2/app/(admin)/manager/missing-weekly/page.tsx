@@ -16,7 +16,7 @@ import {
   assignmentRepo,
   userRepo
 } from "@/lib/repository/server";
-import { currentWeekMondayISO } from "@/lib/domain/week";
+import { currentWeekMondayISO } from "@/lib/domain/week/week";
 
 export const metadata: Metadata = {
   title: "週次未記入 | マネージャー | NEO CS"

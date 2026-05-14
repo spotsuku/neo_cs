@@ -5,7 +5,7 @@
 //
 // 設計トークン: text-body / text-caption / surface / focus-ring 準拠
 
-import type { HealthBreakdown, HealthColor } from "@/lib/domain/health";
+import type { HealthBreakdown, HealthColor } from "@/lib/domain/health/health";
 
 const COLOR_BG: Record<HealthColor, string> = {
   green: "bg-success-50 text-success-700 border-success-100",

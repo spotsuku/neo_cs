@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/nav/TopNav";
-import { checkCompanyCompleteness } from "@/lib/domain/completeness";
-import type { CompanyWeather } from "@/lib/domain/weather";
+import { checkCompanyCompleteness } from "@/lib/domain/completeness/completeness";
+import type { CompanyWeather } from "@/lib/domain/weather/weather";
 import { WeatherIcon } from "@/components/health/WeatherIcon";
 import { DEFAULT_COMPANY_STAGES } from "@/lib/mock/journeys";
 // コース表示に対応

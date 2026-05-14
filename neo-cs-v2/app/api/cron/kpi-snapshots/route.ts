@@ -16,7 +16,7 @@ import {
   computeNrr,
   computeAtRiskMrr,
   periodFor
-} from "@/lib/domain/kpi";
+} from "@/lib/domain/kpi/kpi";
 import { getLogger } from "@/lib/observability/logger";
 import { captureException } from "@/lib/observability/sentry";
 

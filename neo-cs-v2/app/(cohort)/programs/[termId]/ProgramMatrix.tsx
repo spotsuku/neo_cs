@@ -6,7 +6,7 @@ import {
   PROGRAM_TASK_CATEGORY_LABEL,
   isOverdueCell,
   type ProgramCellStatus
-} from "@/lib/domain/program";
+} from "@/lib/domain/program/program";
 import type {
   ProgramCompanyTask,
   ProgramTaskTemplate

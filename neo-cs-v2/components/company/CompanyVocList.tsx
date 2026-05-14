@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { vocItemRepo } from "@/lib/repository";
 import type { VocItemRecord } from "@/lib/repository";
-import { VOC_TAG_LABEL, type VocTag } from "@/lib/domain/voc";
+import { VOC_TAG_LABEL, type VocTag } from "@/lib/domain/voc/voc";
 
 const STATUS_LABEL: Record<VocItemRecord["status"], string> = {
   open: "未対応",
