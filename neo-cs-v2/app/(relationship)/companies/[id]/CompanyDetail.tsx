@@ -54,8 +54,10 @@ import type {
   ProgramTaskTemplate,
   ProgramCompanyTask,
   ChurnSignalRecord,
-  VocItemRecord
+  VocItemRecord,
+  DriveSendLog
 } from "@/lib/repository/types";
+import { DriveSendLogsSection } from "./DriveSendLogsSection";
 
 export type ProgramBundle = {
   term: ProgramTerm;
@@ -129,7 +131,7 @@ import type { Participant } from "@/lib/mock/participants";
 
 type HealthColor = "green" | "yellow" | "red";
 
-type Tab = "overview" | "tasks" | "weekly" | "contracts" | "logs" | "surveys" | "engagement" | "mail" | "org_chart";
+type Tab = "overview" | "tasks" | "weekly" | "contracts" | "logs" | "surveys" | "engagement" | "mail" | "documents" | "org_chart";
 
 /**
  * 進捗系タブ（担当事業の契約がない or 担当外事業のみの企業では非表示にする）
@@ -152,6 +154,7 @@ const tabs: { key: Tab; label: string }[] = [
   { key: "engagement", label: "出席・参加状況" },
   { key: "logs", label: "ログ" },
   { key: "mail", label: "メール" },
+  { key: "documents", label: "送付資料" },
   { key: "org_chart", label: "組織図" }
 ];
 
@@ -240,7 +243,8 @@ export function CompanyDetail({
   headerHealthColor = "green",
   latestHealthByContract = {},
   churnSignalsByContract = {},
-  vocItemsByCompany = []
+  vocItemsByCompany = [],
+  driveSendLogs = []
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -311,6 +315,11 @@ export function CompanyDetail({
    * docs/PARITY.md §5 P0: 旧 Client fetch 経路を廃止。
    */
   vocItemsByCompany?: VocItemRecord[];
+  /**
+   * F4: Drive テンプレ送付履歴。Server Component で driveSendLogRepo.listByCompany() を取得。
+   * 「送付資料」タブでテーブル表示する。
+   */
+  driveSendLogs?: DriveSendLog[];
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -574,6 +583,9 @@ export function CompanyDetail({
           emailThreads={emailThreads}
           emailMessages={emailMessages}
         />
+      )}
+      {tab === "documents" && (
+        <DriveSendLogsSection companyId={company.id} logs={driveSendLogs} />
       )}
       {tab === "org_chart" && (
         <OrgChartTab

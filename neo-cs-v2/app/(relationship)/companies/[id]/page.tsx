@@ -32,7 +32,8 @@ import {
   participantRepo,
   healthSnapshotRepo,
   churnSignalRepo,
-  vocItemRepo
+  vocItemRepo,
+  driveSendLogRepo
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { HealthColor } from "@/lib/domain/health/health";
@@ -267,6 +268,11 @@ export default async function CompanyDetailPage({
     churnSignalsByContract[c.id] = churnSignalLists[i];
   });
 
+  // F4: Drive テンプレ送付履歴 (送付資料タブ用)。limit=30 で直近のみ。
+  const driveSendLogs = await driveSendLogRepo
+    .listByCompany(company.id, { limit: 30 })
+    .catch(() => []);
+
   // メールタブ用: この企業に紐づく全スレッドとそのメッセージ
   const emailThreads = await emailRepo.listThreads({ companyId: company.id });
   const emailMessagesNested = await Promise.all(
@@ -320,6 +326,7 @@ export default async function CompanyDetailPage({
         latestHealthByContract={latestHealthByContract}
         churnSignalsByContract={churnSignalsByContract}
         vocItemsByCompany={vocItemsByCompany}
+        driveSendLogs={driveSendLogs}
       />
     </>
   );
