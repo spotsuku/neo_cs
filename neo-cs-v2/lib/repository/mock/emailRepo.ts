@@ -112,6 +112,18 @@ export const mockEmailRepo: EmailRepo = {
       .map((m) => ({ ...m }));
   },
 
+  async listMessagesForCompany(companyId, opts) {
+    const threadIds = new Set(
+      threadStore.filter((t) => t.companyId === companyId).map((t) => t.id)
+    );
+    const rows = messageStore
+      .filter((m) => threadIds.has(m.threadId))
+      .slice()
+      .sort((a, b) => (a.sentAt < b.sentAt ? -1 : 1));
+    const sliced = opts?.limit ? rows.slice(-opts.limit) : rows;
+    return sliced.map((m) => ({ ...m }));
+  },
+
   async createMessage(input: EmailMessageCreateInput) {
     const now = new Date().toISOString();
     const sentAt = input.sentAt ?? now;

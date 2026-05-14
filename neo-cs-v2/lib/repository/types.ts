@@ -1544,6 +1544,8 @@ export interface EmailRepo {
   listThreads(opts?: { companyId?: string; organizationId?: string }): Promise<EmailThread[]>;
   getThread(id: string): Promise<EmailThread | null>;
   listMessages(threadId: string): Promise<EmailMessage[]>;
+  /** 指定企業に紐づくスレッド内の全 message を時系列で返す (メトリクス・タイムライン用) */
+  listMessagesForCompany(companyId: string, opts?: { limit?: number }): Promise<EmailMessage[]>;
   createMessage(input: EmailMessageCreateInput): Promise<EmailMessage>;
   setStatus(threadId: string, status: EmailThreadStatus): Promise<void>;
   setAssignee(

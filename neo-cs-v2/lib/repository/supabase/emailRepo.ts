@@ -102,6 +102,27 @@ export const supabaseEmailRepo: EmailRepo = {
     return data ? toThread(data as ThreadRow) : null;
   },
 
+  async listMessagesForCompany(companyId: string, opts?: { limit?: number }) {
+    const sb = getServiceClient();
+    // 1. 企業に属する thread id を取る
+    const { data: threads, error: tErr } = await sb
+      .from("email_threads")
+      .select("id")
+      .eq("company_id", companyId);
+    if (tErr) throw new Error(`listMessagesForCompany.threads: ${tErr.message}`);
+    const threadIds = (threads ?? []).map((t: { id: string }) => t.id);
+    if (threadIds.length === 0) return [];
+    let q = sb
+      .from("email_messages")
+      .select("*")
+      .in("thread_id", threadIds)
+      .order("sent_at", { ascending: true });
+    if (opts?.limit) q = q.limit(opts.limit);
+    const { data, error } = await q;
+    if (error) throw new Error(`listMessagesForCompany: ${error.message}`);
+    return (data ?? []).map((r: MessageRow) => toMessage(r));
+  },
+
   async listMessages(threadId) {
     const sb = getServiceClient();
     const { data, error } = await sb
