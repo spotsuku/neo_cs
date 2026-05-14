@@ -34,6 +34,59 @@ const INITIAL_SYNC_AFTER = "2026/03/01";
 // 1 ユーザあたりの 1 回 cron で取得する最大件数 (時間内で完走させる)
 const MAX_MESSAGES_PER_RUN = 200;
 
+// ─────────────────────────────────────────────
+// ノイズフィルタ
+//   - システム通知 (noreply / no-reply / notifications 等) は skip
+//   - 自社ドメイン (CS チームメンバー同士) のやり取りも skip
+//   後続フェーズで「内部メール」カテゴリとして保存する選択肢もあるが、
+//   Phase 1 では業務メールに集中するため完全に skip する
+// ─────────────────────────────────────────────
+const SYSTEM_LOCAL_PARTS = [
+  "noreply",
+  "no-reply",
+  "do-not-reply",
+  "donotreply",
+  "notifications",
+  "notification",
+  "mailer-daemon",
+  "postmaster"
+];
+
+const INTERNAL_DOMAINS = ["sportsnation.jp", "neoa.jp", "neoacademia.jp"];
+
+function isSystemSender(email: string): boolean {
+  const lower = email.toLowerCase();
+  const localPart = lower.split("@")[0] ?? "";
+  return SYSTEM_LOCAL_PARTS.some(
+    (p) => localPart === p || localPart.startsWith(`${p}+`) || localPart.startsWith(`${p}-`)
+  );
+}
+
+function isInternalEmail(email: string): boolean {
+  const domain = email.toLowerCase().split("@")[1] ?? "";
+  return INTERNAL_DOMAINS.includes(domain);
+}
+
+/** 業務メールとして取り込むべきかを判定。両方が「ノイズ」なら skip。 */
+function shouldKeepMessage(
+  sender: string,
+  recipients: string[],
+  myEmail: string
+): { keep: boolean; reason?: string } {
+  if (isSystemSender(sender)) return { keep: false, reason: "system_sender" };
+  // 送信者が自分以外の内部ドメインで、宛先も内部のみ → 社内連絡として skip
+  if (
+    sender &&
+    isInternalEmail(sender) &&
+    sender.toLowerCase() !== myEmail.toLowerCase() &&
+    recipients.length > 0 &&
+    recipients.every((r) => isInternalEmail(r))
+  ) {
+    return { keep: false, reason: "internal_only" };
+  }
+  return { keep: true };
+}
+
 type GmailMessageListItem = { id: string; threadId: string };
 type GmailHeader = { name: string; value: string };
 type GmailPayload = {
@@ -279,6 +332,13 @@ export async function syncConnection(
     const myEmailLower = conn.emailAddress.toLowerCase();
     const direction: "inbound" | "outbound" =
       senderEmail === myEmailLower ? "outbound" : "inbound";
+
+    // ノイズフィルタ: システム通知 / 社内のみのやり取りは保存しない
+    const filter = shouldKeepMessage(senderEmail, recipients, myEmailLower);
+    if (!filter.keep) {
+      result.skipped++;
+      continue;
+    }
 
     // 会社解決 (送信元アドレス → company_contacts)
     const lookupEmail = direction === "inbound" ? senderEmail : recipients[0] ?? "";

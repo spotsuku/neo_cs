@@ -296,17 +296,31 @@ export const supabaseEmailRepo: EmailRepo = {
 
   async findCompanyByEmail(organizationId, email) {
     const sb = getServiceClient();
-    const { data, error } = await sb
+    const lower = email.toLowerCase().trim();
+    if (!lower) return null;
+
+    // 1. company_contacts.email の完全一致
+    const { data: contactMatch } = await sb
       .from("company_contacts")
       .select("company_id")
       .eq("organization_id", organizationId)
-      .eq("email", email.toLowerCase())
+      .eq("email", lower)
       .limit(1)
       .maybeSingle();
-    if (error) {
-      // company_contacts.email が無い org / index 周りの問題は同期を止めない
-      return null;
+    if ((contactMatch as { company_id: string } | null)?.company_id) {
+      return (contactMatch as { company_id: string }).company_id;
     }
-    return (data as { company_id: string } | null)?.company_id ?? null;
+
+    // 2. companies.email_domains 配列にメールドメインが含まれるか
+    const domain = lower.split("@")[1];
+    if (!domain) return null;
+    const { data: domainMatch } = await sb
+      .from("companies")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .contains("email_domains", [domain])
+      .limit(1)
+      .maybeSingle();
+    return (domainMatch as { id: string } | null)?.id ?? null;
   }
 };
