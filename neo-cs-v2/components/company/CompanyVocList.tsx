@@ -1,10 +1,11 @@
-"use client";
-
 // 企業カルテ用 VOC 一覧 (未完了のみ — open / in_progress)
-import { useEffect, useState } from "react";
+//
+// データは Server Component (page.tsx) で取得し props で受け取る。
+// Client から `@/lib/repository` を直接呼ぶと REPO_DRIVER=supabase でも mock を返してしまうため、
+// 本コンポーネントは fetch せず受け身で描画する (docs/PARITY.md §5 P0)。
+
 import Link from "next/link";
-import { vocItemRepo } from "@/lib/repository";
-import type { VocItemRecord } from "@/lib/repository";
+import type { VocItemRecord } from "@/lib/repository/types";
 import { VOC_TAG_LABEL, type VocTag } from "@/lib/domain/voc/voc";
 
 const STATUS_LABEL: Record<VocItemRecord["status"], string> = {
@@ -20,27 +21,7 @@ const PRIORITY_BADGE: Record<VocItemRecord["priority"], string> = {
   low: "bg-info-50 text-info-700 border-info-100"
 };
 
-export function CompanyVocList({ companyId }: { companyId: string }) {
-  const [items, setItems] = useState<VocItemRecord[]>([]);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    vocItemRepo
-      .list({ companyId, status: ["open", "in_progress"] })
-      .then((list) => {
-        if (cancelled) return;
-        setItems(list);
-        setReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId]);
-
-  if (!ready) {
-    return <div className="text-caption text-neutral-500">VOC を読み込み中...</div>;
-  }
+export function CompanyVocList({ items }: { items: VocItemRecord[] }) {
   if (items.length === 0) {
     return (
       <div className="text-caption text-neutral-500">

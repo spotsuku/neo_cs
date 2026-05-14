@@ -1,10 +1,10 @@
-"use client";
+// 契約単位の解約予兆シグナル一覧
+//
+// データは Server Component (page.tsx) で取得し props で受け取る。
+// Client から `@/lib/repository` を直接呼ぶと REPO_DRIVER=supabase でも mock を返してしまうため、
+// 本コンポーネントは fetch せず受け身で描画する (docs/PARITY.md §5 P0)。
 
-// 契約単位の解約予兆シグナル一覧 (CompanyDetail から呼ぶ Client Component)
-
-import { useEffect, useState } from "react";
-import { churnSignalRepo } from "@/lib/repository";
-import type { ChurnSignalRecord } from "@/lib/repository";
+import type { ChurnSignalRecord } from "@/lib/repository/types";
 import { RULE_LABEL } from "@/lib/domain/churn/churn";
 import type { ChurnSignalRule } from "@/lib/domain/churn/churn";
 
@@ -20,29 +20,7 @@ const SEVERITY_LABEL: Record<ChurnSignalRecord["severity"], string> = {
   low: "Low"
 };
 
-export function ContractChurnSignals({ contractId }: { contractId: string }) {
-  const [signals, setSignals] = useState<ChurnSignalRecord[]>([]);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    churnSignalRepo
-      .listByContract(contractId, { unresolvedOnly: true })
-      .then((list) => {
-        if (cancelled) return;
-        setSignals(list);
-        setReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contractId]);
-
-  if (!ready) {
-    return (
-      <div className="text-caption text-neutral-500">解約予兆を読み込み中...</div>
-    );
-  }
+export function ContractChurnSignals({ signals }: { signals: ChurnSignalRecord[] }) {
   if (signals.length === 0) {
     return (
       <div className="text-caption text-neutral-500">

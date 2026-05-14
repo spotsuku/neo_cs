@@ -52,7 +52,9 @@ import type {
   WeeklyReview,
   ProgramTerm,
   ProgramTaskTemplate,
-  ProgramCompanyTask
+  ProgramCompanyTask,
+  ChurnSignalRecord,
+  VocItemRecord
 } from "@/lib/repository/types";
 
 export type ProgramBundle = {
@@ -236,7 +238,9 @@ export function CompanyDetail({
   emailMessages = [],
   initialParticipants,
   headerHealthColor = "green",
-  latestHealthByContract = {}
+  latestHealthByContract = {},
+  churnSignalsByContract = {},
+  vocItemsByCompany = []
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -296,6 +300,17 @@ export function CompanyDetail({
    * 再計算するために使う。snapshot 未生成の契約はキー未登録 = mock fallback。
    */
   latestHealthByContract?: Record<string, import("@/lib/repository/types").HealthSnapshot>;
+  /**
+   * 契約 ID → 未解決の解約予兆シグナル一覧。Server Component で
+   * churnSignalRepo.listByContract({unresolvedOnly:true}) を契約ごとに呼んで構築する。
+   * docs/PARITY.md §5 P0: Client 側で `@/lib/repository` から fetch する旧経路を廃止。
+   */
+  churnSignalsByContract?: Record<string, ChurnSignalRecord[]>;
+  /**
+   * 企業の未処理 VOC (open / in_progress)。Server Component で vocItemRepo.list 取得。
+   * docs/PARITY.md §5 P0: 旧 Client fetch 経路を廃止。
+   */
+  vocItemsByCompany?: VocItemRecord[];
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -538,6 +553,8 @@ export function CompanyDetail({
           checkpointStatusesByContract={checkpointStatusesByContract}
           companyId={company.id}
           canManageContracts={canManageContracts}
+          churnSignalsByContract={churnSignalsByContract}
+          vocItemsByCompany={vocItemsByCompany}
         />
       )}
       {/* 解約モーダルの管理は ContractsTab 内で完結 */}
@@ -2355,7 +2372,9 @@ function ContractsTab({
   businessSuggestions,
   checkpointStatusesByContract,
   companyId,
-  canManageContracts = false
+  canManageContracts = false,
+  churnSignalsByContract,
+  vocItemsByCompany
 }: {
   allCycles: ActiveContract[];
   successPlans: SuccessPlan[];
@@ -2365,6 +2384,8 @@ function ContractsTab({
   checkpointStatusesByContract: Record<string, JourneyCheckpointStatus[]>;
   companyId: string;
   canManageContracts?: boolean;
+  churnSignalsByContract: Record<string, ChurnSignalRecord[]>;
+  vocItemsByCompany: VocItemRecord[];
 }) {
   const cycleIds = new Set(allCycles.map((c) => c.id));
   const [records, setRecords] = useState<ChurnRecord[]>(
@@ -2475,6 +2496,8 @@ function ContractsTab({
         plan={currentPlan}
         churnRecords={records}
         onChurnClick={(c) => setChurnTarget(c)}
+        churnSignals={churnSignalsByContract[current.id] ?? []}
+        vocItems={vocItemsByCompany}
       />
 
       {/* 契約管理: 各契約の編集・解約 (role_permissions.contract_manage 必須) */}
@@ -2909,7 +2932,9 @@ function ProductCyclesBlock({
   current,
   plan,
   churnRecords,
-  onChurnClick
+  onChurnClick,
+  churnSignals,
+  vocItems
 }: {
   code: ProductCode;
   cycles: ActiveContract[];
@@ -2917,6 +2942,8 @@ function ProductCyclesBlock({
   plan?: SuccessPlan;
   churnRecords: ChurnRecord[];
   onChurnClick: (c: ActiveContract) => void;
+  churnSignals: ChurnSignalRecord[];
+  vocItems: VocItemRecord[];
 }) {
   const isCurrentChurned = churnRecords.some((r) => r.contractId === current.id);
   const p = productByCode[code];
@@ -2983,12 +3010,27 @@ function ProductCyclesBlock({
       </div>
 
       {/* 現行サイクル詳細 */}
-      <CurrentCyclePanel contract={current} plan={plan} />
+      <CurrentCyclePanel
+        contract={current}
+        plan={plan}
+        churnSignals={churnSignals}
+        vocItems={vocItems}
+      />
     </div>
   );
 }
 
-function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?: SuccessPlan }) {
+function CurrentCyclePanel({
+  contract,
+  plan,
+  churnSignals,
+  vocItems
+}: {
+  contract: ActiveContract;
+  plan?: SuccessPlan;
+  churnSignals: ChurnSignalRecord[];
+  vocItems: VocItemRecord[];
+}) {
   const p = productByCode[contract.product];
   const endDate = contract.endDate;
   const daysToEnd = endDate
@@ -3026,7 +3068,7 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
         <div className="text-caption text-neutral-500 font-medium">
           解約予兆シグナル
         </div>
-        <ContractChurnSignals contractId={contract.id} />
+        <ContractChurnSignals signals={churnSignals} />
       </div>
 
       {/* エクスパンション機会 + 営業引き継ぎ (F項) */}
@@ -3055,7 +3097,7 @@ function CurrentCyclePanel({ contract, plan }: { contract: ActiveContract; plan?
             すべて見る →
           </a>
         </div>
-        <CompanyVocList companyId={contract.companyId} />
+        <CompanyVocList items={vocItems} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
