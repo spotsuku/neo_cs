@@ -18,8 +18,13 @@ export type Company = {
   group?: string;
   ownerName: string;
   contracts: ProductCode[];
-  mrr: number;
-  lastTouchDays: number;
+  // mrr: 期内契約の月額合計。Supabase 実装は contracts テーブルから集計するため
+  // 「契約 0 件」や「mrr_amount NULL のみ」だと undefined。mock seed は必ず値を持つ。
+  // UI 側は `c.mrr ?? 0` または「未設定 (—)」表示で都度ガードする。
+  mrr?: number;
+  // lastTouchDays: 最終 meeting_log からの経過日数。Supabase 実装は meeting_logs
+  // が空なら undefined。旧実装は 0 固定で「0日前」誤表示の原因だった (PARITY §1.1)。
+  lastTouchDays?: number;
   memo?: string;
   // Phase4-#5: Google Drive 自動連携 (テンプレフォルダ複製で生成された顧客フォルダ)
   driveFolderId?: string | null;
