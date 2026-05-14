@@ -24,9 +24,9 @@
 |---|---|---|
 | [app/team/page.tsx](../../neo-cs-v2/app/team/page.tsx) | ✅ OK | `Promise.all` 5並列 + Map/Set 事前構築。`stats.map` 内に await なし |
 | [app/team/[userId]/one-on-one/page.tsx](../../neo-cs-v2/app/team/[userId]/one-on-one/page.tsx) | ✅ OK | `Promise.all` 4並列固定。N+1 なし |
-| [app/companies/[id]/page.tsx](../../neo-cs-v2/app/companies/[id]/page.tsx) | ✅ 修正完了 (2026-05-03) | リポジトリ通しに全面書換。`.filter().some()` 入れ子は ID 集合 + Set lookup に置換。`Promise.all` 2段で N+1 排除済 — §2-1 修正完了サマリー参照 |
-| [app/companies/page.tsx](../../neo-cs-v2/app/companies/page.tsx) | ✅ OK | "use client" + mock。DB問い合わせなし |
-| [app/companies/[id]/CompanyDetail.tsx](../../neo-cs-v2/app/companies/[id]/CompanyDetail.tsx) | (調査外) | Client component。受け渡しのみ |
+| [app/companies/[id]/page.tsx](../../neo-cs-v2/app/(relationship)/companies/[id]/page.tsx) | ✅ 修正完了 (2026-05-03) | リポジトリ通しに全面書換。`.filter().some()` 入れ子は ID 集合 + Set lookup に置換。`Promise.all` 2段で N+1 排除済 — §2-1 修正完了サマリー参照 |
+| [app/companies/page.tsx](../../neo-cs-v2/app/(relationship)/companies/page.tsx) | ✅ OK | "use client" + mock。DB問い合わせなし |
+| [app/companies/[id]/CompanyDetail.tsx](../../neo-cs-v2/app/(relationship)/companies/[id]/CompanyDetail.tsx) | (調査外) | Client component。受け渡しのみ |
 
 ### 発見事項のヘッドライン
 

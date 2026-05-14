@@ -23,21 +23,21 @@
 ## 2. 機能別の詳細
 
 ### F1. オンボーディング可視化 ✅
-- 全契約のステータス取得・表示: [app/onboarding/page.tsx:22-26](../neo-cs-v2/app/onboarding/page.tsx#L22-L26)
+- 全契約のステータス取得・表示: [app/onboarding/page.tsx:22-26](../neo-cs-v2/app/(lifecycle)/onboarding/page.tsx#L22-L26)
 - ChecklistView / MatrixView (UI 2 種)
 - 期日計算: `onboardingItemRepo.listByContractIds()` + `dueOffsetDays`
-- テンプレ: [lib/domain/onboarding-template.ts](../neo-cs-v2/lib/domain/onboarding-template.ts) で shape 変換、`onboardingTemplateRepo.listByProduct()` で DB から取得
+- テンプレ: [lib/domain/onboarding-template.ts](../neo-cs-v2/lib/domain/onboarding/onboarding-template.ts) で shape 変換、`onboardingTemplateRepo.listByProduct()` で DB から取得
 
 ### F2. コホート一括管理 🟡
-- ✅ プログラム一覧 / 期 × 企業マトリクス: [app/programs/page.tsx](../neo-cs-v2/app/programs/page.tsx), [app/programs/[termId]/ProgramMatrix.tsx](../neo-cs-v2/app/programs/[termId]/ProgramMatrix.tsx)
-- ✅ テンプレ一括編集: [app/programs/[termId]/edit/TemplateEditor.tsx](../neo-cs-v2/app/programs/[termId]/edit/TemplateEditor.tsx)
+- ✅ プログラム一覧 / 期 × 企業マトリクス: [app/programs/page.tsx](../neo-cs-v2/app/(cohort)/programs/page.tsx), [app/programs/[termId]/ProgramMatrix.tsx](../neo-cs-v2/app/(cohort)/programs/[termId]/ProgramMatrix.tsx)
+- ✅ テンプレ一括編集: [app/programs/[termId]/edit/TemplateEditor.tsx](../neo-cs-v2/app/(cohort)/programs/[termId]/edit/TemplateEditor.tsx)
 - ❌ **一括メール送信フロー未実装** (Gmail 送信は単発のみ)
 - ❌ イベント招待・面談日程一斉提示の動線がない
 
 ### F3. Gmail + AI 自動判定 ✅
 - 受信同期: [app/api/cron/gmail-sync/route.ts](../neo-cs-v2/app/api/cron/gmail-sync/route.ts) — `gmailConnectionRepo` 経由で 30 分 cron
 - AI 抽出: [lib/integrations/email-ai.ts:17-56](../neo-cs-v2/lib/integrations/email-ai.ts#L17-L56) — Claude API で 5 種類のシグナル抽出 (progress / risk / churn / expansion / meeting)
-- AI 提案レビュー UI: [app/inbox/extractions/page.tsx](../neo-cs-v2/app/inbox/extractions/page.tsx) — `aiExtractionRepo` に `reviewed=false` で未承認保存
+- AI 提案レビュー UI: [app/inbox/extractions/page.tsx](../neo-cs-v2/app/(communication)/inbox/extractions/page.tsx) — `aiExtractionRepo` に `reviewed=false` で未承認保存
 - 返信送信は人間のクリック + 確認ダイアログ必須 (memory に固定済)
 
 ### F4. Drive テンプレ連携 🟡
@@ -48,21 +48,21 @@
 - ❌ 「どの版の資料をいつ誰に送ったか」が遡れない
 
 ### F5. パートナー化 ✅
-- 関係性タイプ自動判定: [lib/domain/contactCommunity.ts:19-67](../neo-cs-v2/lib/domain/contactCommunity.ts#L19-L67) — `contactCommunityTier` (at_risk / casual / active / core) ← **CCC Framework の関与度 4 段階と整合**
-- 評議会会員 (年間型) のブロック管理: [lib/domain/hyogikai-membership.ts](../neo-cs-v2/lib/domain/hyogikai-membership.ts)
+- 関係性タイプ自動判定: [lib/domain/contactCommunity.ts:19-67](../neo-cs-v2/lib/domain/community/contactCommunity.ts#L19-L67) — `contactCommunityTier` (at_risk / casual / active / core) ← **CCC Framework の関与度 4 段階と整合**
+- 評議会会員 (年間型) のブロック管理: [lib/domain/hyogikai-membership.ts](../neo-cs-v2/lib/domain/community/hyogikai-membership.ts)
 - 企業 Vision: `companyVisionRepo`
 - 残: Inner Rings の登り方を UI で可視化
 
 ### F6. VoC 取りこぼしゼロ 🟡
-- ✅ 抽出: [lib/domain/voc.ts:55-56](../neo-cs-v2/lib/domain/voc.ts#L55-L56) — キーワード辞書ベース
+- ✅ 抽出: [lib/domain/voc.ts:55-56](../neo-cs-v2/lib/domain/voc/voc.ts#L55-L56) — キーワード辞書ベース
 - ✅ チャネル統合: weekly_review / survey_response / meeting_log の sources
-- ✅ カンバン UI: [app/voc/VocBoard.tsx](../neo-cs-v2/app/voc/VocBoard.tsx)
+- ✅ カンバン UI: [app/voc/VocBoard.tsx](../neo-cs-v2/app/(relationship)/voc/VocBoard.tsx)
 - ✅ 通知: [app/api/cron/voc-notify/route.ts](../neo-cs-v2/app/api/cron/voc-notify/route.ts)
 - ❌ **AI 分類が純辞書ベース** — Claude 置換で精度向上が課題
 
 ### F7. アンケート + 関与度判定 🟡
 - ✅ 取込: [app/api/surveys/import/apply](../neo-cs-v2/app/api/surveys/import/apply/)
-- ✅ 関与度算出ロジック: [lib/domain/engagement.ts:96-103](../neo-cs-v2/lib/domain/engagement.ts#L96-L103) — **4 段階 (core / active / casual / at_risk)** 完備
+- ✅ 関与度算出ロジック: [lib/domain/engagement.ts:96-103](../neo-cs-v2/lib/domain/community/engagement.ts#L96-L103) — **4 段階 (core / active / casual / at_risk)** 完備
 - ✅ 企業別集計の builder
 - ❌ 関与度スコアを UI で前面に出していない (ダッシュボードに出ていない可能性)
 
@@ -76,8 +76,8 @@
 
 | ファイル | "use client" | import | 本番で見ているデータ |
 |---|---|---|---|
-| [components/ContractChurnSignals.tsx:6](../neo-cs-v2/components/ContractChurnSignals.tsx#L6) | ✅ | `churnSignalRepo` | **mock データ (本番でも)** |
-| [components/CompanyVocList.tsx:6](../neo-cs-v2/components/CompanyVocList.tsx#L6) | ✅ | `vocItemRepo` | **mock データ (本番でも)** |
+| [components/ContractChurnSignals.tsx:6](../neo-cs-v2/components/contract/ContractChurnSignals.tsx#L6) | ✅ | `churnSignalRepo` | **mock データ (本番でも)** |
+| [components/CompanyVocList.tsx:6](../neo-cs-v2/components/company/CompanyVocList.tsx#L6) | ✅ | `vocItemRepo` | **mock データ (本番でも)** |
 
 → ChurnSignals と VoC は F5 / F6 の中核だが、企業詳細ページ内で**常に mock を表示している**。修正優先度: **P0**。
 
@@ -111,7 +111,7 @@ successPlanRepo
 - Repository インターフェース ([types.ts](../neo-cs-v2/lib/repository/types.ts))
 - F1 オンボーディング機能一式
 - F3 Gmail 連携 + AI 抽出基盤 ([lib/integrations/](../neo-cs-v2/lib/integrations/), [lib/ai/](../neo-cs-v2/lib/ai/))
-- F5 関与度判定ロジック ([lib/domain/contactCommunity.ts](../neo-cs-v2/lib/domain/contactCommunity.ts), [engagement.ts](../neo-cs-v2/lib/domain/engagement.ts))
+- F5 関与度判定ロジック ([lib/domain/contactCommunity.ts](../neo-cs-v2/lib/domain/community/contactCommunity.ts), [engagement.ts](../neo-cs-v2/lib/domain/community/engagement.ts))
 - F7 アンケート取込基盤
 - supabase/migrations (39 マイグレーション)
 - 監査ログ / RLS / 認可基盤

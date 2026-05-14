@@ -26,7 +26,7 @@
 
 - **Tailwind 3** ([tailwind.config.ts](../neo-cs-v2/tailwind.config.ts))
 - **shadcn 風 UI** ([components/ui/](../neo-cs-v2/components/ui/))
-- スタイルガイド画面: [/styleguide](../neo-cs-v2/app/styleguide/) (実装の生きた仕様)
+- スタイルガイド画面: [/styleguide](../neo-cs-v2/app/(system)/styleguide/) (実装の生きた仕様)
 
 ---
 

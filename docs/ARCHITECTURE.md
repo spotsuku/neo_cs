@@ -24,11 +24,20 @@
 ```
 neo_cs/
 ├── neo-cs-v2/              ← アプリ本体 (Next.js)
-│   ├── app/                App Router
-│   ├── components/         UI 部品
+│   ├── app/                App Router (Route Groups で 8 機能ドメイン化 — URL 不変)
+│   │   ├── (lifecycle)/      onboarding                       F1 内諾後フロー
+│   │   ├── (cohort)/         programs / weekly / attendance   F2 期/回運営
+│   │   ├── (communication)/  inbox / notifications / chat     F3 メール+AI
+│   │   ├── (relationship)/   companies / voc                  F5/F6 関係性
+│   │   ├── (analytics)/      dashboard / reports / surveys    F7+経営
+│   │   ├── (self)/           me / tasks / profile             個人
+│   │   ├── (admin)/          settings / manager / help        管理
+│   │   ├── (system)/         auth / login / styleguide        認証/UI
+│   │   └── api/              Route Handler
+│   ├── components/         UI 部品 (12 ドメインサブフォルダ)
 │   ├── lib/
 │   │   ├── repository/     Domain 型 + Repository インターフェース + 2 実装
-│   │   ├── domain/         純粋関数 (kpi / health / churn)
+│   │   ├── domain/         純粋関数 (community / health / churn / kpi / email / voc / journey / ...)
 │   │   ├── supabase/       Supabase クライアント (SSR / service_role)
 │   │   ├── security/       認可・CSP・CORS・rate-limit
 │   │   ├── observability/  pino logger / Sentry / repo hook
@@ -42,8 +51,9 @@ neo_cs/
 ├── supabase/migrations/    DB マイグレーション (番号順)
 ├── docs/                   このフォルダ (Phase 0 で整備中)
 ├── roadmap/                旧ロードマップ・完了報告 (履歴扱い)
-├── reviews/                16 視点レビュー (実装の根拠ログ)
-└── _legacy/                v1 凍結退避 (Phase 2 で archive ブランチへ移動予定)
+└── reviews/                16 視点レビュー (実装の根拠ログ)
+
+# 旧 v1 (_legacy/) は archive/v1-legacy ブランチに退避済 (tag: baseline-2026-05-14)
 ```
 
 ルートの `package.json` は v2 への薄いラッパ。実体は `neo-cs-v2/`。
@@ -134,7 +144,7 @@ Server Action や Route Handler でも同じ経路。Client Component が直接�
 
 ## 8. 既知の構造的負債 (Phase 1 で対処)
 
-1. **Client から `@/lib/repository` 経由で mock を引いている画面が残っている** — 本番に切り替えても直らない。具体箇所は [PARITY.md §2](PARITY.md) を参照 ([ContractChurnSignals](../neo-cs-v2/components/ContractChurnSignals.tsx), [CompanyVocList](../neo-cs-v2/components/CompanyVocList.tsx))。
+1. **Client から `@/lib/repository` 経由で mock を引いている画面が残っている** — 本番に切り替えても直らない。具体箇所は [PARITY.md §2](PARITY.md) を参照 ([ContractChurnSignals](../neo-cs-v2/components/contract/ContractChurnSignals.tsx), [CompanyVocList](../neo-cs-v2/components/company/CompanyVocList.tsx))。
 2. **mock / supabase 実装の戻り値ズレ** — Supabase 側の `Company` 実装は `contracts: []` / `mrr: 0` / `lastTouchDays: 0` 固定。型は通るが値が空。詳細は [PARITY.md §1](PARITY.md)。
 3. **UI が mock 前提**: 必ず存在する関連オブジェクト前提のアクセス、固定長前提の幅。
-4. **`_legacy/` がリポに残置**: archive ブランチに退避予定 (Phase 2)。
+4. ~~`_legacy/` がリポに残置~~ — `archive/v1-legacy` に退避済 (db48741)。

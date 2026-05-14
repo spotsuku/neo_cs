@@ -186,7 +186,7 @@ describe("extractVocCandidates", () => {
 
 ## 参考
 
-- 純関数本体: [`lib/domain/voc.ts`](../neo-cs-v2/lib/domain/voc.ts)
+- 純関数本体: [`lib/domain/voc.ts`](../neo-cs-v2/lib/domain/voc/voc.ts)
 - mock seed: [`lib/repository/mock/vocItemRepo.ts`](../neo-cs-v2/lib/repository/mock/vocItemRepo.ts)
 - Slack通知: [`lib/notifications/voc.ts`](../neo-cs-v2/lib/notifications/voc.ts)
 - 完了報告 H 項: [`roadmap/02_機能改修_完了報告.md`](../roadmap/02_機能改修_完了報告.md)

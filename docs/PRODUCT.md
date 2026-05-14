@@ -19,11 +19,11 @@ NEO ACADEMIA 受講企業の Customer Success 活動を、属人化させずに*
 
 | ロール | 主タスク | 画面 |
 |---|---|---|
-| CS 入力者 | 週次レビュー入力、参加状況更新、議事録 | [/weekly](../neo-cs-v2/app/weekly/), [/companies](../neo-cs-v2/app/companies/), [/attendance](../neo-cs-v2/app/attendance/) |
-| CS マネージャー | 担当割当、進捗監督、ヘルススコア確認 | [/manager](../neo-cs-v2/app/manager/), [/dashboard](../neo-cs-v2/app/dashboard/) |
-| CS 責任者 | KPI 達成度、解約予兆対応、契約更新 | [/dashboard](../neo-cs-v2/app/dashboard/), [/reports](../neo-cs-v2/app/reports/) |
-| 経営者 | 経営ダッシュボード、ARR/Churn | [/dashboard](../neo-cs-v2/app/dashboard/) |
-| 新人 CS | カルテ閲覧、自分の担当タスク | [/me](../neo-cs-v2/app/me/), [/tasks](../neo-cs-v2/app/tasks/) |
+| CS 入力者 | 週次レビュー入力、参加状況更新、議事録 | [/weekly](../neo-cs-v2/app/(cohort)/weekly/), [/companies](../neo-cs-v2/app/(relationship)/companies/), [/attendance](../neo-cs-v2/app/(cohort)/attendance/) |
+| CS マネージャー | 担当割当、進捗監督、ヘルススコア確認 | [/manager](../neo-cs-v2/app/(admin)/manager/), [/dashboard](../neo-cs-v2/app/(analytics)/dashboard/) |
+| CS 責任者 | KPI 達成度、解約予兆対応、契約更新 | [/dashboard](../neo-cs-v2/app/(analytics)/dashboard/), [/reports](../neo-cs-v2/app/(analytics)/reports/) |
+| 経営者 | 経営ダッシュボード、ARR/Churn | [/dashboard](../neo-cs-v2/app/(analytics)/dashboard/) |
+| 新人 CS | カルテ閲覧、自分の担当タスク | [/me](../neo-cs-v2/app/(self)/me/), [/tasks](../neo-cs-v2/app/(self)/tasks/) |
 | 顧客 (受講企業) | 別アプリで開発中。本ポータルとは将来 API 連携 | (本ポータル外) |
 
 詳細ペルソナ・行動シナリオは [reviews/](../reviews/) を参照。

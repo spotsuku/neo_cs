@@ -49,16 +49,16 @@ surveys / participants / sessions / attendance / emails / aiExtractions / 等は
 
 | ファイル | 行 | 呼び出し | 影響 |
 |---|---|---|---|
-| [components/ContractChurnSignals.tsx](../neo-cs-v2/components/ContractChurnSignals.tsx) | 6, 29-30 | `churnSignalRepo.listByContract()` を `useEffect` で | **解約予兆が常に mock データ** |
-| [components/CompanyVocList.tsx](../neo-cs-v2/components/CompanyVocList.tsx) | — | `vocItemRepo` | **VoC が常に mock** |
+| [components/ContractChurnSignals.tsx](../neo-cs-v2/components/contract/ContractChurnSignals.tsx) | 6, 29-30 | `churnSignalRepo.listByContract()` を `useEffect` で | **解約予兆が常に mock データ** |
+| [components/CompanyVocList.tsx](../neo-cs-v2/components/company/CompanyVocList.tsx) | — | `vocItemRepo` | **VoC が常に mock** |
 
 型 import のみ (実害なし) のファイル:
 - [app/ExecutiveDashboard.tsx:27](../neo-cs-v2/app/ExecutiveDashboard.tsx#L27)
-- [app/inbox/InboxView.tsx](../neo-cs-v2/app/inbox/InboxView.tsx)
-- [app/voc/VocBoard.tsx](../neo-cs-v2/app/voc/VocBoard.tsx)
+- [app/inbox/InboxView.tsx](../neo-cs-v2/app/(communication)/inbox/InboxView.tsx)
+- [app/voc/VocBoard.tsx](../neo-cs-v2/app/(relationship)/voc/VocBoard.tsx)
 
 ### 2.1 正しい経路 (参考)
-- [app/companies/page.tsx:10-18](../neo-cs-v2/app/companies/page.tsx#L10-L18) — `@/lib/repository/server` から import (Server Component) → `REPO_DRIVER` に従う。
+- [app/companies/page.tsx:10-18](../neo-cs-v2/app/(relationship)/companies/page.tsx#L10-L18) — `@/lib/repository/server` から import (Server Component) → `REPO_DRIVER` に従う。
 - `app/companies/new/actions.ts` — Server Action で `getRepo()` 経由。
 
 ### 2.2 `lib/mock/*` 直 import
@@ -68,7 +68,7 @@ README で禁止しているこの違反は **発見されず** (`grep -r "from.
 
 ## 3. UI が mock 前提で書かれている代表ケース
 
-[app/companies/CompaniesView.tsx](../neo-cs-v2/app/companies/CompaniesView.tsx) に集中:
+[app/companies/CompaniesView.tsx](../neo-cs-v2/app/(relationship)/companies/CompaniesView.tsx) に集中:
 
 | 行 | 症状 |
 |---|---|
@@ -77,7 +77,7 @@ README で禁止しているこの違反は **発見されず** (`grep -r "from.
 | 283-285 | `c.kana.toLowerCase()` 等 → null/undefined ガードなし |
 | 799 | `{c.lastTouchDays}日前` → 常に「0日前」 |
 
-[app/companies/page.tsx:50-51](../neo-cs-v2/app/companies/page.tsx#L50-L51) は本来 Repository が返すべき `Company.contracts` を**アプリ層で手動復元している** — Repository インターフェースが満たされていない兆候。
+[app/companies/page.tsx:50-51](../neo-cs-v2/app/(relationship)/companies/page.tsx#L50-L51) は本来 Repository が返すべき `Company.contracts` を**アプリ層で手動復元している** — Repository インターフェースが満たされていない兆候。
 
 ### 3.1 フォールバックなし
 `logoUrl` / `pictureUrl` が undefined のとき `<img src="">` になる箇所あり。`Avatar` 共通コンポーネント未整備。
@@ -91,7 +91,7 @@ README で禁止しているこの違反は **発見されず** (`grep -r "from.
 | Server Component / Server Action / Route Handler | ✅ `getRepo()` 経由で正しく切替 |
 | Client Component | ❌ `@/lib/repository` は常に mock |
 | middleware | ⚠️ `REPO_DRIVER !== "supabase"` で素通し ([middleware.ts:143](../neo-cs-v2/middleware.ts#L143)) — 認証は supabase 時のみ動く |
-| ログイン UI 分岐 | `isMock` フラグで切替 ([app/login/page.tsx:47](../neo-cs-v2/app/login/page.tsx#L47)) |
+| ログイン UI 分岐 | `isMock` フラグで切替 ([app/login/page.tsx:47](../neo-cs-v2/app/(system)/login/page.tsx#L47)) |
 
 ---
 
