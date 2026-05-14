@@ -156,10 +156,12 @@
 
 優先度順:
 
-### PR 提出済 (merge 順: #13 → #14 → #15)
-1. ✅ [PR #13](https://github.com/spotsuku/neo_cs/pull/13) P0-1/P0-2: ChurnSignals/VoC を Server 経由化 + Supabase Company 集計実装
-2. ✅ [PR #14](https://github.com/spotsuku/neo_cs/pull/14) P1-A: `Company.mrr` / `lastTouchDays` optional 化 (Contract は元々 optional)
-3. ✅ [PR #15](https://github.com/spotsuku/neo_cs/pull/15) P1-B: `CompaniesView` の null ガード + em dash 統一
+### P0/P1 修正 (全 merge 済)
+1. ✅ [PR #13](https://github.com/spotsuku/neo_cs/pull/13) → `9ef526c` P0-1/P0-2: ChurnSignals/VoC を Server 経由化 + Supabase Company 集計実装
+2. ✅ [PR #14](https://github.com/spotsuku/neo_cs/pull/14) → `52c3318` P1-A: `Company.mrr` / `lastTouchDays` optional 化
+3. ✅ [PR #15](https://github.com/spotsuku/neo_cs/pull/15) → `1fc78ea` P1-B: `CompaniesView` の null ガード + em dash 統一
+4. ✅ voc.test.ts mock パス修正 (`1e15f0f`) — 312/312 テスト通過
+5. ✅ CI workflow に NODE_ENV=production (`a817954`)
 
 ### 残課題
 - ~~未整備 8 Repo の Supabase 実装~~ — 誤情報訂正済 (実体は全て実装済、§3.2 参照)
