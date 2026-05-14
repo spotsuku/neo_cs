@@ -291,7 +291,7 @@ export function ReplyEditor({
           onClick={submit}
           className="px-4 py-1.5 rounded-full bg-ink-900 text-white text-xs hover:opacity-90"
         >
-          Gmail 下書きに保存
+          送信
         </button>
         <button
           onClick={onCancel}
@@ -300,7 +300,7 @@ export function ReplyEditor({
           破棄
         </button>
         <span className="ml-auto text-[10px] text-ink-400">
-          作成者: {authorName}
+          送信前に確認画面が出ます ・ 作成者: {authorName}
         </span>
       </div>
     </div>

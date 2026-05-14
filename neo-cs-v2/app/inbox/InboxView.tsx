@@ -18,6 +18,32 @@ import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
 import { resolveSenderEmail } from "@/lib/domain/email-routing";
 import { addContactFromEmailAction } from "./actions";
 import { ReplyEditor, type ReplySubmit } from "./ReplyEditor";
+import { sendReplyAction } from "./reply-actions";
+
+/** rich text editor から渡る HTML を簡易プレーンテキスト化 */
+function htmlToPlain(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+type PendingSend = {
+  threadId: string;
+  inReplyToMessageId: string;
+  to: string[];
+  cc: string[];
+  subject: string;
+  bodyPlain: string;
+};
 
 const TODAY = "2026-04-24";
 const FALLBACK_USER = "古野";
@@ -159,6 +185,10 @@ export function InboxView({
       : initialThreads[0]?.id ?? "";
   const [selectedId, setSelectedId] = useState<string>(initialSelected);
   const [replyDraft, setReplyDraft] = useState<string | null>(null);
+  // 「送信」ボタン → 確認ダイアログ用 state。null = ダイアログ非表示
+  const [pendingSend, setPendingSend] = useState<PendingSend | null>(null);
+  const [sending, setSending] = useState<boolean>(false);
+  const [sendResult, setSendResult] = useState<string | null>(null);
   const [comments, setComments] = useState<AdaptedInternalThreadComment[]>(initialComments);
   const [chatInput, setChatInput] = useState<string>("");
 
@@ -734,11 +764,25 @@ export function InboxView({
                     label: `${c.name}（${c.title ?? ""}）`
                   }));
                   const handleSubmit = (draft: ReplySubmit) => {
-                    // mock: 送信イベントとして status を自動遷移 (→ waiting)
-                    // 実装時は Gmail API drafts.create + 送信検知後にイベント発火
-                    void draft;
-                    applyEvent(selected.id, "send");
-                    setReplyDraft(null);
+                    // 「送信」ボタンクリック時はまず確認ダイアログを開く
+                    // (実送信は確認ダイアログの OK で呼ばれる)
+                    if (!lastInbound) {
+                      setSendResult("返信先のメッセージが見つかりません");
+                      return;
+                    }
+                    const baseSubject = selected?.subject ?? "";
+                    const subject = baseSubject.startsWith("Re:")
+                      ? baseSubject
+                      : `Re: ${baseSubject}`;
+                    setSendResult(null);
+                    setPendingSend({
+                      threadId: selected.id,
+                      inReplyToMessageId: lastInbound.id,
+                      to: draft.to,
+                      cc: draft.cc,
+                      subject,
+                      bodyPlain: htmlToPlain(draft.bodyHtml)
+                    });
                   };
                   return (
                     <ReplyEditor
@@ -939,7 +983,117 @@ export function InboxView({
           )}
         </aside>
       </div>
+
+      {pendingSend && (
+        <SendConfirmDialog
+          payload={pendingSend}
+          pending={sending}
+          errorMessage={sendResult}
+          onCancel={() => {
+            setPendingSend(null);
+            setSendResult(null);
+          }}
+          onConfirm={async () => {
+            setSending(true);
+            setSendResult(null);
+            const r = await sendReplyAction({
+              inReplyToMessageId: pendingSend.inReplyToMessageId,
+              body: pendingSend.bodyPlain,
+              subject: pendingSend.subject,
+              confirmed: true
+            });
+            setSending(false);
+            if (r.ok) {
+              applyEvent(pendingSend.threadId, "send");
+              setReplyDraft(null);
+              setPendingSend(null);
+              setSendResult(null);
+            } else {
+              setSendResult(`送信失敗: ${r.reason ?? "unknown"}`);
+            }
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 送信前の確認ダイアログ
+//   - 「送信」ボタン押下 → 宛先・件名・本文プレビュー → OK で実送信
+//   - cron / AI から呼ばれることはない (server action 側で session 必須)
+// ─────────────────────────────────────────────
+function SendConfirmDialog({
+  payload,
+  pending,
+  errorMessage,
+  onCancel,
+  onConfirm
+}: {
+  payload: PendingSend;
+  pending: boolean;
+  errorMessage: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4">
+        <div>
+          <div className="text-base font-semibold text-ink-900">
+            本当に送信しますか？
+          </div>
+          <div className="mt-1 text-xs text-ink-500">
+            送信ボタンを押すと、あなたの Gmail から実際にメールが送信されます。
+          </div>
+        </div>
+        <dl className="space-y-2 text-sm">
+          <div className="flex gap-2">
+            <dt className="w-16 shrink-0 text-ink-500">宛先</dt>
+            <dd className="text-ink-900 break-all">{payload.to.join(", ")}</dd>
+          </div>
+          {payload.cc.length > 0 && (
+            <div className="flex gap-2">
+              <dt className="w-16 shrink-0 text-ink-500">Cc</dt>
+              <dd className="text-ink-900 break-all">{payload.cc.join(", ")}</dd>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <dt className="w-16 shrink-0 text-ink-500">件名</dt>
+            <dd className="text-ink-900 break-all">{payload.subject}</dd>
+          </div>
+          <div>
+            <dt className="text-ink-500 mb-1">本文プレビュー</dt>
+            <dd className="text-ink-700 text-xs whitespace-pre-wrap max-h-40 overflow-y-auto bg-ink-50 rounded-lg p-2">
+              {payload.bodyPlain || "(本文なし)"}
+            </dd>
+          </div>
+        </dl>
+        {errorMessage && (
+          <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2">
+            {errorMessage}
+          </div>
+        )}
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="px-4 py-2 rounded-full border border-ink-100 text-sm text-ink-700 hover:bg-ink-50"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className="px-5 py-2 rounded-full bg-ink-900 text-white text-sm hover:opacity-90 disabled:opacity-50"
+          >
+            {pending ? "送信中…" : "OK・送信する"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
