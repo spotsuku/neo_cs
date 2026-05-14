@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from "react";
 import { extractVocCandidates, VOC_TAG_LABEL, type VocSourceTextInput, type VocTag } from "@/lib/domain/voc";
-import { createVocItemAction } from "@/app/voc/actions";
+import { createVocItemAction } from "@/app/(relationship)/voc/actions";
 
 export function VocScanButton({
   inputs,

@@ -21,7 +21,7 @@ import type {
   CompanyTaskStatus,
   CompanyTaskCategory
 } from "@/lib/repository/types";
-import { createCompanyTask, setCompanyTaskStatus } from "@/app/companies/[id]/taskActions";
+import { createCompanyTask, setCompanyTaskStatus } from "@/app/(relationship)/companies/[id]/taskActions";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 

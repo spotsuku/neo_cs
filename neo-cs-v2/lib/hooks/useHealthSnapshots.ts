@@ -12,7 +12,7 @@
 //   (Server Action は Client から fetch される RPC 扱いになる)
 
 import { useEffect, useState } from "react";
-import { getHealthSnapshotsByContract } from "@/app/companies/[id]/_actions/health";
+import { getHealthSnapshotsByContract } from "@/app/(relationship)/companies/[id]/_actions/health";
 import type { HealthSnapshot } from "@/lib/repository/types";
 
 export function useHealthSnapshots(contractId: string): {

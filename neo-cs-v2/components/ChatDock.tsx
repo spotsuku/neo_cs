@@ -15,7 +15,7 @@ import {
   listChannelsAction,
   listMessagesAction,
   postMessageAction
-} from "@/app/chat/actions";
+} from "@/app/(communication)/chat/actions";
 import type { ChatChannel, ChatMessage } from "@/lib/repository/types";
 
 const KIND_LABEL: Record<ChatChannel["kind"], string> = {

@@ -14,7 +14,7 @@ import {
 import {
   setCompanyWeatherAction,
   clearCompanyWeatherAction
-} from "@/app/companies/[id]/weather-actions";
+} from "@/app/(relationship)/companies/[id]/weather-actions";
 
 const ALL_WEATHERS: CompanyWeather[] = [
   "sunny",

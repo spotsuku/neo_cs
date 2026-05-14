@@ -5,7 +5,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setCompanyKaruteNoAction } from "@/app/companies/[id]/karute-no-actions";
+import { setCompanyKaruteNoAction } from "@/app/(relationship)/companies/[id]/karute-no-actions";
 
 export function KaruteNoBadge({
   companyId,

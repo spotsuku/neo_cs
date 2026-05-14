@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { BusinessLifecycleState } from "@/lib/repository/types";
 import { LIFECYCLE_STATE_LABEL } from "@/lib/mock/journeys";
-import { setBusinessLifecycleStateAction } from "@/app/companies/[id]/journey-actions";
+import { setBusinessLifecycleStateAction } from "@/app/(relationship)/companies/[id]/journey-actions";
 
 const STATE_TONE: Record<BusinessLifecycleState, string> = {
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",

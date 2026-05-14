@@ -29,7 +29,7 @@ import type {
 import {
   setCompanyTaskStatus,
   updateCompanyTaskFields
-} from "@/app/companies/[id]/taskActions";
+} from "@/app/(relationship)/companies/[id]/taskActions";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const WEEK_END = endOfWeek(TODAY);

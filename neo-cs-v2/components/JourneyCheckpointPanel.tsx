@@ -12,7 +12,7 @@ import type {
   JourneyCheckpointStatus,
   JourneyType
 } from "@/lib/repository/types";
-import { toggleJourneyCheckpointAction } from "@/app/companies/[id]/journey-actions";
+import { toggleJourneyCheckpointAction } from "@/app/(relationship)/companies/[id]/journey-actions";
 
 export function JourneyCheckpointPanel({
   journeyType,

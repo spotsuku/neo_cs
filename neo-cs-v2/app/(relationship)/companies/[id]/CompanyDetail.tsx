@@ -70,9 +70,9 @@ import { CompanyHealthBadge } from "@/components/CompanyHealthBadge";
 import type { CompanyWeather } from "@/lib/domain/weather";
 import { NextCycleModal, type NextCycleDefaults } from "@/components/NextCycleModal";
 import { CompanyVisionSection } from "@/components/CompanyVisionSection";
-import { ChecklistView } from "@/app/onboarding/[contractId]/ChecklistView";
+import { ChecklistView } from "@/app/(lifecycle)/onboarding/[contractId]/ChecklistView";
 import { CompanyEditDialog } from "./CompanyEditDialog";
-import { setProgramCellStatus } from "@/app/programs/[termId]/cellActions";
+import { setProgramCellStatus } from "@/app/(cohort)/programs/[termId]/cellActions";
 import {
   PROGRAM_TASK_CATEGORY_LABEL,
   PROGRAM_CELL_STATUS_LABEL,

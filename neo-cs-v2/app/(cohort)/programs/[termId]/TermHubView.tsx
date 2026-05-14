@@ -7,7 +7,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ProgramMatrix, ProgramMatrixLegend } from "./ProgramMatrix";
-import { ContractFormModal } from "@/app/companies/[id]/ContractFormModal";
+import { ContractFormModal } from "@/app/(relationship)/companies/[id]/ContractFormModal";
 import { updateProgramTerm } from "../termActions";
 import type {
   ProgramTerm,

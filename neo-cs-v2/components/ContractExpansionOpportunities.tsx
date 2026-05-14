@@ -11,7 +11,7 @@ import {
   listExpansionsForContractAction,
   listActiveUsersAction,
   handOffExpansionAction
-} from "@/app/companies/[id]/expansion-actions";
+} from "@/app/(relationship)/companies/[id]/expansion-actions";
 import type { AppUser, ExpansionOpportunityRecord } from "@/lib/repository";
 import {
   EXPANSION_KIND_LABEL,

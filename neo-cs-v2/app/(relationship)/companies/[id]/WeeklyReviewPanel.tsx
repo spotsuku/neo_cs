@@ -19,7 +19,7 @@ import {
   weeksStuck
 } from "@/lib/mock/weekly";
 import type { ActiveContract } from "@/lib/mock/onboarding";
-import { submitWeeklyReviewAction } from "@/app/weekly/actions";
+import { submitWeeklyReviewAction } from "@/app/(cohort)/weekly/actions";
 import { useDraftPersistence } from "@/lib/hooks/useDraftPersistence";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";

@@ -8,7 +8,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CompanyVision, CompanyVisionLog } from "@/lib/repository/types";
-import { setCompanyVisionAction } from "@/app/companies/[id]/vision-actions";
+import { setCompanyVisionAction } from "@/app/(relationship)/companies/[id]/vision-actions";
 
 const FIELDS: Array<{
   key: keyof Pick<
