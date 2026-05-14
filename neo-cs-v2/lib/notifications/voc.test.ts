@@ -39,7 +39,7 @@ const seedItems = [
 
 const markedNotified: string[] = [];
 
-vi.mock("@/lib/repository", () => ({
+vi.mock("@/lib/repository/server", () => ({
   vocItemRepo: {
     list: vi.fn(async (filter: { priority?: string; unNotifiedOnly?: boolean }) => {
       // dispatch 側のフィルタ条件を尊重 (priority='high' + unNotifiedOnly)
