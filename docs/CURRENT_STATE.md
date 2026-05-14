@@ -157,15 +157,14 @@ successPlanRepo
 
 優先度順:
 
-### 即実行できる (P0)
-1. ✅ [PARITY.md §5 P0](PARITY.md) 修正: ChurnSignals / VoC の Server 経由化 (PR 待ち)
-2. ✅ Company supabase 実装の埋め (`contracts` / `mrr` / `lastTouchDays`) (PR 待ち)
-3. 未整備 8 Repo の Supabase 実装
+### PR 提出済 (merge 順: #13 → #14 → #15)
+1. ✅ [PR #13](https://github.com/spotsuku/neo_cs/pull/13) P0-1/P0-2: ChurnSignals/VoC を Server 経由化 + Supabase Company 集計実装
+2. ✅ [PR #14](https://github.com/spotsuku/neo_cs/pull/14) P1-A: `Company.mrr` / `lastTouchDays` optional 化 (Contract は元々 optional)
+3. ✅ [PR #15](https://github.com/spotsuku/neo_cs/pull/15) P1-B: `CompaniesView` の null ガード + em dash 統一
 
-### P1 (P0 PR merge 後に着手)
-- `types.ts` の nullability 整理 (`mrr?: number` など)
-- `CompaniesView` の null / 空配列ガード
-- `lib/notifications/voc.test.ts` の mock パス不整合 (`@/lib/repository` → `@/lib/repository/server`)
+### 残課題
+- 未整備 8 Repo の Supabase 実装
+- `lib/notifications/voc.test.ts` の mock パス不整合 (別会話で後追い予定)
 
 ### 議論が必要 (Phase 2)
 4. ヘルススコア → CCC 5 本柱 + 関与度 4 段階への再設計

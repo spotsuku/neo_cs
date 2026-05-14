@@ -3,7 +3,11 @@
 > Phase 1 調査 (2026-05-14)。「デモ画面 (mock) では問題ないのに本番 (supabase) で崩れる」現象の構造的原因と具体箇所をまとめる。
 > 修正計画は Phase 2 以降で別ドキュメント化。本ドキュメントは**観察事実のみ**。
 >
-> **更新 (2026-05-14)**: P0-1 / P0-2 は別会話で着手済 (PR 待ち)。本ドキュメントの該当箇所に進捗マーカーを付与。
+> **更新 (2026-05-14)**: PR 提出済。merge 順 **#13 → #14 → #15** (#15 は #14 ベース)。
+> - #13 [fix/relationship-supabase-parity-p0](https://github.com/spotsuku/neo_cs/pull/13) — P0-1/P0-2
+> - #14 [refactor/repo-types-nullability](https://github.com/spotsuku/neo_cs/pull/14) — P1-A (Company の `mrr` / `lastTouchDays` optional 化、Contract は元々 optional だったため変更なし)
+> - #15 [fix/relationship-companies-view-null-guard](https://github.com/spotsuku/neo_cs/pull/15) — P1-B (`kana`/`industry`/`lastTouchDays` のガード追加、em dash 統一)
+> - voc.test.ts の mock 不整合は別会話で後追い
 
 ---
 
@@ -81,12 +85,12 @@ README で禁止しているこの違反は **発見されず** (`grep -r "from.
 
 [app/companies/CompaniesView.tsx](../neo-cs-v2/app/(relationship)/companies/CompaniesView.tsx) に集中:
 
-| 行 | 症状 |
-|---|---|
-| 62-66 | `c.contracts && c.contracts.length > 0` → supabase では常に false |
-| 198 | `mrr: ac.mrr` を集計 → supabase は `undefined` で `NaN` 波及 |
-| 283-285 | `c.kana.toLowerCase()` 等 → null/undefined ガードなし |
-| 799 | `{c.lastTouchDays}日前` → 常に「0日前」 |
+| 行 | 症状 | 対応 |
+|---|---|---|
+| ~~62-66~~ | ~~`c.contracts && c.contracts.length > 0`~~ | 過去のリファクタで既に除去済 (PR #15 調査で発覚) |
+| 198 | `mrr: ac.mrr` を集計 → supabase は `undefined` で `NaN` 波及 | #14 (optional 化) + #15 (ガード) |
+| 283-285 | `c.kana.toLowerCase()` 等 → null/undefined ガードなし | ✅ PR #15 |
+| 799 | `{c.lastTouchDays}日前` → 常に「0日前」 | ✅ PR #13 (実値解決) + #15 (em dash) |
 
 [app/companies/page.tsx:50-51](../neo-cs-v2/app/(relationship)/companies/page.tsx#L50-L51) は本来 Repository が返すべき `Company.contracts` を**アプリ層で手動復元している** — Repository インターフェースが満たされていない兆候。
 
