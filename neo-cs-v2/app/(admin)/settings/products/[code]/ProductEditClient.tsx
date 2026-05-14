@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { TopNav } from "@/components/TopNav";
+import { TopNav } from "@/components/nav/TopNav";
 import { products, productByCode, ProductCode, productCourses } from "@/lib/mock/data";
 import CoursesEditor from "./CoursesEditor";
 import { OnboardingTemplateEditor } from "./OnboardingTemplateEditor";

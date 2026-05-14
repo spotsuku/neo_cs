@@ -1,4 +1,4 @@
-import { TopNavServer } from '@/components/TopNavServer';
+import { TopNavServer } from '@/components/nav/TopNavServer';
 import { CONSENT_ITEMS, CURRENT_POLICY_VERSION } from '@/lib/consents/registry';
 import { ConsentRow } from './ConsentRow';
 

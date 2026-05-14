@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { userRepo, userProgramRoleRepo, userCompanyAccessRepo, companyRepo } from "@/lib/repository/server";
 import { DisableUserPanel } from "./DisableUserPanel";
 import { ScopeRolesPanel } from "./ScopeRolesPanel";

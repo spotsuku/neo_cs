@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { BrandMark } from "./BrandMark";
+import { BrandMark } from "../shell/BrandMark";
 import type { AppUserRole } from "@/lib/repository/types";
 import { VIEW_MODE_STORAGE_KEY } from "@/lib/auth/permissions";
 import { setViewMode as setViewModeAction } from "@/lib/auth/actions";

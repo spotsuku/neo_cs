@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { TopNav } from "@/components/TopNav";
+import { TopNav } from "@/components/nav/TopNav";
 
 type ProductType = "continuous" | "spot";
 

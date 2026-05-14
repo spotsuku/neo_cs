@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { TopNavServer } from "@/components/TopNavServer";
-import { SectionSubNav, TODO_SUBNAV } from "@/components/SectionSubNav";
+import { TopNavServer } from "@/components/nav/TopNavServer";
+import { SectionSubNav, TODO_SUBNAV } from "@/components/nav/SectionSubNav";
 import { companyTaskRepo, companyRepo, userRepo } from "@/lib/repository/server";
 import { TasksBoard } from "./TasksBoard";
 

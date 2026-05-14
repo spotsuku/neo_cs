@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { expansionOpportunityRepo, companyRepo } from "@/lib/repository/server";
-import { ProductBadge } from "@/components/ProductBadge";
+import { ProductBadge } from "@/components/contract/ProductBadge";
 import {
   EXPANSION_KIND_LABEL,
   EXPANSION_RULE_LABEL

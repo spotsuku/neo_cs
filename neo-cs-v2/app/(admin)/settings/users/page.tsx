@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canManageUsers } from "@/lib/auth/permissions";
 import {

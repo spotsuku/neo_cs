@@ -1,4 +1,4 @@
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { ChatView } from "./ChatView";
 import { getRepo } from "@/lib/repository/server";
 import { getPermissionContext } from "@/lib/auth/server";

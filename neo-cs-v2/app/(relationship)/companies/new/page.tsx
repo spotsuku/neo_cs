@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { TopNav } from "@/components/TopNav";
+import { TopNav } from "@/components/nav/TopNav";
 import { useDraftPersistence } from "@/lib/hooks/useDraftPersistence";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";

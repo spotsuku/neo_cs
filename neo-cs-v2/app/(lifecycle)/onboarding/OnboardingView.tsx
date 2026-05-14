@@ -5,7 +5,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { KpiCard } from "@/components/KpiCard";
+import { KpiCard } from "@/components/kpi/KpiCard";
 import {
   products,
   type ProductCode,

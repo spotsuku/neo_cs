@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNav } from "@/components/nav/TopNav";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness";
 import type { CompanyWeather } from "@/lib/domain/weather";
-import { WeatherIcon } from "@/components/WeatherIcon";
+import { WeatherIcon } from "@/components/health/WeatherIcon";
 import { DEFAULT_COMPANY_STAGES } from "@/lib/mock/journeys";
 // コース表示に対応
 import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/mock/data";

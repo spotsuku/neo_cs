@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { journeyStageDefinitionRepo } from "@/lib/repository/server";
 import type { JourneyType } from "@/lib/repository/types";
 import { JourneyStagesEditor } from "./JourneyStagesEditor";

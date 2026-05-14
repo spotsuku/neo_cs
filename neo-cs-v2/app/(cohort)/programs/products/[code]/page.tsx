@@ -6,9 +6,9 @@
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { TopNavServer } from "@/components/TopNavServer";
-import { SectionSubNav, BUSINESS_SUBNAV } from "@/components/SectionSubNav";
-import { ProductBadge } from "@/components/ProductBadge";
+import { TopNavServer } from "@/components/nav/TopNavServer";
+import { SectionSubNav, BUSINESS_SUBNAV } from "@/components/nav/SectionSubNav";
+import { ProductBadge } from "@/components/contract/ProductBadge";
 import {
   products,
   productByCode,
@@ -19,7 +19,7 @@ import {
 import { companyRepo, contractRepo } from "@/lib/repository/server";
 import { ContinuousProductView } from "./ContinuousProductView";
 import { OneShotProductView } from "./OneShotProductView";
-import { ProductSwitcher } from "@/components/ProductSwitcher";
+import { ProductSwitcher } from "@/components/nav/ProductSwitcher";
 
 export const dynamic = "force-dynamic";
 

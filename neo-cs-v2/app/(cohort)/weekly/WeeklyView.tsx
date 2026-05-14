@@ -7,8 +7,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
-import { KpiCard } from "@/components/KpiCard";
+import { TopNav } from "@/components/nav/TopNav";
+import { KpiCard } from "@/components/kpi/KpiCard";
 import {
   products,
   ProductCode,

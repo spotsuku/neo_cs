@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { SurveyDetail } from "./SurveyDetail";
 import {
   aggregateSurvey,

@@ -3,13 +3,13 @@
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ProductBadge } from "@/components/ProductBadge";
+import { ProductBadge } from "@/components/contract/ProductBadge";
 import { WeeklyReviewPanel } from "./WeeklyReviewPanel";
 import { AddLogModal } from "./AddLogModal";
 import { ContractFormModal } from "./ContractFormModal";
 import { CancelContractModal } from "./CancelContractModal";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
-import { CompanyTasksSection } from "@/components/CompanyTasksSection";
+import { CompanyTasksSection } from "@/components/company/CompanyTasksSection";
 import type { CompanyTask } from "@/lib/repository/types";
 import type {
   Company,
@@ -61,15 +61,15 @@ export type ProgramBundle = {
   cells: ProgramCompanyTask[];
 };
 import type { JourneySuggestion } from "@/lib/domain/journey";
-import { JourneyStageBar } from "@/components/JourneyStageBar";
-import { JourneyCheckpointPanel } from "@/components/JourneyCheckpointPanel";
-import { BusinessLifecyclePanel } from "@/components/BusinessLifecyclePanel";
-import { ContractHistorySection } from "@/components/ContractHistorySection";
-import { CompanyWeatherPicker } from "@/components/CompanyWeatherPicker";
-import { CompanyHealthBadge } from "@/components/CompanyHealthBadge";
+import { JourneyStageBar } from "@/components/journey/JourneyStageBar";
+import { JourneyCheckpointPanel } from "@/components/journey/JourneyCheckpointPanel";
+import { BusinessLifecyclePanel } from "@/components/journey/BusinessLifecyclePanel";
+import { ContractHistorySection } from "@/components/contract/ContractHistorySection";
+import { CompanyWeatherPicker } from "@/components/company/CompanyWeatherPicker";
+import { CompanyHealthBadge } from "@/components/company/CompanyHealthBadge";
 import type { CompanyWeather } from "@/lib/domain/weather";
-import { NextCycleModal, type NextCycleDefaults } from "@/components/NextCycleModal";
-import { CompanyVisionSection } from "@/components/CompanyVisionSection";
+import { NextCycleModal, type NextCycleDefaults } from "@/components/journey/NextCycleModal";
+import { CompanyVisionSection } from "@/components/company/CompanyVisionSection";
 import { ChecklistView } from "@/app/(lifecycle)/onboarding/[contractId]/ChecklistView";
 import { CompanyEditDialog } from "./CompanyEditDialog";
 import { setProgramCellStatus } from "@/app/(cohort)/programs/[termId]/cellActions";
@@ -79,10 +79,10 @@ import {
   type ProgramTaskCategory,
   type ProgramCellStatus
 } from "@/lib/domain/program";
-import { KaruteNoBadge } from "@/components/KaruteNoBadge";
-import { CompletenessChecklistCard } from "@/components/CompletenessChecklistCard";
+import { KaruteNoBadge } from "@/components/company/KaruteNoBadge";
+import { CompletenessChecklistCard } from "@/components/kpi/CompletenessChecklistCard";
 import type { CompletenessResult } from "@/lib/domain/completeness";
-import { HyogikaiMembershipBadge } from "@/components/HyogikaiMembershipBadge";
+import { HyogikaiMembershipBadge } from "@/components/health/HyogikaiMembershipBadge";
 import {
   getHyogikaiMembership,
   getHyogikaiMemberSince
@@ -92,15 +92,15 @@ import {
   setBusinessJourneyStageAction
 } from "./journey-actions";
 import { computeFromContract, computeHealthScore } from "@/lib/domain/health";
-import { HealthExplain } from "@/components/HealthExplain";
-import { HealthSparkline } from "@/components/HealthSparkline";
-import { ContractChurnSignals } from "@/components/ContractChurnSignals";
-import { ContractExpansionOpportunities } from "@/components/ContractExpansionOpportunities";
-import { CompanyVocList } from "@/components/CompanyVocList";
+import { HealthExplain } from "@/components/health/HealthExplain";
+import { HealthSparkline } from "@/components/health/HealthSparkline";
+import { ContractChurnSignals } from "@/components/contract/ContractChurnSignals";
+import { ContractExpansionOpportunities } from "@/components/contract/ContractExpansionOpportunities";
+import { CompanyVocList } from "@/components/company/CompanyVocList";
 import {
   StakeholderEngagementBlock,
   type StakeholderEngagementMetrics
-} from "@/components/StakeholderEngagementCard";
+} from "@/components/stakeholder/StakeholderEngagementCard";
 import { useHealthSnapshots } from "@/lib/hooks/useHealthSnapshots";
 import type { ChurnRecord } from "@/lib/mock/churn";
 import { reasonCategoryLabels, reasonCategoryOrder, churnRecords as initialChurnRecords } from "@/lib/mock/churn";

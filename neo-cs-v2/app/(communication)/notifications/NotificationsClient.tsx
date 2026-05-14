@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import { TopNav } from "@/components/nav/TopNav";
 import type { UserNotification, NotificationCategory } from "@/lib/repository/server";
 import {
   markNotificationReadAction,

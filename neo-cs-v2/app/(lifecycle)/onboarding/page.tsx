@@ -3,8 +3,8 @@
 // 全進行中契約のオンボ項目 + ユーザーを repo から取得し、client view へ渡す。
 // インライン展開で各契約の ChecklistView (事業内ToDo と同 UX) を表示する。
 
-import { TopNavServer } from "@/components/TopNavServer";
-import { SectionSubNav, TODO_SUBNAV } from "@/components/SectionSubNav";
+import { TopNavServer } from "@/components/nav/TopNavServer";
+import { SectionSubNav, TODO_SUBNAV } from "@/components/nav/SectionSubNav";
 import {
   onboardingItemRepo,
   userRepo,

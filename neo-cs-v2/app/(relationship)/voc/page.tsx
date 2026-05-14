@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { TopNavServer } from "@/components/TopNavServer";
-import { SectionSubNav, SIGNAL_SUBNAV } from "@/components/SectionSubNav";
+import { TopNavServer } from "@/components/nav/TopNavServer";
+import { SectionSubNav, SIGNAL_SUBNAV } from "@/components/nav/SectionSubNav";
 import { vocItemRepo, companyRepo, userRepo } from "@/lib/repository/server";
 import { VocBoard } from "./VocBoard";
 

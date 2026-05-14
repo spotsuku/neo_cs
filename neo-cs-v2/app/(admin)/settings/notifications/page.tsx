@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 
 type Rule = {
   id: string;

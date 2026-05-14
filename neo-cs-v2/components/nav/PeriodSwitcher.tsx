@@ -14,7 +14,7 @@ import {
   periodFor,
   type PeriodKey
 } from "@/lib/domain/kpi";
-import { KpiExplainButton } from "./KpiExplainButton";
+import { KpiExplainButton } from "../kpi/KpiExplainButton";
 
 const ASOF = "2026-04-24";
 

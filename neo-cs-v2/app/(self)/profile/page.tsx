@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 
 const teams = ["Team Alpha", "Team Bravo", "Team Charlie", "Team Delta"];
 const timezones = ["Asia/Tokyo", "Asia/Seoul", "America/Los_Angeles", "Europe/London"];

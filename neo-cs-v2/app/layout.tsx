@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { ChatDock } from "@/components/ChatDock";
+import { ChatDock } from "@/components/shell/ChatDock";
 
 export const metadata: Metadata = {
   title: "NEO CS 統合ダッシュボード",

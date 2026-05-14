@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { InboxView } from "./InboxView";
 import {
   emailRepo,

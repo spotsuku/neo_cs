@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { userRepo, gmailConnectionRepo } from "@/lib/repository/server";
 import { DisconnectButton } from "./DisconnectButton";
 import { SyncNowButton } from "./SyncNowButton";

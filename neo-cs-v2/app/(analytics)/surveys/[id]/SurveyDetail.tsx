@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ProductBadge } from "@/components/ProductBadge";
-import { KpiCard } from "@/components/KpiCard";
+import { ProductBadge } from "@/components/contract/ProductBadge";
+import { KpiCard } from "@/components/kpi/KpiCard";
 import {
   Survey,
   SurveyResponse,
@@ -17,7 +17,7 @@ import {
   describeTrigger
 } from "@/lib/mock/surveys";
 import { ProductCode } from "@/lib/mock/data";
-import { VocScanButton } from "@/components/VocScanButton";
+import { VocScanButton } from "@/components/voc/VocScanButton";
 import type { VocSourceTextInput } from "@/lib/domain/voc";
 
 type Tab = "summary" | "insights" | "responses" | "imports";

@@ -1,5 +1,5 @@
-import { TopNavServer } from "@/components/TopNavServer";
-import { SectionSubNav, TODO_SUBNAV } from "@/components/SectionSubNav";
+import { TopNavServer } from "@/components/nav/TopNavServer";
+import { SectionSubNav, TODO_SUBNAV } from "@/components/nav/SectionSubNav";
 import { programRepo, companyRepo, userRepo } from "@/lib/repository/server";
 import { summarizeProgress } from "@/lib/domain/program";
 import { ProgramsView, type EnrichedTerm } from "./ProgramsView";

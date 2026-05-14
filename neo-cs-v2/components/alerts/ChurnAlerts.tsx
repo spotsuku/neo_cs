@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { churnSignalRepo, companyRepo } from "@/lib/repository/server";
 import type { ChurnSignalRecord } from "@/lib/repository/server";
-import { ProductBadge } from "@/components/ProductBadge";
+import { ProductBadge } from "@/components/contract/ProductBadge";
 import { RULE_LABEL } from "@/lib/domain/churn";
 import type { ChurnSignalRule } from "@/lib/domain/churn";
 

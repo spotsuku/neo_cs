@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { programRepo } from "@/lib/repository/server";
 import { PROGRAM_TASK_CATEGORY_LABEL } from "@/lib/domain/program";
 import { TemplateEditor } from "./TemplateEditor";

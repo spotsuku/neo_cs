@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KpiCard } from "@/components/KpiCard";
+import { KpiCard } from "@/components/kpi/KpiCard";
 import { createProgramTerm } from "./termActions";
 import {
   products,

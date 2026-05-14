@@ -1,4 +1,4 @@
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { AttendanceClient } from "./AttendanceClient";
 import {
   participantRepo,

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TopNavServer } from "@/components/TopNavServer";
-import { KpiCard } from "@/components/KpiCard";
-import { HealthDistribution } from "@/components/HealthDistribution";
-import { MrrSparkline } from "@/components/MrrSparkline";
+import { TopNavServer } from "@/components/nav/TopNavServer";
+import { KpiCard } from "@/components/kpi/KpiCard";
+import { HealthDistribution } from "@/components/health/HealthDistribution";
+import { MrrSparkline } from "@/components/health/MrrSparkline";
 // 製品マスタ (config 扱い): 種別・コース定義はまだ mock を正本にしている。
 // 本番化する際は productRepo / productCourseRepo に切り出す。
 import {

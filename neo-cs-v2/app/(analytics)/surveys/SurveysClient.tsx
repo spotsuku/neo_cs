@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
-import { SectionSubNav, SIGNAL_SUBNAV } from "@/components/SectionSubNav";
-import { ProductBadge } from "@/components/ProductBadge";
+import { TopNav } from "@/components/nav/TopNav";
+import { SectionSubNav, SIGNAL_SUBNAV } from "@/components/nav/SectionSubNav";
+import { ProductBadge } from "@/components/contract/ProductBadge";
 import {
   describeTrigger,
   describeRespondentTarget,

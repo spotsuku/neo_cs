@@ -6,7 +6,7 @@
 import "server-only";
 import { TopNav } from "./TopNav";
 import { getPermissionContext } from "@/lib/auth/server";
-import { ImpersonationBannerServer } from "./ImpersonationBannerServer";
+import { ImpersonationBannerServer } from "../shell/ImpersonationBannerServer";
 
 export async function TopNavServer({ current }: { current?: string }) {
   const ctx = await getPermissionContext();

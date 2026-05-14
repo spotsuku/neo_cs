@@ -1,5 +1,5 @@
-import { TopNavServer } from "@/components/TopNavServer";
-import { MyTasksWidget } from "@/components/MyTasksWidget";
+import { TopNavServer } from "@/components/nav/TopNavServer";
+import { MyTasksWidget } from "@/components/tasks/MyTasksWidget";
 import { ExecutiveDashboard } from "./ExecutiveDashboard";
 import {
   computeContinuousKpis,

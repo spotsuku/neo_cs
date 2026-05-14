@@ -11,7 +11,7 @@
 // その他子テーブル (contacts/stakeholders/onboarding_tasks/...) は 0001 で
 // 既に CASCADE。survey 系のみ SET NULL で履歴保持。
 
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import Link from "next/link";
 import { getRepo } from "@/lib/repository/server";
 import { DemoDataPanel } from "./DemoDataPanel";

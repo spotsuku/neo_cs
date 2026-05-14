@@ -12,7 +12,7 @@ import {
   courseShortName
 } from "@/lib/mock/data";
 import type { Contract } from "@/lib/repository/types";
-import { HealthDistribution } from "./HealthDistribution";
+import { HealthDistribution } from "../health/HealthDistribution";
 
 export function ContinuousProductCard({
   code,

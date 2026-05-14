@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
-import { TopNavServer } from "@/components/TopNavServer";
+import { TopNavServer } from "@/components/nav/TopNavServer";
 import { CompanyDetail } from "./CompanyDetail";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canPerform } from "@/lib/auth/role-permissions";
 import { products } from "@/lib/mock/data";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness";
 import { computeStakeholderEngagement } from "@/lib/domain/engagement-builder";
-import type { StakeholderEngagementMetrics } from "@/components/StakeholderEngagementCard";
+import type { StakeholderEngagementMetrics } from "@/components/stakeholder/StakeholderEngagementCard";
 import {
   companyRepo,
   contactRepo,
