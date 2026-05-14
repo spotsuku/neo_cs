@@ -23,7 +23,12 @@ import {
   programRepo
 } from "@/lib/repository/server";
 import { summarizeProgress } from "@/lib/domain/program";
-import type { Contract, Company, Survey } from "@/lib/repository/server";
+import type {
+  Contract,
+  Company,
+  Survey,
+  SurveySchedule
+} from "@/lib/repository/server";
 import { yen, pct, nrrFormat } from "@/lib/utils/format";
 import {
   deriveContinuousSummary,
@@ -32,11 +37,6 @@ import {
   deriveCompanyHealthColor,
   deriveNpsTimeline
 } from "@/lib/domain/dashboard-aggregates";
-
-// TODO: surveySchedules は repo 未実装のため空配列で運用中。
-// supabase に survey_schedules テーブルを追加し surveyRepo に listSchedules を
-// 生やすまで、スケジュール別NPS推移は表示されない。
-const surveySchedules: { id: string; product: ProductCode; name: string }[] = [];
 
 export const dynamic = "force-dynamic";
 
@@ -63,14 +63,21 @@ export default async function ProductDashboard({
   const p = productByCode[code];
 
   // ── Repository から DB 由来データを並列取得 ─────────────
-  const [allCompanies, allContractsRaw, productSurveys, latestSnapshots, allTerms] =
-    await Promise.all([
-      companyRepo.list(),
-      contractRepo.list(),
-      surveyRepo.list({ productCode: code }),
-      healthSnapshotRepo.latestAll().catch(() => []),
-      programRepo.listTerms().catch(() => [])
-    ]);
+  const [
+    allCompanies,
+    allContractsRaw,
+    productSurveys,
+    productSchedules,
+    latestSnapshots,
+    allTerms
+  ] = await Promise.all([
+    companyRepo.list(),
+    contractRepo.list(),
+    surveyRepo.list({ productCode: code }),
+    surveyRepo.listSchedules({ productCode: code }).catch(() => []),
+    healthSnapshotRepo.latestAll().catch(() => []),
+    programRepo.listTerms().catch(() => [])
+  ]);
 
   // この研修の期一覧 + 各期の進捗集計
   const productTerms = allTerms.filter((t) => t.productCode === code);
@@ -193,6 +200,7 @@ export default async function ProductDashboard({
             activeContracts={activeContracts}
             companies={companies}
             productSurveys={productSurveys}
+            productSchedules={productSchedules}
             healthByProduct={healthByProduct}
             latestSnapshots={latestSnapshots}
           />
@@ -235,6 +243,7 @@ function ContinuousView({
   activeContracts,
   companies,
   productSurveys,
+  productSchedules,
   healthByProduct,
   latestSnapshots
 }: {
@@ -245,6 +254,7 @@ function ContinuousView({
   activeContracts: Contract[];
   companies: Company[];
   productSurveys: Survey[];
+  productSchedules: SurveySchedule[];
   healthByProduct: Record<ProductCode, { green: number; yellow: number; red: number }>;
   latestSnapshots: import("@/lib/repository/server").HealthSnapshot[];
 }) {
@@ -312,6 +322,7 @@ function ContinuousView({
         code={code}
         accent={accent}
         productSurveys={productSurveys}
+        productSchedules={productSchedules}
         allContracts={allContracts}
       />
 
@@ -611,16 +622,19 @@ function NpsSection({
   code,
   accent,
   productSurveys,
+  productSchedules,
   allContracts
 }: {
   code: ProductCode;
   accent: string;
   productSurveys: Survey[];
+  productSchedules: SurveySchedule[];
   allContracts: Contract[];
 }) {
   // surveyRepo.list({productCode}) は当該 product の survey をすでに返すが、
   // 念のため旧モデル (contractId 経由でしか紐付かない) も拾えるように互換実装。
   void allContracts;
+  void code;
   const aggs = productSurveys
     .map((s) => ({ s, agg: aggregateSurvey(s.id) }))
     .filter((x) => x.agg.npsScore !== undefined)
@@ -629,8 +643,7 @@ function NpsSection({
   if (aggs.length === 0) return null;
 
   // スケジュール別NPS推移
-  const schedulesForProduct = surveySchedules.filter((sch) => sch.product === code);
-  const bySchedule = schedulesForProduct
+  const bySchedule = productSchedules
     .map((sch) => {
       const items = aggs.filter((x) => x.s.scheduleId === sch.id);
       if (items.length === 0) return null;
@@ -639,7 +652,7 @@ function NpsSection({
       );
       return { schedule: sch, count: items.length, avg };
     })
-    .filter((x): x is { schedule: typeof schedulesForProduct[number]; count: number; avg: number } => x !== null);
+    .filter((x): x is { schedule: SurveySchedule; count: number; avg: number } => x !== null);
 
   // 過去90日平均
   const cutoff = new Date("2026-04-24");

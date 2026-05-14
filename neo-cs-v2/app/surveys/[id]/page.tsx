@@ -3,8 +3,8 @@ import { TopNavServer } from "@/components/TopNavServer";
 import { SurveyDetail } from "./SurveyDetail";
 import {
   aggregateSurvey,
+  aggregateSurveyFrom,
   targetCountForSurvey,
-  scheduleById,
   responsesByCompany
 } from "@/lib/mock/surveys";
 import {
@@ -30,9 +30,16 @@ export default async function SurveyDetailPage({
 
   if (!survey) return notFound();
 
-  const responses = await surveyRepo.listResponses(id);
+  const [responses, insightRecords, importRecords, surveyQuestionsForThis] = await Promise.all([
+    surveyRepo.listResponses(id),
+    surveyRepo.listInsights(id),
+    surveyRepo.listImports({ surveyId: id }),
+    surveyRepo.listQuestionsForSurvey(id)
+  ]);
 
-  const schedule = scheduleById(survey.scheduleId);
+  const schedule = survey.scheduleId
+    ? (await surveyRepo.getScheduleById(survey.scheduleId)) ?? undefined
+    : undefined;
   const contract = survey.contractId
     ? allContracts.find((c) => c.id === survey.contractId)
     : undefined;
@@ -40,16 +47,45 @@ export default async function SurveyDetailPage({
     ? companies.find((co) => co.id === contract.companyId)
     : undefined;
 
-  // TODO(supabase): survey_insights / survey_imports は repo 未実装のため空配列で返す。
-  // AI 集計派生・インポート履歴で本番データ未投入。実装後に repo 経由に切替。
-  const insights: never[] = [];
-  const imports: never[] = [];
+  // SurveyDetail コンポーネントは mock 由来の SurveyInsight / SurveyImport 型を期待するため変換する
+  const insights = insightRecords.map((i) => ({
+    id: i.id,
+    surveyId: i.surveyId,
+    questionId: i.questionId ?? "",
+    category: (i.category === "strength" || i.category === "weakness" ? "positive" : i.category) as
+      | "positive"
+      | "concern"
+      | "suggestion"
+      | "complaint",
+    summary: i.summary,
+    sourceResponseIds: i.sourceResponseIds,
+    confidence: i.confidence,
+    createdAt: i.createdAt
+  }));
+  const imports = importRecords.map((rec) => ({
+    id: rec.id,
+    fileName: rec.fileName,
+    uploadedAt: rec.uploadedAt,
+    uploadedBy: rec.uploadedBy ?? "",
+    scheduleId: rec.scheduleId,
+    surveyId: rec.surveyId,
+    status: rec.status,
+    rawCsv: "",
+    rowCount: rec.rowCount,
+    columnMappings: [],
+    aiSummary: rec.aiSummary
+  }));
 
-  // aggregateSurvey / targetCountForSurvey / responsesByCompany は mock データを
-  // 内部参照する純関数。supabase 駆動時は集計値が空となるが、本番データ投入後に
-  // repo 派生計算へ移行予定 (上記 TODO と一括対応)。
-  const agg = aggregateSurvey(id);
-  const target = targetCountForSurvey(id);
+  // 集計：取り込みデータを含む survey は aggregateSurveyFrom（responses + questions を直接渡す）。
+  // seed のみの survey は従来の aggregateSurvey で OK。
+  const agg = surveyQuestionsForThis.length > 0
+    ? aggregateSurveyFrom(id, {
+        responses,
+        questions: surveyQuestionsForThis,
+        templateQuestionIds: surveyQuestionsForThis.map((q) => q.id)
+      })
+    : aggregateSurvey(id);
+  const target = survey.expectedRespondentCount || targetCountForSurvey(id);
   const byCompany = responsesByCompany(id).map((entry) => ({
     ...entry,
     companyName: companies.find((c) => c.id === entry.companyId)?.name ?? entry.companyId

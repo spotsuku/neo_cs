@@ -46,7 +46,8 @@ import type {
 } from "@/lib/mock/participants";
 import type {
   Survey as MockSurvey,
-  SurveyResponse as MockSurveyResponse
+  SurveyResponse as MockSurveyResponse,
+  SurveySchedule as MockSurveySchedule
 } from "@/lib/mock/surveys";
 
 // ─────────────────────────────────────────────
@@ -1341,11 +1342,85 @@ export type Session = MockSession & { organizationId: string };
 export type AttendanceEvent = MockAttendanceRecord & { organizationId: string };
 export type Survey = MockSurvey & { organizationId: string };
 export type SurveyResponse = MockSurveyResponse & { organizationId: string };
+export type SurveySchedule = MockSurveySchedule & { organizationId: string };
+
+// 取り込み実行のペイロード（pipeline.buildImportPayload の出力 + ヘッダ情報）
+export type SurveyImportPayload = {
+  fileName: string;
+  scheduleId: string;
+  executedAt: string;          // ISO 日付 (e.g. "2026-04-27")
+  uploadedBy?: string;         // ユーザ名（任意）
+  rawCsv: string;              // 監査用に元 CSV をそのまま保存
+  columnMappings: import("@/lib/mock/surveys").ColumnMapping[];
+  newQuestions: import("@/lib/mock/surveys").SurveyQuestion[];
+  survey: {
+    title: string;
+    productSessionLabel?: string;
+    respondentType: "stakeholder" | "participant";
+    expectedRespondentCount: number;
+    openedAt: string;
+    closedAt?: string;
+    status: "draft" | "open" | "closed";
+    templateName: string;
+  };
+  responses: Array<{
+    respondentName: string;
+    submittedAt: string;
+    companyId: string | null;  // 企業列がない場合は null
+    answers: Array<{
+      questionId: string;
+      value: number | string | string[];
+    }>;
+  }>;
+  aiSummary?: string;
+};
+
+export type SurveyImportResult = {
+  surveyId: string;
+  importId: string;
+  createdQuestionCount: number;
+  responseCount: number;
+};
+
+export type SurveyImportRecord = {
+  id: string;
+  organizationId: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+  scheduleId: string;
+  surveyId?: string;
+  status: "parsing" | "mapping" | "review" | "applied" | "failed";
+  rowCount: number;
+  aiSummary?: string;
+};
+
+export type SurveyInsightRecord = {
+  id: string;
+  surveyId: string;
+  questionId?: string;
+  category: "positive" | "concern" | "suggestion" | "complaint" | "strength" | "weakness";
+  summary: string;
+  sourceResponseIds: string[];
+  confidence: number;
+  createdAt: string;
+};
 
 export interface SurveyRepo {
   list(opts?: { productCode?: ProductCode; organizationId?: string }): Promise<Survey[]>;
   getById(id: string): Promise<Survey | null>;
   listResponses(surveyId: string): Promise<SurveyResponse[]>;
+  /** 研修×タイミング のアンケート発生スケジュール一覧 */
+  listSchedules(opts?: { productCode?: ProductCode; organizationId?: string; activeOnly?: boolean }): Promise<SurveySchedule[]>;
+  /** 単一スケジュールの取得 */
+  getScheduleById(id: string): Promise<SurveySchedule | null>;
+  // 取り込み（Phase 1）
+  createSurveyWithResponses(payload: SurveyImportPayload): Promise<SurveyImportResult>;
+  listImports(opts?: { scheduleId?: string; surveyId?: string }): Promise<SurveyImportRecord[]>;
+  saveInsights(surveyId: string, insights: SurveyInsightRecord[]): Promise<void>;
+  listInsights(surveyId: string): Promise<SurveyInsightRecord[]>;
+  /** survey に紐づくテンプレートに含まれる質問定義を返す（取り込みで作成された新規質問を含む） */
+  listQuestionsForSurvey(surveyId: string): Promise<import("@/lib/mock/surveys").SurveyQuestion[]>;
 }
 
 export interface ParticipantRepo {
@@ -1593,4 +1668,60 @@ export interface Repository {
   rolePermissions: RolePermissionRepo;
   // オンボテンプレ (DB 化)
   onboardingTemplates: OnboardingTemplateRepo;
+  // ユーザ通知 inbox (VOC / 週次未提出 / 解約予兆 / 更新 / オンボ を集約)
+  userNotifications: UserNotificationRepo;
+}
+
+// ─────────────────────────────────────────────
+// 通知センター (user_notifications)
+// マイグレーション: supabase/migrations/0041_user_notifications.sql
+// 集約元: VOC items / weekly_reviews / churn_signals / contracts (renewal window)
+//        / onboarding_tasks (overdue) / email_threads (inbound)
+// ─────────────────────────────────────────────
+export type NotificationCategory =
+  | "alert"      // VOC アラート等の即応事項
+  | "review"     // 週次レビュー未提出
+  | "renewal"    // 更新ウィンドウ突入
+  | "onboarding" // オンボ期限超過
+  | "mail";      // 新着メール
+
+export type UserNotification = {
+  id: string;
+  organizationId: string;
+  /** 宛先ユーザ。null は組織全体ブロードキャスト */
+  userId?: string;
+  category: NotificationCategory;
+  title: string;
+  body?: string;
+  linkHref?: string;
+  relatedCompanyId?: string;
+  relatedContractId?: string;
+  /** 同一ソース由来の通知を重複生成しないための識別子 */
+  sourceType?: string;
+  sourceId?: string;
+  readAt?: string;
+  createdAt: string;
+};
+
+export type UserNotificationCreateInput = Omit<
+  UserNotification,
+  "id" | "createdAt" | "readAt"
+>;
+
+export type UserNotificationFilter = {
+  organizationId?: string;
+  userId?: string;
+  category?: NotificationCategory;
+  unreadOnly?: boolean;
+  limit?: number;
+};
+
+export interface UserNotificationRepo {
+  list(filter: UserNotificationFilter): Promise<UserNotification[]>;
+  /** dedup (user_id, source_type, source_id) で衝突した場合は既存レコードを返す */
+  create(input: UserNotificationCreateInput): Promise<UserNotification>;
+  markRead(id: string, userId: string): Promise<void>;
+  markAllRead(userId: string): Promise<number>;
+  /** ヘッダのバッジ用: 未読件数のみカウント */
+  countUnread(userId: string): Promise<number>;
 }

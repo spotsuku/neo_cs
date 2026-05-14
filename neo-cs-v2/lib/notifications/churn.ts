@@ -25,6 +25,7 @@ import {
 } from "./slack";
 import { churnSignalRepo, companyRepo, healthSnapshotRepo, userRepo } from "@/lib/repository/server";
 import type { ChurnSignalRecord } from "@/lib/repository/server";
+import { enqueueNotification, resolvePrimaryAssignee } from "./inbox";
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL ?? "http://localhost:3000";
 
@@ -91,6 +92,21 @@ export async function notifyAndMarkChurnSignal(
     return { notified: false, reason: "post_failed" };
   }
   await churnSignalRepo.markNotified(sig.id);
+  // inbox にも記録 (Slack 通知が成功した時のみ)
+  const primary = await resolvePrimaryAssignee(sig.companyId);
+  if (primary) {
+    await enqueueNotification({
+      userId: primary,
+      category: "alert",
+      title: `解約予兆: ${payload.companyName}`,
+      body: sig.reason,
+      linkHref: `/companies/${sig.companyId}`,
+      relatedCompanyId: sig.companyId,
+      relatedContractId: sig.contractId,
+      sourceType: "churn_signal",
+      sourceId: sig.id
+    });
+  }
   return { notified: true, reason: "ok" };
 }
 

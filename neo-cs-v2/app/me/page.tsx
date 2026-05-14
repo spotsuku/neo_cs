@@ -10,7 +10,8 @@ import {
   companyRepo,
   contractRepo,
   emailRepo,
-  aiExtractionRepo
+  aiExtractionRepo,
+  onboardingItemRepo
 } from "@/lib/repository/server";
 import { getPermissionContext } from "@/lib/auth/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
@@ -144,6 +145,18 @@ export default async function MyPage() {
       myCompanyIds.map((id) => companyTaskRepo.list({ companyId: id }))
     )
   ).flat();
+
+  // 担当契約のオンボ進捗（onboarding_tasks から完了率算出）
+  const myContractIdsAll = myContracts.map((c) => c.id);
+  const onbItemsForMyContracts = await onboardingItemRepo
+    .listByContractIds(myContractIdsAll)
+    .catch(() => []);
+  const onbItemsByContract = new Map<string, typeof onbItemsForMyContracts>();
+  onbItemsForMyContracts.forEach((it) => {
+    const arr = onbItemsByContract.get(it.contractId) ?? [];
+    arr.push(it);
+    onbItemsByContract.set(it.contractId, arr);
+  });
 
   // 事業ジャーニー
   const myContractIds = myContracts.map((c) => c.id);
@@ -334,8 +347,10 @@ export default async function MyPage() {
 
           const rows: ContractRow[] = contractsForCourse.map((c) => {
             const company = companyById.get(c.companyId);
-            // 本番 supabase に contract_onboarding_items は未実装のため一律 100% 扱い
-            const onbDoneRate = 1;
+            const onbItems = onbItemsByContract.get(c.id) ?? [];
+            const onbDone = onbItems.filter((i) => i.status === "done").length;
+            const onbDoneRate =
+              onbItems.length > 0 ? onbDone / onbItems.length : 1;
             const tasksForCompany = allTasksForMyCompanies.filter(
               (t) => t.companyId === c.companyId
             );

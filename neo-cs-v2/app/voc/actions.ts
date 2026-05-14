@@ -17,6 +17,10 @@ import type {
   VocPriority,
   VocSourceType
 } from "@/lib/repository/server";
+import {
+  enqueueNotification,
+  resolvePrimaryAssignee
+} from "@/lib/notifications/inbox";
 
 // ─────────────────────────────────────────────
 // 一覧取得 (VocBoard.reload 用)
@@ -60,6 +64,22 @@ export async function createVocItemAction(
     });
     if (input.assignedTo) {
       await vocItemRepo.setAssignedTo(created.id, input.assignedTo);
+    }
+    // 通知: assignedTo が指定されていればその人へ、なければ primary 担当者へ
+    const targetUserId = input.assignedTo
+      ?? (input.companyId ? await resolvePrimaryAssignee(input.companyId) : undefined);
+    if (targetUserId) {
+      await enqueueNotification({
+        userId: targetUserId,
+        category: "alert",
+        title: "VOCが追加されました",
+        body: input.excerpt.slice(0, 120),
+        linkHref: input.companyId ? `/companies/${input.companyId}` : "/voc",
+        relatedCompanyId: input.companyId,
+        relatedContractId: input.contractId,
+        sourceType: "voc",
+        sourceId: created.id
+      });
     }
     revalidatePath("/voc");
     return { ok: true, id: created.id };
