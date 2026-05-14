@@ -16,8 +16,11 @@
 import "server-only";
 import {
   gmailConnectionRepo,
+  userRepo,
   emailRepo,
-  type EmailMessage
+  auditLogRepo,
+  type EmailMessage,
+  DEFAULT_ORG_ID
 } from "@/lib/repository/server";
 import { refreshAccessToken } from "./gmail-oauth";
 import { getServiceClient } from "@/lib/supabase/server";
@@ -72,6 +75,29 @@ export async function sendReply(input: ReplyInput): Promise<ReplyResult> {
     userId: input.senderUserId,
     inReplyTo: input.inReplyToMessageId
   });
+
+  // ⚠ 安全ガード: 認証済み HTTP セッションからのみ送信を許可。
+  // これにより cron / AI 抽出 / バックグラウンドジョブ等から「勝手に」呼ばれても弾く。
+  // userRepo.getCurrent() は HTTP リクエストの Supabase セッション cookie を読むため、
+  // cron route (CRON_SECRET 認証のみ) からは null が返り、自動的に拒否される。
+  const me = await userRepo.getCurrent().catch(() => null);
+  if (!me?.id) {
+    log.error({ kind: "send_blocked", reason: "no_user_session" });
+    return { ok: false, reason: "no_user_session" };
+  }
+  if (me.id !== input.senderUserId) {
+    log.error({
+      kind: "send_blocked",
+      reason: "user_mismatch",
+      sessionUserId: me.id
+    });
+    return { ok: false, reason: "user_mismatch" };
+  }
+  // kill switch (env で一発無効化)
+  if (process.env.NEO_CS_DISABLE_GMAIL_SEND === "true") {
+    log.warn({ kind: "send_blocked", reason: "kill_switch" });
+    return { ok: false, reason: "send_disabled" };
+  }
 
   // 1. 接続情報を取得 + access_token 更新
   const conn = await gmailConnectionRepo.getByUserId(input.senderUserId);
@@ -188,6 +214,25 @@ export async function sendReply(input: ReplyInput): Promise<ReplyResult> {
   await emailRepo
     .setStatus(thread.id, "replied")
     .catch(() => undefined);
+
+  // 7. 監査ログ (誰が・いつ・どのスレッドに・宛先) — 不正/予期せぬ送信の発見用
+  await auditLogRepo
+    .append({
+      organizationId: conn.organizationId ?? DEFAULT_ORG_ID,
+      actorUserId: input.senderUserId,
+      action: "create",
+      targetTable: "email_messages",
+      targetId: sent.id,
+      afterData: {
+        kind: "email_send",
+        thread_id: thread.id,
+        to: toAddrs,
+        cc: ccAddrs,
+        subject,
+        gmail_message_id: sent.id
+      }
+    })
+    .catch((e) => log.warn({ kind: "audit_failed", message: (e as Error).message }));
 
   log.info({ kind: "sent", gmail_message_id: sent.id });
   return { ok: true, messageId: sent.id, threadId: sent.threadId };
