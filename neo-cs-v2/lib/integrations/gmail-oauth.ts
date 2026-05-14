@@ -23,7 +23,8 @@ export function getGmailScopes(): string[] {
 }
 
 function getRedirectUri(): string {
-  const base = process.env.NEXT_PUBLIC_APP_BASE_URL ?? "http://localhost:3000";
+  // .trim() で env 値の末尾改行・空白事故を防ぐ (過去に \n 混入の事故あり)
+  const base = (process.env.NEXT_PUBLIC_APP_BASE_URL ?? "http://localhost:3000").trim();
   return `${base.replace(/\/$/, "")}/api/auth/gmail/callback`;
 }
 
