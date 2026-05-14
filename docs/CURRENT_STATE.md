@@ -70,16 +70,11 @@
 
 ## 3. ⚠️ 構造的問題 (本番崩れの直接原因)
 
-### 3.1 Client Component が `@/lib/repository` (常に mock) から実値を import
+### 3.1 Client Component が `@/lib/repository` (常に mock) から実値を import  ✅ 修正中 (PR 待ち)
 
-[PARITY.md §2](PARITY.md) で既に特定済の問題。**確証あり**:
-
-| ファイル | "use client" | import | 本番で見ているデータ |
-|---|---|---|---|
-| [components/ContractChurnSignals.tsx:6](../neo-cs-v2/components/contract/ContractChurnSignals.tsx#L6) | ✅ | `churnSignalRepo` | **mock データ (本番でも)** |
-| [components/CompanyVocList.tsx:6](../neo-cs-v2/components/company/CompanyVocList.tsx#L6) | ✅ | `vocItemRepo` | **mock データ (本番でも)** |
-
-→ ChurnSignals と VoC は F5 / F6 の中核だが、企業詳細ページ内で**常に mock を表示している**。修正優先度: **P0**。
+[PARITY.md §2](PARITY.md) で特定済の主犯。**別会話の PR で対処済**:
+- `ContractChurnSignals` / `CompanyVocList` の `"use client"` を除去し、`useEffect` 取得を廃止 → 純粋な props 受け取りに変更
+- 親 Server Component (`app/(relationship)/companies/[id]/page.tsx`) で `Promise.all` 並列取得し、`CompanyDetail → ContractsTab → ...` の経路で props 順送り
 
 > 型 import のみのファイル (ExecutiveDashboard, InboxView, VocBoard 等) は実害なし。上記 2 件以外で値 import している Client Component がないかは追加 grep で確認推奨 (今回の 2 つの調査で結論が分かれた箇所)。
 
@@ -99,9 +94,14 @@ successPlanRepo
 
 → DB スキーマは存在する可能性が高いので、Supabase 実装を順次追加する作業。
 
-### 3.3 Supabase 実装の値ズレ ([PARITY.md §1](PARITY.md))
+### 3.3 Supabase 実装の値ズレ ([PARITY.md §1](PARITY.md))  ✅ 修正中 (PR 待ち)
 
-`Company.contracts: []` / `mrr: 0` / `lastTouchDays: 0` 固定問題。F5 (パートナー化) の表示にも影響。
+`Company.contracts: []` / `mrr: 0` / `lastTouchDays: 0` 固定問題。F5 (パートナー化) の表示に影響していた。
+**別会話の PR で対処済**:
+- `lib/repository/supabase/companyRepo.ts` に `loadAggregatesFor(companyIds[])` を新設
+- `contracts` (active のみ・`product_code` 重複排除 + `mrr_amount` 合計) と `meeting_logs` 最新日時を IN 句 2 クエリ並列で取得
+- `list` / `getById` / `listDemo` から呼び出し、N+1 回避
+- write 系 (`create` / `update` / `setKaruteNo`) は `EMPTY_AGG` で旧挙動継続
 
 ---
 
@@ -158,9 +158,14 @@ successPlanRepo
 優先度順:
 
 ### 即実行できる (P0)
-1. [PARITY.md §5 P0](PARITY.md) 修正: ChurnSignals / VoC の Server 経由化
-2. Company supabase 実装の埋め (`contracts` / `mrr` / `lastTouchDays`)
+1. ✅ [PARITY.md §5 P0](PARITY.md) 修正: ChurnSignals / VoC の Server 経由化 (PR 待ち)
+2. ✅ Company supabase 実装の埋め (`contracts` / `mrr` / `lastTouchDays`) (PR 待ち)
 3. 未整備 8 Repo の Supabase 実装
+
+### P1 (P0 PR merge 後に着手)
+- `types.ts` の nullability 整理 (`mrr?: number` など)
+- `CompaniesView` の null / 空配列ガード
+- `lib/notifications/voc.test.ts` の mock パス不整合 (`@/lib/repository` → `@/lib/repository/server`)
 
 ### 議論が必要 (Phase 2)
 4. ヘルススコア → CCC 5 本柱 + 関与度 4 段階への再設計

@@ -2,6 +2,8 @@
 
 > Phase 1 調査 (2026-05-14)。「デモ画面 (mock) では問題ないのに本番 (supabase) で崩れる」現象の構造的原因と具体箇所をまとめる。
 > 修正計画は Phase 2 以降で別ドキュメント化。本ドキュメントは**観察事実のみ**。
+>
+> **更新 (2026-05-14)**: P0-1 / P0-2 は別会話で着手済 (PR 待ち)。本ドキュメントの該当箇所に進捗マーカーを付与。
 
 ---
 
@@ -16,14 +18,18 @@
 
 ## 1. Repository 実装の返り値ズレ
 
-### 1.1 Company
+### 1.1 Company  🟡 修正中 (P0-2, PR 待ち)
 
-| フィールド | mock の振る舞い | supabase の振る舞い | UI 影響 |
+修正内容: `lib/repository/supabase/companyRepo.ts` に `loadAggregatesFor(companyIds[])` を新設。
+`contracts` (active のみ・`product_code` 重複排除 + `mrr_amount` 合計) と `meeting_logs` の最新 `occurred_at` を 2 クエリ並列で IN 句一括取得し、`toCompany(row, ownerName, agg)` で埋める。`list` / `getById` / `listDemo` から呼ぶ。N+1 解消済。
+write 系 (`create` / `update` / `setKaruteNo`) は単発のため `EMPTY_AGG` で旧挙動を維持。
+
+| フィールド | mock の振る舞い | supabase (旧) | supabase (新) |
 |---|---|---|---|
-| `contracts` | 当該企業の契約配列 | **常に `[]`** ([supabase/companyRepo.ts:34-58](../neo-cs-v2/lib/repository/supabase/companyRepo.ts#L34-L58)) | `c.contracts.length > 0` 系の条件分岐が常に false |
-| `mrr` | `number` で必ず存在 | **常に `0`** | KPI 計算結果が 0 / NaN |
-| `lastTouchDays` | 実数値 | **常に `0`** | UI に「0日前」固定表示 |
-| `kana` / `industry` | null 想定なし | `null ?? ""` で空文字に正規化 | mock 側で `null.toLowerCase()` crash 可能性 |
+| `contracts` | 当該企業の契約配列 | **常に `[]`** | active 契約を IN 一括取得して埋める ✅ |
+| `mrr` | `number` で必ず存在 | **常に `0`** | active 契約の `mrr_amount` 合計 ✅ |
+| `lastTouchDays` | 実数値 | **常に `0`** | `meeting_logs` 最新 occurred_at から算出 ✅ |
+| `kana` / `industry` | null 想定なし | `null ?? ""` で空文字 | (変更なし) |
 
 型定義は [types.ts:68-74](../neo-cs-v2/lib/repository/types.ts#L68-L74) で `Company = MockCompany & { organizationId }` だが、Supabase 実装はこの型を満たすために**既定値で埋めているだけ**。型は通るが実体は空。
 
@@ -43,14 +49,19 @@ surveys / participants / sessions / attendance / emails / aiExtractions / 等は
 
 ---
 
-## 2. Client Component の Repository 直接参照 (主犯)
+## 2. Client Component の Repository 直接参照 (主犯)  🟡 修正中 (P0-1, PR 待ち)
 
-**`@/lib/repository` は常に mock を返す** ([index.ts:23](../neo-cs-v2/lib/repository/index.ts#L23))。下記の Client Component は本番でも mock を見る:
+**`@/lib/repository` は常に mock を返す** ([index.ts:23](../neo-cs-v2/lib/repository/index.ts#L23))。下記の Client Component は本番でも mock を見ていた:
 
-| ファイル | 行 | 呼び出し | 影響 |
-|---|---|---|---|
-| [components/ContractChurnSignals.tsx](../neo-cs-v2/components/contract/ContractChurnSignals.tsx) | 6, 29-30 | `churnSignalRepo.listByContract()` を `useEffect` で | **解約予兆が常に mock データ** |
-| [components/CompanyVocList.tsx](../neo-cs-v2/components/company/CompanyVocList.tsx) | — | `vocItemRepo` | **VoC が常に mock** |
+| ファイル | 旧状態 | 新状態 (PR で対処済) |
+|---|---|---|
+| [components/contract/ContractChurnSignals.tsx](../neo-cs-v2/components/contract/ContractChurnSignals.tsx) | `"use client"` で `churnSignalRepo.listByContract()` を `useEffect` 取得 → mock 表示 | ✅ `"use client"` 除去 / `signals: ChurnSignalRecord[]` を props 受け取り |
+| [components/company/CompanyVocList.tsx](../neo-cs-v2/components/company/CompanyVocList.tsx) | `"use client"` で `vocItemRepo.list()` を取得 → mock 表示 | ✅ `"use client"` 除去 / `items: VocItemRecord[]` を props 受け取り |
+
+データ取得は親 Server Component に集約:
+- `app/(relationship)/companies/[id]/page.tsx` で全 contract の `churnSignalRepo.listByContract(c.id, {unresolvedOnly:true})` を `Promise.all` で並列取得
+- 同じく `vocItemRepo.list({companyId, status:["open","in_progress"]})` を一括取得
+- `CompanyDetail → ContractsTab → ProductCyclesBlock → CurrentCyclePanel` の経路で props として順送り (`churnSignalsByContract: Record<string, ChurnSignalRecord[]>` / `vocItemsByCompany: VocItemRecord[]`)
 
 型 import のみ (実害なし) のファイル:
 - [app/ExecutiveDashboard.tsx:27](../neo-cs-v2/app/ExecutiveDashboard.tsx#L27)
@@ -100,8 +111,8 @@ README で禁止しているこの違反は **発見されず** (`grep -r "from.
 優先度順:
 
 ### P0 (本番ブロッカー)
-1. **Client Component の Repo 直接参照を Server 経由に移す** — `ContractChurnSignals`, `CompanyVocList` を Server Component 化するか、データを props で受ける形にリファクタ。
-2. **Supabase Company 実装で contracts / mrr / lastTouchDays を実際に解決する** — N+1 を避けるためバッチクエリで join。
+1. ✅ **Client Component の Repo 直接参照を Server 経由に移す** — `ContractChurnSignals`, `CompanyVocList` を props 受け取りに変更、`"use client"` 除去 (別会話 PR 対応済)。
+2. ✅ **Supabase Company 実装で contracts / mrr / lastTouchDays を実際に解決する** — `loadAggregatesFor()` ヘルパで IN 句 2 クエリ並列。N+1 回避 (別会話 PR 対応済)。
 
 ### P1 (型と実体の不一致)
 3. **types.ts の nullability を Supabase 実装の実態に合わせる** — `mrr?: number` 等 optional 化し、UI 側に明示的ハンドリングを強制。
