@@ -57,5 +57,6 @@ jobs:
       - name: Build
         run: npm run build
         env:
+          NODE_ENV: production
           ALLOWED_ORIGINS: http://localhost:3000
           NEO_CS_V2_URL: http://localhost:3000
