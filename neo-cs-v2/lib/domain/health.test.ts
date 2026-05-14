@@ -13,7 +13,8 @@ describe("computeHealthScore", () => {
       weeksSinceLastTouch: 0,
       overdueOnboardingTasks: 0,
       negativeSignalCount: 0,
-      milestoneProgress: 1.0
+      milestoneProgress: 1.0,
+      surveyScore: 100
     });
     expect(r.score).toBe(100);
     expect(r.color).toBe("green");
@@ -25,7 +26,8 @@ describe("computeHealthScore", () => {
       weeksSinceLastTouch: 20,
       overdueOnboardingTasks: 10,
       negativeSignalCount: 10,
-      milestoneProgress: 0
+      milestoneProgress: 0,
+      surveyScore: 0
     });
     expect(r.score).toBe(0);
     expect(r.color).toBe("red");
@@ -45,9 +47,9 @@ describe("computeHealthScore", () => {
     expect(colorOfScore(54)).toBe("red");
   });
 
-  it("contributions は 5 因子分そろい、weight 合計 100", () => {
+  it("contributions は 6 因子分そろい、weight 合計 100", () => {
     const r = computeHealthScore({});
-    expect(r.contributions).toHaveLength(5);
+    expect(r.contributions).toHaveLength(6);
     const sum = r.contributions.reduce((s, c) => s + c.weight, 0);
     expect(sum).toBe(100);
   });
@@ -58,7 +60,8 @@ describe("computeHealthScore", () => {
       weeksSinceLastTouch: 0,
       overdueOnboardingTasks: 0,
       negativeSignalCount: 0,
-      milestoneProgress: 0 // 最低 (weight 15)
+      milestoneProgress: 0, // 最低 (weight 11)
+      surveyScore: 95
     });
     expect(r.topNegative?.key).toBe("milestoneProgress");
   });
@@ -69,9 +72,30 @@ describe("computeHealthScore", () => {
       weeksSinceLastTouch: 0,
       overdueOnboardingTasks: 0,
       negativeSignalCount: 0,
-      milestoneProgress: 0.95
+      milestoneProgress: 0.95,
+      surveyScore: 95
     });
     expect(r.topNegative).toBeNull();
+  });
+
+  it("surveyScore が低いと weight 15 分だけ全体が下がる", () => {
+    const without = computeHealthScore({
+      attendance: 0.9,
+      weeksSinceLastTouch: 0,
+      overdueOnboardingTasks: 0,
+      negativeSignalCount: 0,
+      milestoneProgress: 0.9,
+      surveyScore: 90
+    });
+    const withLow = computeHealthScore({
+      attendance: 0.9,
+      weeksSinceLastTouch: 0,
+      overdueOnboardingTasks: 0,
+      negativeSignalCount: 0,
+      milestoneProgress: 0.9,
+      surveyScore: 30
+    });
+    expect(withLow.score).toBeLessThan(without.score);
   });
 });
 

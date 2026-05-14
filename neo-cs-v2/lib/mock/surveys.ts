@@ -6,6 +6,13 @@
 // ─────────────────────────────────────────────
 
 import { ProductCode } from "./data";
+import {
+  parseSurveyCsv,
+  summarizeColumns,
+  inferQuestionType,
+  type ParsedCsv,
+  type ColumnSample
+} from "@/lib/surveys/csv";
 
 // ─────────────────────────────────────────────
 // 型定義
@@ -347,6 +354,71 @@ export const surveySchedules: SurveySchedule[] = [
     name: "ACADEMIA 第15回講義後アンケート",
     templateIds: ["tpl-common", "tpl-academia"],
     trigger: { type: "after_session", sessionNumber: 15 },
+    respondentTarget: "all_participants",
+    active: true
+  },
+
+  // ── ACADEMIA 1期 過去アンケート取り込み用（学期×受講者区分）──
+  {
+    id: "sch-academia-1ki-1q-participant",
+    product: "academia",
+    name: "ACADEMIA 1期 1学期アンケート（参加者）",
+    templateIds: [],
+    trigger: { type: "at_session_type", sessionType: "term1" },
+    respondentTarget: "all_participants",
+    active: true
+  },
+  {
+    id: "sch-academia-1ki-2q-participant",
+    product: "academia",
+    name: "ACADEMIA 1期 2学期アンケート（参加者）",
+    templateIds: [],
+    trigger: { type: "at_session_type", sessionType: "term2" },
+    respondentTarget: "all_participants",
+    active: true
+  },
+  {
+    id: "sch-academia-1ki-3q-participant",
+    product: "academia",
+    name: "ACADEMIA 1期 1年間振り返りアンケート（参加者）",
+    templateIds: [],
+    trigger: { type: "at_session_type", sessionType: "final" },
+    respondentTarget: "all_participants",
+    active: true
+  },
+  {
+    id: "sch-academia-1ki-1q-stakeholder",
+    product: "academia",
+    name: "ACADEMIA 1期 1学期アンケート（担当者）",
+    templateIds: [],
+    trigger: { type: "at_session_type", sessionType: "term1" },
+    respondentTarget: "all_stakeholders",
+    active: true
+  },
+  {
+    id: "sch-academia-1ki-2q-stakeholder",
+    product: "academia",
+    name: "ACADEMIA 1期 2学期アンケート（担当者）",
+    templateIds: [],
+    trigger: { type: "at_session_type", sessionType: "term2" },
+    respondentTarget: "all_stakeholders",
+    active: true
+  },
+  {
+    id: "sch-academia-1ki-3q-stakeholder",
+    product: "academia",
+    name: "ACADEMIA 1期 3学期アンケート（担当者）",
+    templateIds: [],
+    trigger: { type: "at_session_type", sessionType: "final" },
+    respondentTarget: "all_stakeholders",
+    active: true
+  },
+  {
+    id: "sch-academia-1ki-per-lecture",
+    product: "academia",
+    name: "ACADEMIA 1期 各講義後アンケート",
+    templateIds: [],
+    trigger: { type: "after_session", sessionNumber: 0 },
     respondentTarget: "all_participants",
     active: true
   },
@@ -874,6 +946,7 @@ export const surveyImports: SurveyImport[] = [
 
 // CSV解析: 1行目をヘッダとして読み、各カラムを既存Questionにマッチさせる
 // AIモック: 「企業名/会社/Company」「氏名/Name/回答者」も明示的に判定する
+// ※ パース自体は lib/surveys/csv.ts の papaparse ベース実装に委譲（引用符内改行対応）
 export function mockAiAnalyzeCsv(
   csvText: string,
   knownQuestions: SurveyQuestion[]
@@ -881,16 +954,26 @@ export function mockAiAnalyzeCsv(
   rowCount: number;
   columnMappings: ColumnMapping[];
   aiSummary: string;
+  parsed: ParsedCsv;
+  samples: ColumnSample[];
 } {
-  const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length === 0) {
-    return { rowCount: 0, columnMappings: [], aiSummary: "空のCSVです" };
+  const parsed = parseSurveyCsv(csvText);
+  if (parsed.headers.length === 0) {
+    return {
+      rowCount: 0,
+      columnMappings: [],
+      aiSummary: "空のCSVです",
+      parsed,
+      samples: []
+    };
   }
-  const header = lines[0].split(",").map((c) => c.trim());
-  const rowCount = lines.length - 1;
+  const header = parsed.headers;
+  const rowCount = parsed.rowCount;
+  const samples = summarizeColumns(parsed);
 
-  const mappings: ColumnMapping[] = header.map((col) => {
+  const mappings: ColumnMapping[] = header.map((col, colIdx) => {
     const lower = col.toLowerCase();
+    const sample = samples[colIdx];
 
     // 企業名列
     if (
@@ -938,11 +1021,41 @@ export function mockAiAnalyzeCsv(
       };
     }
 
+    // 列のサンプル値から質問タイプを推定
+    const inferredType = sample
+      ? inferQuestionType(sample, rowCount)
+      : "text";
+    const mappedType: SurveyQuestionType =
+      inferredType === "scale"
+        ? "scale"
+        : inferredType === "multi_choice"
+          ? "multi_choice"
+          : inferredType === "choice"
+            ? "choice"
+            : inferredType === "long_text"
+              ? "long_text"
+              : "text";
+
+    // タイムスタンプ系列はスキップ提案
+    const isTimestamp =
+      col.includes("タイムスタンプ") ||
+      lower.includes("timestamp") ||
+      col.includes("回答日時");
+    if (isTimestamp) {
+      return { csvColumn: col, matched: "skip", confidence: 0.95 };
+    }
+
     const newQ: SurveyQuestion = {
       id: `qnew-${hashStr(col)}`,
       key: `new_${hashStr(col).toString(36)}`,
       text: col,
-      type: "text",
+      type: mappedType,
+      // 0-10 の scale なら NPS 系の範囲、1-5 なら satisfaction 系
+      ...(mappedType === "scale"
+        ? sample && sample.sample.some((v) => Number(v) > 5)
+          ? { scaleMin: 0, scaleMax: 10 }
+          : { scaleMin: 1, scaleMax: 5 }
+        : {}),
       required: false
     };
     return {
@@ -961,7 +1074,7 @@ export function mockAiAnalyzeCsv(
   const avgConf = mappings.length > 0 ? mappings.reduce((s, m) => s + m.confidence, 0) / mappings.length : 0;
   const aiSummary = `全${header.length}列のうち、既存マッチ ${existing} / 新規 ${news} / スキップ ${skips} / 企業列 ${company} / 氏名列 ${respondent}。平均confidence ${avgConf.toFixed(2)}。`;
 
-  return { rowCount, columnMappings: mappings, aiSummary };
+  return { rowCount, columnMappings: mappings, aiSummary, parsed, samples };
 }
 
 export function mockExtractInsights(
@@ -994,24 +1107,34 @@ export function mockExtractInsights(
   return out;
 }
 
-export function aggregateSurvey(surveyId: string): {
+// 引数なし: 旧来通り mock seed の surveys / templates / responses / questions を集計。
+// 引数あり: 取り込みデータも含めて集計するため repo から渡された配列を使う。
+export function aggregateSurveyFrom(
+  surveyId: string,
+  opts: {
+    responses: SurveyResponse[];
+    questions: SurveyQuestion[];
+    /** templateIds に紐づく質問だけを対象にする場合に渡す。未指定なら responses.answers から推定 */
+    templateQuestionIds?: string[];
+  }
+): {
   byQuestion: { questionKey: string; questionText: string; type: SurveyQuestionType; mean?: number; distribution?: Record<string, number>; respondedCount: number }[];
   npsScore?: number;
   satisfactionMean?: number;
   responseCount: number;
 } {
-  const sv = surveys.find((s) => s.id === surveyId);
-  if (!sv) return { byQuestion: [], responseCount: 0 };
+  const responses = opts.responses;
+  // 対象質問の集合：templateQuestionIds があればそれ、なければ responses 中に出現した questionId 全部
   const qIds = new Set<string>();
-  sv.templateIds.forEach((tid) => {
-    const t = surveyTemplates.find((tt) => tt.id === tid);
-    t?.questionIds.forEach((qid) => qIds.add(qid));
-  });
-  const responses = surveyResponses.filter((r) => r.surveyId === surveyId);
+  if (opts.templateQuestionIds && opts.templateQuestionIds.length > 0) {
+    opts.templateQuestionIds.forEach((qid) => qIds.add(qid));
+  } else {
+    responses.forEach((r) => r.answers.forEach((a) => qIds.add(a.questionId)));
+  }
 
-  const byQuestion: ReturnType<typeof aggregateSurvey>["byQuestion"] = [];
+  const byQuestion: { questionKey: string; questionText: string; type: SurveyQuestionType; mean?: number; distribution?: Record<string, number>; respondedCount: number }[] = [];
   qIds.forEach((qid) => {
-    const q = surveyQuestions.find((qq) => qq.id === qid);
+    const q = opts.questions.find((qq) => qq.id === qid);
     if (!q) return;
     const answers = responses
       .map((r) => r.answers.find((a) => a.questionId === qid))
@@ -1063,6 +1186,22 @@ export function aggregateSurvey(surveyId: string): {
     satisfactionMean: satAgg?.mean,
     responseCount: responses.length
   };
+}
+
+// 後方互換: seed データ専用のラッパー。新規コードは aggregateSurveyFrom を使う。
+export function aggregateSurvey(surveyId: string): ReturnType<typeof aggregateSurveyFrom> {
+  const sv = surveys.find((s) => s.id === surveyId);
+  if (!sv) return { byQuestion: [], responseCount: 0 };
+  const templateQuestionIds: string[] = [];
+  sv.templateIds.forEach((tid) => {
+    const t = surveyTemplates.find((tt) => tt.id === tid);
+    t?.questionIds.forEach((qid) => templateQuestionIds.push(qid));
+  });
+  return aggregateSurveyFrom(surveyId, {
+    responses: surveyResponses.filter((r) => r.surveyId === surveyId),
+    questions: surveyQuestions,
+    templateQuestionIds
+  });
 }
 
 // 名前検索ヘルパー

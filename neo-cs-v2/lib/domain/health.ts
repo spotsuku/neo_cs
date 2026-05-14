@@ -6,13 +6,15 @@
 //   - factor → score → color の順 (score → color の逆算は廃止)
 //
 // 因子と寄与度 (合計100):
-//   1. attendance (出席率)              重み 25
-//   2. weeksSinceLastTouch (接点鮮度)   重み 20
-//   3. overdueOnboardingTasks (期日超過) 重み 20
-//   4. negativeSignalCount (ネガ件数)   重み 20
-//   5. milestoneProgress (更新進捗)      重み 15
+//   1. attendance (出席率)              重み 22
+//   2. weeksSinceLastTouch (接点鮮度)   重み 18
+//   3. overdueOnboardingTasks (期日超過) 重み 17
+//   4. negativeSignalCount (ネガ件数)   重み 17
+//   5. milestoneProgress (更新進捗)      重み 11
+//   6. surveyScore (アンケート満足度)    重み 15  ← Phase 7 追加
 //
 // 各 factor は 0..100 にスケール。重み付き加算で総合スコアを算出。
+// surveyScore は CSV取り込み済みの直近アンケート (NPS / 全体満足度) から派生する
 
 import type { Contract } from "@/lib/mock/contracts";
 import type { ProductCode } from "@/lib/mock/data";
@@ -38,7 +40,8 @@ export type HealthFactorKey =
   | "weeksSinceLastTouch"
   | "overdueOnboardingTasks"
   | "negativeSignalCount"
-  | "milestoneProgress";
+  | "milestoneProgress"
+  | "surveyScore";
 
 export type HealthFactors = {
   attendance?: number; // 0..1 (出席率)
@@ -46,6 +49,7 @@ export type HealthFactors = {
   overdueOnboardingTasks?: number; // 件数
   negativeSignalCount?: number; // 件数
   milestoneProgress?: number; // 0..1 (T-120/90/60/30 の done 比率)
+  surveyScore?: number; // 0..100 (直近アンケートの NPS/満足度を 0-100 に正規化した平均)
 };
 
 export type FactorContribution = {
@@ -69,11 +73,12 @@ export type HealthBreakdown = {
 };
 
 const FACTOR_WEIGHTS: Record<HealthFactorKey, number> = {
-  attendance: 25,
-  weeksSinceLastTouch: 20,
-  overdueOnboardingTasks: 20,
-  negativeSignalCount: 20,
-  milestoneProgress: 15
+  attendance: 22,
+  weeksSinceLastTouch: 18,
+  overdueOnboardingTasks: 17,
+  negativeSignalCount: 17,
+  milestoneProgress: 11,
+  surveyScore: 15
 };
 
 const FACTOR_LABEL: Record<HealthFactorKey, string> = {
@@ -81,7 +86,8 @@ const FACTOR_LABEL: Record<HealthFactorKey, string> = {
   weeksSinceLastTouch: "最終接点",
   overdueOnboardingTasks: "オンボ期日超過",
   negativeSignalCount: "ネガティブシグナル",
-  milestoneProgress: "更新マイルストーン"
+  milestoneProgress: "更新マイルストーン",
+  surveyScore: "アンケート満足度"
 };
 
 // ── 各 factor の正規化関数 (低いほど悪い 0、高いほど良い 100) ──
@@ -129,6 +135,12 @@ function normMilestoneProgress(progress: number | undefined): number {
   return Math.max(0, Math.min(100, progress * 100));
 }
 
+function normSurveyScore(score: number | undefined): number {
+  if (score === undefined || !Number.isFinite(score)) return 70; // 未取得は中立
+  // 既に 0..100 に正規化済み
+  return Math.max(0, Math.min(100, score));
+}
+
 function toneOf(normalized: number): "positive" | "neutral" | "negative" {
   if (normalized >= HEALTH_THRESHOLDS.green) return "positive";
   if (normalized >= HEALTH_THRESHOLDS.neutralFloor) return "neutral";
@@ -148,6 +160,8 @@ function display(key: HealthFactorKey, raw: number | undefined): string {
       return `${raw}件`;
     case "milestoneProgress":
       return `${Math.round(raw * 100)}%`;
+    case "surveyScore":
+      return `${Math.round(raw)}点`;
   }
 }
 
@@ -164,6 +178,8 @@ function hintOf(key: HealthFactorKey, normalized: number): string {
       return bad ? "ネガティブな発言・離脱兆候あり" : "ネガティブシグナルなし";
     case "milestoneProgress":
       return bad ? "更新マイルストーン消化が遅延" : "更新進捗は順調";
+    case "surveyScore":
+      return bad ? "直近アンケートで満足度・推奨度が低下" : "アンケートの満足度は良好";
   }
 }
 
@@ -176,7 +192,8 @@ export function computeHealthScore(
     weeksSinceLastTouch: normWeeksSince(factors.weeksSinceLastTouch),
     overdueOnboardingTasks: normOverdueTasks(factors.overdueOnboardingTasks),
     negativeSignalCount: normNegativeSignals(factors.negativeSignalCount),
-    milestoneProgress: normMilestoneProgress(factors.milestoneProgress)
+    milestoneProgress: normMilestoneProgress(factors.milestoneProgress),
+    surveyScore: normSurveyScore(factors.surveyScore)
   };
 
   const contributions: FactorContribution[] = (Object.keys(FACTOR_WEIGHTS) as HealthFactorKey[]).map(
@@ -190,7 +207,9 @@ export function computeHealthScore(
           ? factors.overdueOnboardingTasks
           : key === "negativeSignalCount"
           ? factors.negativeSignalCount
-          : factors.milestoneProgress;
+          : key === "milestoneProgress"
+          ? factors.milestoneProgress
+          : factors.surveyScore;
       const normalized = norms[key];
       const weight = FACTOR_WEIGHTS[key];
       return {
@@ -270,13 +289,17 @@ export function deriveMockFactors(args: {
   const r4 = ((seed >> 19) % 100) / 100;
   const r5 = ((seed >> 23) % 100) / 100;
 
+  // surveyScore も色に応じて生成（実 survey 回答が無い間のプレースホルダ）
+  const r6 = ((seed >> 29) % 100) / 100;
+
   if (baseline === "green") {
     return {
       attendance: 0.88 + r1 * 0.08,
       weeksSinceLastTouch: r2 < 0.5 ? 0 : 1,
       overdueOnboardingTasks: 0,
       negativeSignalCount: r3 < 0.85 ? 0 : 1,
-      milestoneProgress: 0.7 + r4 * 0.25
+      milestoneProgress: 0.7 + r4 * 0.25,
+      surveyScore: 80 + r6 * 18 // 80..98
     };
   }
   if (baseline === "yellow") {
@@ -285,7 +308,8 @@ export function deriveMockFactors(args: {
       weeksSinceLastTouch: 2 + Math.floor(r2 * 2),
       overdueOnboardingTasks: r3 < 0.5 ? 1 : 2,
       negativeSignalCount: r4 < 0.7 ? 1 : 2,
-      milestoneProgress: 0.4 + r5 * 0.3
+      milestoneProgress: 0.4 + r5 * 0.3,
+      surveyScore: 55 + r6 * 20 // 55..75
     };
   }
   // red
@@ -294,7 +318,8 @@ export function deriveMockFactors(args: {
     weeksSinceLastTouch: 4 + Math.floor(r2 * 5),
     overdueOnboardingTasks: 3 + Math.floor(r3 * 3),
     negativeSignalCount: 2 + Math.floor(r4 * 3),
-    milestoneProgress: r5 * 0.35
+    milestoneProgress: r5 * 0.35,
+    surveyScore: 25 + r6 * 25 // 25..50
   };
 }
 
@@ -320,4 +345,40 @@ export function colorOfScore(score: number): HealthColor {
   if (score >= HEALTH_THRESHOLDS.green) return "green";
   if (score >= HEALTH_THRESHOLDS.yellow) return "yellow";
   return "red";
+}
+
+// ────────────────────────────────────────────────────────────
+// Survey Score 派生 (Phase 7)
+// 企業に紐づく直近アンケート回答から 0..100 のスコアを算出する。
+// 入力: その企業の survey_responses から拾った scale 質問の値
+//   - q-nps / "nps" / 0-10 スケール → そのまま 0-100 に正規化
+//   - q-csat / "satisfaction" / 1-5 スケール → 0-100 に拡大
+//   - その他 1-5 / 0-10 scale 質問 → 同様に正規化（参考値）
+// 平均を取って返す。サンプルが無ければ undefined を返す（中立扱い）。
+// ────────────────────────────────────────────────────────────
+
+export type ScaleAnswer = {
+  questionKey: string;
+  scaleMin: number;
+  scaleMax: number;
+  value: number;
+};
+
+export function deriveSurveyScore(answers: ScaleAnswer[]): number | undefined {
+  if (answers.length === 0) return undefined;
+  // q-nps / q-csat を優先的に重み付け（NPS は 60%、満足度は 30%、その他 10%）
+  let weightedSum = 0;
+  let weightTotal = 0;
+  for (const a of answers) {
+    const range = a.scaleMax - a.scaleMin;
+    if (range <= 0) continue;
+    const norm = ((a.value - a.scaleMin) / range) * 100;
+    let w = 0.1;
+    if (a.questionKey === "nps" || a.questionKey.toLowerCase().includes("nps")) w = 0.6;
+    else if (a.questionKey === "overall_satisfaction" || a.questionKey.includes("satisfaction") || a.questionKey.includes("満足")) w = 0.3;
+    weightedSum += norm * w;
+    weightTotal += w;
+  }
+  if (weightTotal === 0) return undefined;
+  return Math.max(0, Math.min(100, weightedSum / weightTotal));
 }
