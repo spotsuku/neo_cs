@@ -54,12 +54,14 @@ export function OnboardingView({
   activeContracts,
   itemsByContract,
   companyMap,
+  karuteNoMap,
   users,
   today
 }: {
   activeContracts: ActiveContract[];
   itemsByContract: Record<string, ContractOnboardingItem[]>;
   companyMap: Record<string, string>;
+  karuteNoMap?: Record<string, number>;
   users: { id: string; name: string }[];
   today: string;
 }) {
@@ -98,13 +100,19 @@ export function OnboardingView({
     setCycleFilter(latestCycle ?? "all");
   }
 
-  const productContracts = useMemo(
-    () =>
+  const productContracts = useMemo(() => {
+    const filtered =
       cycleFilter === "all"
         ? productAllContracts
-        : productAllContracts.filter((c) => c.cycleNumber === cycleFilter),
-    [productAllContracts, cycleFilter]
-  );
+        : productAllContracts.filter((c) => c.cycleNumber === cycleFilter);
+    // カルテNo. 順にソート (karuteNo 未設定は末尾)
+    return filtered.slice().sort((a, b) => {
+      const ka = karuteNoMap?.[a.companyId] ?? Number.MAX_SAFE_INTEGER;
+      const kb = karuteNoMap?.[b.companyId] ?? Number.MAX_SAFE_INTEGER;
+      if (ka !== kb) return ka - kb;
+      return a.companyId.localeCompare(b.companyId);
+    });
+  }, [productAllContracts, cycleFilter, karuteNoMap]);
 
   const inProgress = useMemo(
     () => productContracts.filter((c) => c.status === "onboarding"),

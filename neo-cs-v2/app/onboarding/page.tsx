@@ -32,6 +32,11 @@ export default async function OnboardingPage() {
     (itemsByContract[it.contractId] ??= []).push(it);
   }
 
+  // karuteNo をソート鍵として渡す (undefined は末尾扱い)
+  const karuteNoMap = Object.fromEntries(
+    companies.map((c) => [c.id, c.karuteNo ?? Number.MAX_SAFE_INTEGER])
+  );
+
   return (
     <>
       <TopNavServer current="/onboarding" />
@@ -40,6 +45,7 @@ export default async function OnboardingPage() {
         activeContracts={allContractsFromRepo}
         itemsByContract={itemsByContract}
         companyMap={Object.fromEntries(companies.map((c) => [c.id, c.name]))}
+        karuteNoMap={karuteNoMap}
         users={users.map((u) => ({ id: u.id, name: u.name }))}
         today={today}
       />

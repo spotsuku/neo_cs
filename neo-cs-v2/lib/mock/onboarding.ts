@@ -106,6 +106,48 @@ export const productOnboardingTemplates: Record<ProductCode, OnboardingCategory[
         { key: "welcome_mail", name: "ウェルカムメール配信", dueOffsetDays: -3, required: true, defaultAssigneeRole: "cs" },
         { key: "pre_survey", name: "事前アンケート配布", dueOffsetDays: -3, required: false, defaultAssigneeRole: "cs" }
       ]
+    },
+    {
+      key: "contract_welcome",
+      label: "契約ウェルカム付フェーズ",
+      order: 5,
+      items: [
+        { key: "verbal_approval", name: "企業からの内諾", dueOffsetDays: -90, required: true, defaultAssigneeRole: "cs" },
+        { key: "sales_handoff", name: "営業からの引き継ぎ", dueOffsetDays: -85, required: true, defaultAssigneeRole: "cs" },
+        { key: "handoff_greeting", name: "引継挨拶", dueOffsetDays: -80, required: true, defaultAssigneeRole: "cs" },
+        { key: "contract_info", name: "契約関連情報確認", dueOffsetDays: -75, required: true, defaultAssigneeRole: "cs" },
+        { key: "invoice_info", name: "請求関連情報確認", dueOffsetDays: -75, required: true, defaultAssigneeRole: "finance" },
+        { key: "contract_send", name: "契約書送付", dueOffsetDays: -60, required: true, defaultAssigneeRole: "cs" },
+        { key: "contract_signed", name: "契約締結", dueOffsetDays: -45, required: true, defaultAssigneeRole: "cs" },
+        { key: "invoice_send", name: "請求書送付", dueOffsetDays: -30, required: true, defaultAssigneeRole: "finance" },
+        { key: "payment_confirm", name: "入金確認", dueOffsetDays: -15, required: true, defaultAssigneeRole: "finance" }
+      ]
+    },
+    {
+      key: "usage_policy",
+      label: "活用方針確定フェーズ",
+      order: 6,
+      items: [
+        { key: "prekickoff_schedule", name: "プレキックオフ日程調整", dueOffsetDays: -45, required: true, defaultAssigneeRole: "cs" },
+        { key: "prekickoff_execute", name: "プレキックオフ実施", dueOffsetDays: -30, required: true, defaultAssigneeRole: "cs" },
+        { key: "org_chart_decided", name: "企業組織図決定", dueOffsetDays: -25, required: true, defaultAssigneeRole: "cs" },
+        { key: "vision_articulation", name: "ビジョンと期待値の言語化", dueOffsetDays: -25, required: true, defaultAssigneeRole: "cs" },
+        { key: "participant_finalized", name: "企業選抜生確定", dueOffsetDays: -21, required: true, defaultAssigneeRole: "cs" }
+      ]
+    },
+    {
+      key: "participation_prep",
+      label: "参加準備フェーズ",
+      order: 7,
+      items: [
+        { key: "kickoff_schedule", name: "キックオフ日程調整", dueOffsetDays: -14, required: true, defaultAssigneeRole: "cs" },
+        { key: "kickoff_execute", name: "キックオフ実施", dueOffsetDays: 0, required: true, defaultAssigneeRole: "cs" },
+        { key: "pre_training_attendance", name: "事前研修出欠確認", dueOffsetDays: -7, required: true, defaultAssigneeRole: "cs" },
+        { key: "slack_login", name: "Slackのログイン", dueOffsetDays: -3, required: true, defaultAssigneeRole: "ops" },
+        { key: "portal_login", name: "ポータルログイン", dueOffsetDays: -3, required: true, defaultAssigneeRole: "ops" },
+        { key: "kickoff_party_attendance", name: "キックオフパーティ出欠確認", dueOffsetDays: -3, required: true, defaultAssigneeRole: "cs" },
+        { key: "first_lecture_attend", name: "第1回講義参加", dueOffsetDays: 7, required: false, defaultAssigneeRole: "cs" }
+      ]
     }
   ],
 

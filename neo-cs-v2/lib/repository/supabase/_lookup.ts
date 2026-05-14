@@ -382,21 +382,26 @@ type OnboardingTaskRow = {
   id: string;
   organization_id: string;
   contract_id: string;
+  template_item_id: string | null;
   phase_key: string | null;
   name: string;
   due_date: string | null;
   status: "todo" | "doing" | "done" | "overdue";
   assignee_user_id: string | null;
   completed_at: string | null;
+  // join: onboarding_template_items.item_key
+  template?: { item_key: string } | null;
 };
 
 export const supabaseOnboardingItemRepo: OnboardingItemRepo = {
   async listByContractIds(contractIds) {
     if (contractIds.length === 0) return [];
     const sb = getServiceClient();
+    // template_item_id 経由で onboarding_template_items.item_key を join 取得
+    // (MatrixView は (categoryKey, itemKey) で template の列とマッチさせる)
     const { data, error } = await sb
       .from("onboarding_tasks")
-      .select("*")
+      .select("*, template:onboarding_template_items(item_key)")
       .in("contract_id", contractIds);
     if (error) throw new Error(`onboarding_tasks.listByContractIds: ${error.message}`);
     // Contract 上の onboarding は ContractOnboardingItem 形式に整形
@@ -405,7 +410,8 @@ export const supabaseOnboardingItemRepo: OnboardingItemRepo = {
       organizationId: r.organization_id,
       contractId: r.contract_id,
       categoryKey: r.phase_key ?? "",
-      itemKey: r.id,
+      // template_item の item_key を優先。未紐付け (template_item_id null) は task id を fallback。
+      itemKey: r.template?.item_key ?? r.id,
       name: r.name,
       dueDate: r.due_date ?? "",
       assignee: r.assignee_user_id ?? "",

@@ -19,6 +19,7 @@ import {
 } from "@/lib/mock/onboarding";
 import type {
   ContractOnboardingItem,
+  ContractStatus,
   OnboardingItemEditableStatus
 } from "@/lib/repository/types";
 import {
@@ -27,6 +28,16 @@ import {
   setOnboardingItemNote,
   setOnboardingItemStatus
 } from "./[contractId]/itemActions";
+import { setContractStatusAction } from "./contract-status-action";
+
+const CONTRACT_STATUS_OPTIONS: { value: ContractStatus; label: string; color: string }[] = [
+  { value: "handoff",        label: "引継ぎ未着手", color: "#94A3B8" },
+  { value: "onboarding",     label: "オンボ進行中", color: "#FF9838" },
+  { value: "active",         label: "通常運用",     color: "#4CD97B" },
+  { value: "renewal_window", label: "更新枠",       color: "#A78BFA" },
+  { value: "renewed",        label: "旧サイクル",   color: "#CBD5E1" },
+  { value: "churned",        label: "解約",         color: "#F87171" }
+];
 
 const STATUS_LABEL: Record<OnboardingItemEditableStatus, string> = {
   todo: "未着手",
@@ -94,6 +105,29 @@ export function MatrixView({
   const [colResponsible, setColResponsible] = useState<
     { catKey: string; itemKey: string; x: number; y: number } | null
   >(null);
+
+  // 契約ステータス変更メニュー (会社名セルのプルダウン)
+  const [contractStatusMenu, setContractStatusMenu] = useState<string | null>(null);
+  // 楽観UI 用の契約ステータス上書き (id → status)
+  const [contractStatusOverride, setContractStatusOverride] = useState<
+    Record<string, ContractStatus>
+  >({});
+
+  function changeContractStatus(contractId: string, next: ContractStatus) {
+    setContractStatusOverride((prev) => ({ ...prev, [contractId]: next }));
+    setContractStatusMenu(null);
+    startTransition(async () => {
+      const r = await setContractStatusAction(contractId, next);
+      if (!r.ok) {
+        // 失敗時は override を解除して元の値に戻す
+        setContractStatusOverride((prev) => {
+          const { [contractId]: _, ...rest } = prev;
+          return rest;
+        });
+        console.error("setContractStatusAction failed:", r.message);
+      }
+    });
+  }
 
   // 列単位の入力値 (日付・責任者) — bulk-apply のためのローカル状態
   const [colDueDate, setColDueDate] = useState<Record<string, string>>({});
@@ -391,6 +425,72 @@ export function MatrixView({
                       開始 {c.startDate.slice(5).replace("-", "/")} · {c.ownerName}
                     </div>
                   </Link>
+                  {(() => {
+                    const cur = (contractStatusOverride[c.id] ?? c.status) as ContractStatus;
+                    const opt = CONTRACT_STATUS_OPTIONS.find((o) => o.value === cur)
+                      ?? CONTRACT_STATUS_OPTIONS[2];
+                    const isOpen = contractStatusMenu === c.id;
+                    return (
+                      <div className="relative mt-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setContractStatusMenu(isOpen ? null : c.id);
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border border-ink-200 hover:bg-ink-50"
+                          style={{ background: `${opt.color}20`, color: opt.color }}
+                          title="契約ステータスを変更"
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ background: opt.color }}
+                          />
+                          {opt.label}
+                          <span className="text-ink-400">▾</span>
+                        </button>
+                        {isOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setContractStatusMenu(null);
+                              }}
+                            />
+                            <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-ink-200 rounded-md shadow-lg min-w-[150px] py-1">
+                              {CONTRACT_STATUS_OPTIONS.map((o) => {
+                                const active = o.value === cur;
+                                return (
+                                  <button
+                                    key={o.value}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (!active) changeContractStatus(c.id, o.value);
+                                      else setContractStatusMenu(null);
+                                    }}
+                                    className={[
+                                      "w-full text-left px-3 py-1.5 text-[11px] flex items-center gap-2 hover:bg-ink-50",
+                                      active ? "bg-ink-50/60 font-semibold" : ""
+                                    ].join(" ")}
+                                  >
+                                    <span
+                                      className="w-1.5 h-1.5 rounded-full"
+                                      style={{ background: o.color }}
+                                    />
+                                    {o.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td
                   style={{ minWidth: 80, width: 80 }}
