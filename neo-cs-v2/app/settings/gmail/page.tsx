@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TopNavServer } from "@/components/TopNavServer";
 import { userRepo, gmailConnectionRepo } from "@/lib/repository/server";
 import { DisconnectButton } from "./DisconnectButton";
+import { SyncNowButton } from "./SyncNowButton";
 
 export const dynamic = "force-dynamic";
 
@@ -163,8 +164,11 @@ function ConnectedView({
               </span>
             )}
           </div>
+          <div className="mt-3">
+            <SyncNowButton />
+          </div>
           <div className="mt-2 text-[11px] text-ink-500">
-            ※ 受信箱の取得バッチは順次有効化予定です。現在は接続情報の保存のみ動作します。
+            受信箱は 30 分毎の自動同期に加え、手動でも実行できます。初回は 2026-03-01 以降を遡って取り込みます。
           </div>
         </div>
       </div>

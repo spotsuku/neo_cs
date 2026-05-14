@@ -11,7 +11,9 @@ import type {
   EmailMessage,
   EmailMessageCreateInput,
   EmailThreadStatus,
-  EmailAssigneeReason
+  EmailAssigneeReason,
+  GmailThreadUpsertInput,
+  GmailMessageInsertInput
 } from "../types";
 import { DEFAULT_ORG_ID } from "../types";
 import {
@@ -159,5 +161,73 @@ export const mockEmailRepo: EmailRepo = {
       assigneeReason: reason,
       updatedAt: new Date().toISOString()
     };
+  },
+
+  // ─────────────────────────────────────────────
+  // Gmail 同期向け (in-memory dedup)
+  // ─────────────────────────────────────────────
+  async upsertThreadByGmailId(input: GmailThreadUpsertInput) {
+    const existing = threadStore.find(
+      (t) =>
+        t.organizationId === input.organizationId &&
+        (t as EmailThread & { gmailThreadId?: string }).gmailThreadId === input.gmailThreadId
+    );
+    if (existing) {
+      // last_*_at だけ追従
+      const idx = threadStore.indexOf(existing);
+      threadStore[idx] = {
+        ...existing,
+        lastInboundAt: input.lastInboundAt ?? existing.lastInboundAt,
+        lastOutboundAt: input.lastOutboundAt ?? existing.lastOutboundAt,
+        updatedAt: new Date().toISOString()
+      };
+      return { ...threadStore[idx] };
+    }
+    const now = new Date().toISOString();
+    const created: EmailThread & { gmailThreadId: string } = {
+      id: `et-gm-${input.gmailThreadId}`,
+      organizationId: input.organizationId,
+      companyId: input.companyId,
+      subject: input.subject,
+      status: "new",
+      assigneeUserId: input.assigneeUserId,
+      assigneeReason: input.assigneeUserId ? "received" : undefined,
+      lastInboundAt: input.lastInboundAt,
+      lastOutboundAt: input.lastOutboundAt,
+      createdAt: now,
+      updatedAt: now,
+      gmailThreadId: input.gmailThreadId
+    };
+    threadStore.push(created);
+    return { ...created };
+  },
+
+  async insertMessageByGmailId(input: GmailMessageInsertInput) {
+    const existing = messageStore.find(
+      (m) =>
+        (m as EmailMessage & { gmailMessageId?: string }).gmailMessageId === input.gmailMessageId
+    );
+    if (existing) return { ...existing };
+    const now = new Date().toISOString();
+    const msg: EmailMessage & { gmailMessageId: string } = {
+      id: `em-gm-${input.gmailMessageId}`,
+      threadId: input.threadId,
+      direction: input.direction,
+      body: input.body,
+      senderEmail: input.senderEmail,
+      recipientEmails: input.recipientEmails,
+      sentAt: input.sentAt,
+      aiSummary: undefined,
+      createdAt: now,
+      gmailMessageId: input.gmailMessageId
+    };
+    messageStore.push(msg);
+    return { ...msg };
+  },
+
+  async findCompanyByEmail(_organizationId, _email) {
+    // mock: company_contacts は別 store に分かれているので簡易に null 返却。
+    // Supabase 実装側でちゃんと探す。
+    return null;
   }
 };

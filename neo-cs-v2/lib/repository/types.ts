@@ -1520,6 +1520,26 @@ export type AiExtractionListOpts = {
   limit?: number;
 };
 
+export type GmailThreadUpsertInput = {
+  organizationId: string;
+  gmailThreadId: string;
+  subject: string;
+  companyId?: string;
+  assigneeUserId?: string;
+  lastInboundAt?: string;
+  lastOutboundAt?: string;
+};
+
+export type GmailMessageInsertInput = {
+  threadId: string;
+  gmailMessageId: string;
+  direction: EmailDirection;
+  body: string;
+  senderEmail: string;
+  recipientEmails: string[];
+  sentAt: string;
+};
+
 export interface EmailRepo {
   listThreads(opts?: { companyId?: string; organizationId?: string }): Promise<EmailThread[]>;
   getThread(id: string): Promise<EmailThread | null>;
@@ -1531,6 +1551,13 @@ export interface EmailRepo {
     userId: string,
     reason: EmailAssigneeReason
   ): Promise<void>;
+  // ── Gmail 同期向け ──
+  /** Gmail thread id で既存スレッドを検索しなければ新規作成 */
+  upsertThreadByGmailId(input: GmailThreadUpsertInput): Promise<EmailThread>;
+  /** Gmail message id で既存があれば既存 message を返す。なければ INSERT */
+  insertMessageByGmailId(input: GmailMessageInsertInput): Promise<EmailMessage>;
+  /** organization 内で sender_email → company_id を解決 (company_contacts.email を引く) */
+  findCompanyByEmail(organizationId: string, email: string): Promise<string | null>;
 }
 
 export interface AiExtractionRepo {

@@ -14,7 +14,9 @@ import type {
   EmailMessage,
   EmailMessageCreateInput,
   EmailThreadStatus,
-  EmailAssigneeReason
+  EmailAssigneeReason,
+  GmailThreadUpsertInput,
+  GmailMessageInsertInput
 } from "../types";
 
 type ThreadRow = {
@@ -201,5 +203,110 @@ export const supabaseEmailRepo: EmailRepo = {
       action: "update",
       ctx
     });
+  },
+
+  // ─────────────────────────────────────────────
+  // Gmail 同期向け
+  // ─────────────────────────────────────────────
+  async upsertThreadByGmailId(input: GmailThreadUpsertInput) {
+    const sb = getServiceClient();
+    // 既存スレッドを gmail_thread_id で探す
+    const { data: existing, error: selErr } = await sb
+      .from("email_threads")
+      .select("*")
+      .eq("organization_id", input.organizationId)
+      .eq("gmail_thread_id", input.gmailThreadId)
+      .maybeSingle();
+    if (selErr) throw new Error(`email_threads.select_by_gmail: ${selErr.message}`);
+    if (existing) {
+      // last_*_at が新しければ更新
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      const row = existing as ThreadRow;
+      if (
+        input.lastInboundAt &&
+        (!row.last_inbound_at || input.lastInboundAt > row.last_inbound_at)
+      ) {
+        patch.last_inbound_at = input.lastInboundAt;
+      }
+      if (
+        input.lastOutboundAt &&
+        (!row.last_outbound_at || input.lastOutboundAt > row.last_outbound_at)
+      ) {
+        patch.last_outbound_at = input.lastOutboundAt;
+      }
+      // company_id が未設定で input にあれば紐付け
+      if (!row.company_id && input.companyId) patch.company_id = input.companyId;
+      const { data, error } = await sb
+        .from("email_threads")
+        .update(patch)
+        .eq("id", row.id)
+        .select("*")
+        .single();
+      if (error) throw new Error(`email_threads.touch_gmail: ${error.message}`);
+      return toThread(data as ThreadRow);
+    }
+    // 新規作成
+    const id = `et-gm-${input.gmailThreadId}`;
+    const { data, error } = await sb
+      .from("email_threads")
+      .insert({
+        id,
+        organization_id: input.organizationId,
+        gmail_thread_id: input.gmailThreadId,
+        company_id: input.companyId ?? null,
+        subject: input.subject,
+        status: "new",
+        assignee_user_id: input.assigneeUserId ?? null,
+        assignee_reason: input.assigneeUserId ? "received" : null,
+        last_inbound_at: input.lastInboundAt ?? null,
+        last_outbound_at: input.lastOutboundAt ?? null
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(`email_threads.insert_gmail: ${error.message}`);
+    return toThread(data as ThreadRow);
+  },
+
+  async insertMessageByGmailId(input: GmailMessageInsertInput) {
+    const sb = getServiceClient();
+    const { data: existing } = await sb
+      .from("email_messages")
+      .select("*")
+      .eq("gmail_message_id", input.gmailMessageId)
+      .maybeSingle();
+    if (existing) return toMessage(existing as MessageRow);
+    const id = `em-gm-${input.gmailMessageId}`;
+    const { data, error } = await sb
+      .from("email_messages")
+      .insert({
+        id,
+        thread_id: input.threadId,
+        gmail_message_id: input.gmailMessageId,
+        direction: input.direction,
+        body: input.body,
+        sender_email: input.senderEmail,
+        recipient_emails: input.recipientEmails,
+        sent_at: input.sentAt
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(`email_messages.insert_gmail: ${error.message}`);
+    return toMessage(data as MessageRow);
+  },
+
+  async findCompanyByEmail(organizationId, email) {
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("company_contacts")
+      .select("company_id")
+      .eq("organization_id", organizationId)
+      .eq("email", email.toLowerCase())
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      // company_contacts.email が無い org / index 周りの問題は同期を止めない
+      return null;
+    }
+    return (data as { company_id: string } | null)?.company_id ?? null;
   }
 };
