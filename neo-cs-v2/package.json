@@ -18,14 +18,14 @@
     "prepare": "cd .. && husky neo-cs-v2/.husky || true"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.5.2",
+    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.45.4",
     "@types/papaparse": "^5.5.2",
     "googleapis": "^171.4.0",
-    "next": "^16.2.4",
+    "next": "^16.2.6",
     "papaparse": "^5.5.3",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
