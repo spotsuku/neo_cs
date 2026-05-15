@@ -27,6 +27,7 @@ import type { GmailConnection } from "@/lib/repository/server";
 import { refreshAccessToken } from "./gmail-oauth";
 import { enqueueNotification } from "@/lib/notifications/inbox";
 import { extractAndSaveEmailSignals } from "./email-ai";
+import { extractDriveLinksFromText, recordDriveSend } from "./google-drive";
 import { getServiceClient } from "@/lib/supabase/server";
 import { getLogger } from "@/lib/observability/logger";
 
@@ -409,6 +410,43 @@ export async function syncConnection(
         sourceId: id
       });
       result.notified++;
+    }
+
+    // 送信メール: Drive 共有リンクを抽出して F4 (drive_send_logs) に自動記録
+    // 重複対策は現状 DB に unique 制約が無いため、再同期時に重複し得る
+    // (次フェーズで unique 制約を追加予定)
+    if (direction === "outbound" && companyId) {
+      const driveLinks = extractDriveLinksFromText(body);
+      for (const link of driveLinks) {
+        try {
+          await recordDriveSend({
+            companyId,
+            contractId: null,
+            productCode: null,
+            driveFileId: link.fileId,
+            // 実 name は将来 Drive API 経由で解決する。現状は fileId を仮 name とする
+            driveFileName: link.fileId,
+            sentToEmail: recipients[0] ?? "",
+            sentByUserId: conn.userId,
+            sentVia: "gmail",
+            note: null,
+            sentAt
+          });
+          log.info({
+            kind: "drive_send_recorded",
+            fileId: link.fileId,
+            companyId
+          });
+        } catch (e) {
+          const msg = (e as Error).message;
+          log.warn({
+            kind: "drive_send_record_failed",
+            fileId: link.fileId,
+            message: msg
+          });
+          result.errors.push(`drive_send_record ${id}/${link.fileId}: ${msg}`);
+        }
+      }
     }
   }
 

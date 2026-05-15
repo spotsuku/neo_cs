@@ -393,3 +393,51 @@ export async function recordDriveSend(
 ): Promise<DriveSendLog> {
   return driveSendLogRepo.create(input);
 }
+
+// ─────────────────────────────────────────────
+// Drive 共有リンク抽出 (Gmail 本文 → fileId)
+//
+// Gmail 送信メッセージから Drive ファイルへの共有リンクを抽出し、
+// F4 (drive_send_logs) への自動記録のソースとして使う。
+//
+// 対応する URL パターン:
+//   https://drive.google.com/file/d/{fileId}/...
+//   https://drive.google.com/open?id={fileId}
+//   https://docs.google.com/(document|spreadsheets|presentation|forms)/d/{fileId}/...
+//
+// fileId の文字種: Drive のファイル ID は base64url 風の英数字 + - / _
+// 同じ fileId が複数回出現した場合は最初の出現を残す。
+// ─────────────────────────────────────────────
+
+export type ExtractedDriveLink = {
+  fileId: string;
+  rawUrl: string;
+  channel: "drive_share";
+};
+
+const DRIVE_LINK_PATTERNS: RegExp[] = [
+  // /file/d/{id}/...
+  /https?:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)(?:\/[^\s)>\]"']*)?/g,
+  // /open?id={id}
+  /https?:\/\/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/g,
+  // docs.google.com/{document|spreadsheets|presentation|forms}/d/{id}/...
+  /https?:\/\/docs\.google\.com\/(?:document|spreadsheets|presentation|forms)\/d\/([a-zA-Z0-9_-]+)(?:\/[^\s)>\]"']*)?/g,
+];
+
+export function extractDriveLinksFromText(text: string): ExtractedDriveLink[] {
+  if (!text) return [];
+  const seen = new Set<string>();
+  const found: ExtractedDriveLink[] = [];
+  for (const pattern of DRIVE_LINK_PATTERNS) {
+    // 各実行で lastIndex がリセットされるよう新規 RegExp を生成
+    const re = new RegExp(pattern.source, pattern.flags);
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const fileId = m[1];
+      if (!fileId || seen.has(fileId)) continue;
+      seen.add(fileId);
+      found.push({ fileId, rawUrl: m[0], channel: "drive_share" });
+    }
+  }
+  return found;
+}

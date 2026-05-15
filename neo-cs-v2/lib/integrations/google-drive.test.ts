@@ -13,6 +13,7 @@ import {
   getFolderUrl,
   DriveIntegrationError,
   configured,
+  extractDriveLinksFromText,
 } from "./google-drive";
 
 const ENV = {
@@ -219,5 +220,59 @@ describe("google-drive", () => {
     expect(e.code).toBe("auth_failed");
     expect(e.status).toBe(401);
     expect(e.message).toBe("boom");
+  });
+});
+
+describe("extractDriveLinksFromText", () => {
+  it("drive.google.com/file/d/{id}/view を抽出する", () => {
+    const text = "資料はこちら https://drive.google.com/file/d/1AbCDefGhIjKlMnOpQrSt/view?usp=sharing です";
+    const links = extractDriveLinksFromText(text);
+    expect(links).toHaveLength(1);
+    expect(links[0].fileId).toBe("1AbCDefGhIjKlMnOpQrSt");
+    expect(links[0].channel).toBe("drive_share");
+    expect(links[0].rawUrl).toContain("drive.google.com/file/d/");
+  });
+
+  it("drive.google.com/open?id={id} を抽出する", () => {
+    const text = "https://drive.google.com/open?id=ZYX987abc_def-123";
+    const links = extractDriveLinksFromText(text);
+    expect(links).toHaveLength(1);
+    expect(links[0].fileId).toBe("ZYX987abc_def-123");
+  });
+
+  it("docs.google.com の document/spreadsheets/presentation/forms を抽出する", () => {
+    const text = [
+      "https://docs.google.com/document/d/DOC_ID_111/edit",
+      "https://docs.google.com/spreadsheets/d/SHEET_ID_222/edit#gid=0",
+      "https://docs.google.com/presentation/d/SLIDE_ID_333/edit",
+      "https://docs.google.com/forms/d/FORM_ID_444/viewform",
+    ].join("\n");
+    const ids = extractDriveLinksFromText(text).map((l) => l.fileId);
+    expect(ids).toEqual([
+      "DOC_ID_111",
+      "SHEET_ID_222",
+      "SLIDE_ID_333",
+      "FORM_ID_444",
+    ]);
+  });
+
+  it("同じ fileId の重複は最初の出現のみ残す", () => {
+    const text = [
+      "https://drive.google.com/file/d/DUP_ID/view",
+      "https://drive.google.com/open?id=DUP_ID",
+      "https://drive.google.com/file/d/DUP_ID/edit",
+    ].join("\n");
+    const links = extractDriveLinksFromText(text);
+    expect(links).toHaveLength(1);
+    expect(links[0].fileId).toBe("DUP_ID");
+    expect(links[0].rawUrl).toContain("/file/d/DUP_ID/view");
+  });
+
+  it("URL を含まないテキストでは空配列", () => {
+    expect(extractDriveLinksFromText("ただのテキスト http://example.com です")).toEqual([]);
+  });
+
+  it("空文字では空配列", () => {
+    expect(extractDriveLinksFromText("")).toEqual([]);
   });
 });
