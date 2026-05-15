@@ -20,13 +20,13 @@ export function HealthDistribution({
   return (
     <div>
       <div className={`flex ${h} w-full rounded-full overflow-hidden bg-ink-50`}>
-        {g > 0 && <div style={{ width: `${g}%`, background: "#10B981" }} />}
+        {g > 0 && <div style={{ width: `${g}%`, background: "#3B82F6" }} />}
         {y > 0 && <div style={{ width: `${y}%`, background: "#F59E0B" }} />}
         {r > 0 && <div style={{ width: `${r}%`, background: "#EF4444" }} />}
       </div>
       <div className="mt-1.5 flex items-center gap-3 text-[11px]">
         <span className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
           <span className="text-ink-700 font-medium">{green}</span>
         </span>
         <span className="flex items-center gap-1">

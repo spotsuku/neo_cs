@@ -409,7 +409,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 function HealthDot({ color }: { color: "green" | "yellow" | "red" | null }) {
   if (color === null) return <span className="text-ink-300">—</span>;
-  const bg = color === "green" ? "#10B981" : color === "yellow" ? "#F59E0B" : "#EF4444";
+  const bg = color === "green" ? "#3B82F6" : color === "yellow" ? "#F59E0B" : "#EF4444";
   return (
     <span
       className="inline-block w-2 h-2 rounded-full"

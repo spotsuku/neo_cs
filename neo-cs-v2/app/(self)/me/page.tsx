@@ -946,7 +946,7 @@ function BadgeChip({
 
 function HealthDot({ color }: { color: "red" | "yellow" | "green" }) {
   const bg =
-    color === "red" ? "#EF4444" : color === "yellow" ? "#F59E0B" : "#10B981";
+    color === "red" ? "#EF4444" : color === "yellow" ? "#F59E0B" : "#3B82F6";
   return (
     <span
       className="inline-block w-2 h-2 rounded-full shrink-0"

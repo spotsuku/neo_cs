@@ -8,13 +8,13 @@
 import type { HealthBreakdown, HealthColor } from "@/lib/domain/health/health";
 
 const COLOR_BG: Record<HealthColor, string> = {
-  green: "bg-success-50 text-success-700 border-success-100",
+  green: "bg-blue-50 text-blue-700 border-blue-100",
   yellow: "bg-warning-50 text-warning-700 border-warning-100",
   red: "bg-danger-50 text-danger-700 border-danger-100"
 };
 
 const COLOR_LABEL: Record<HealthColor, string> = {
-  green: "Green",
+  green: "Healthy",
   yellow: "Yellow",
   red: "Red"
 };

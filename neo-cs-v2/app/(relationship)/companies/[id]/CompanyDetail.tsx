@@ -162,7 +162,7 @@ const tabs: { key: Tab; label: string }[] = [
 ];
 
 function healthBg(color: HealthColor) {
-  return color === "green" ? "#10B981" : color === "yellow" ? "#F59E0B" : "#EF4444";
+  return color === "green" ? "#3B82F6" : color === "yellow" ? "#F59E0B" : "#EF4444";
 }
 
 /* 商材切替タブ (segmented control) — 契約・更新 / ToDo タブで共用 */
@@ -1175,7 +1175,7 @@ function CompanyHealthSection({
                     className={[
                       "ml-auto text-[10px] px-2 py-0.5 rounded-full font-semibold",
                       breakdown.color === "green"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                        ? "bg-blue-50 text-blue-700 border border-blue-100"
                         : breakdown.color === "yellow"
                         ? "bg-amber-50 text-amber-700 border border-amber-100"
                         : "bg-rose-50 text-rose-700 border border-rose-100"
@@ -3097,7 +3097,7 @@ function CurrentCyclePanel({
     : null;
   // 旧 generateRenewalMilestones は廃止。期日付きToDoは事業別ToDoに統合済み
   const renewalColor: Record<"green" | "yellow" | "red", string> = {
-    green: "#10B981",
+    green: "#3B82F6",
     yellow: "#F59E0B",
     red: "#EF4444"
   };

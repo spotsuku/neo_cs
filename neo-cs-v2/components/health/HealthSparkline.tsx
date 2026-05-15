@@ -38,7 +38,7 @@ export function HealthSparkline({
 
   const stroke =
     lastColor === "green"
-      ? "#10B981"
+      ? "#3B82F6"
       : lastColor === "yellow"
       ? "#F59E0B"
       : "#EF4444";

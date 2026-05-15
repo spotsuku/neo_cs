@@ -73,7 +73,7 @@ const taskOptions: { value: TaskFilter; label: string }[] = [
 
 const healthOptions: { value: HealthFilter; label: string; dot: string }[] = [
   { value: "all", label: "すべて", dot: "" },
-  { value: "green", label: "Green", dot: "#10B981" },
+  { value: "green", label: "Healthy", dot: "#3B82F6" },
   { value: "yellow", label: "Yellow", dot: "#F59E0B" },
   { value: "red", label: "Red", dot: "#EF4444" }
 ];
@@ -121,7 +121,7 @@ function SortableTh({
 
 function HealthDot({ color }: { color: "green" | "yellow" | "red" }) {
   const bg =
-    color === "green" ? "#10B981" : color === "yellow" ? "#F59E0B" : "#EF4444";
+    color === "green" ? "#3B82F6" : color === "yellow" ? "#F59E0B" : "#EF4444";
   return (
     <span
       className="inline-block w-2 h-2 rounded-full"

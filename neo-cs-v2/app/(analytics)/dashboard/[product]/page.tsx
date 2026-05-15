@@ -45,7 +45,7 @@ export const dynamic = "force-dynamic";
 const VALID_CODES: ProductCode[] = Object.keys(productByCode) as ProductCode[];
 
 const healthDotColor: Record<string, string> = {
-  green: "#10B981",
+  green: "#3B82F6",
   yellow: "#F59E0B",
   red: "#EF4444"
 };

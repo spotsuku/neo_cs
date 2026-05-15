@@ -17,7 +17,7 @@ import type { Contract } from "@/lib/mock/contracts";
 type HealthColor = "green" | "yellow" | "red";
 
 const COLOR_STYLE: Record<HealthColor, { bg: string; fg: string; border: string; label: string }> = {
-  green: { bg: "#10B98114", fg: "#047857", border: "#10B98155", label: "Green" },
+  green: { bg: "#3B82F614", fg: "#1D4ED8", border: "#3B82F655", label: "Healthy" },
   yellow: { bg: "#F59E0B14", fg: "#B45309", border: "#F59E0B55", label: "Yellow" },
   red: { bg: "#EF444414", fg: "#B91C1C", border: "#EF444455", label: "Red" }
 };
