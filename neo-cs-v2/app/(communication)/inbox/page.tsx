@@ -22,12 +22,16 @@ export default async function InboxPage() {
   const ctx = await getPermissionContext();
   const orgId = ctx.actor?.organizationId ?? DEFAULT_ORG_ID;
 
-  const [threadsRaw, companies, contracts, programs] = await Promise.all([
-    emailRepo.listThreads({ organizationId: orgId }),
-    companyRepo.list(),
-    contractRepo.list(),
-    programRepo.listTerms({ status: ["active", "draft"] })
-  ]);
+  const [threadsRaw, companies, contracts, programs, unassignedThreads] =
+    await Promise.all([
+      emailRepo.listThreads({ organizationId: orgId }),
+      companyRepo.list(),
+      contractRepo.list(),
+      programRepo.listTerms({ status: ["active", "draft"] }),
+      // 件数表示用 (50 件まで取れば十分: 50+ の場合は「50+」相当の運用シグナル)
+      emailRepo.listUnassigned({ organizationId: orgId, limit: 50 })
+    ]);
+  const unassignedCount = unassignedThreads.length;
 
   // 全 thread の messages を集約
   const messagesNested = await Promise.all(
@@ -116,6 +120,7 @@ export default async function InboxPage() {
           contracts={contracts}
           programs={programs}
           internalComments={[]}
+          unassignedCount={unassignedCount}
         />
       </Suspense>
     </>

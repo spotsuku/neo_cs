@@ -1542,6 +1542,10 @@ export type GmailMessageInsertInput = {
 
 export interface EmailRepo {
   listThreads(opts?: { companyId?: string; organizationId?: string }): Promise<EmailThread[]>;
+  /** company_id IS NULL のスレッドを直近活動順 (last_inbound_at / last_outbound_at) で返す */
+  listUnassigned(opts?: { organizationId?: string; limit?: number }): Promise<EmailThread[]>;
+  /** スレッドの company_id を更新 (F3: 未割当キューからの手動アサイン) */
+  setCompany(threadId: string, companyId: string): Promise<void>;
   getThread(id: string): Promise<EmailThread | null>;
   listMessages(threadId: string): Promise<EmailMessage[]>;
   /** 指定企業に紐づくスレッド内の全 message を時系列で返す (メトリクス・タイムライン用) */

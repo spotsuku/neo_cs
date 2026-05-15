@@ -91,6 +91,45 @@ export const supabaseEmailRepo: EmailRepo = {
     return (data ?? []).map((r) => toThread(r as ThreadRow));
   },
 
+  async listUnassigned(opts) {
+    const sb = getServiceClient();
+    let q = sb.from("email_threads").select("*").is("company_id", null);
+    if (opts?.organizationId) q = q.eq("organization_id", opts.organizationId);
+    // last_inbound_at DESC NULLS LAST, last_outbound_at DESC NULLS LAST
+    q = q
+      .order("last_inbound_at", { ascending: false, nullsFirst: false })
+      .order("last_outbound_at", { ascending: false, nullsFirst: false });
+    if (opts?.limit) q = q.limit(opts.limit);
+    const { data, error } = await q;
+    if (error) throw new Error(`email_threads.listUnassigned: ${error.message}`);
+    return (data ?? []).map((r) => toThread(r as ThreadRow));
+  },
+
+  async setCompany(threadId, companyId) {
+    const sb = getServiceClient();
+    const ctx = getActorContext();
+    const { data: before } = await sb
+      .from("email_threads")
+      .select("*")
+      .eq("id", threadId)
+      .maybeSingle();
+    const { data, error } = await sb
+      .from("email_threads")
+      .update({ company_id: companyId, updated_at: new Date().toISOString() })
+      .eq("id", threadId)
+      .select("*")
+      .single();
+    if (error) throw new Error(`email_threads.setCompany: ${error.message}`);
+    await runAfterWrite({
+      entityType: "email_threads",
+      entityId: threadId,
+      before: before ? toThread(before as ThreadRow) : undefined,
+      after: toThread(data as ThreadRow),
+      action: "update",
+      ctx
+    });
+  },
+
   async getThread(id) {
     const sb = getServiceClient();
     const { data, error } = await sb

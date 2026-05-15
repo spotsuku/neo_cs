@@ -99,6 +99,31 @@ export const mockEmailRepo: EmailRepo = {
       .map((t) => ({ ...t }));
   },
 
+  async listUnassigned(opts) {
+    let rows = threadStore.slice().filter((t) => !t.companyId);
+    if (opts?.organizationId) {
+      rows = rows.filter((t) => t.organizationId === opts.organizationId);
+    }
+    // sentAt 降順: last_inbound_at → last_outbound_at → updatedAt
+    rows = rows.sort((a, b) => {
+      const aKey = a.lastInboundAt ?? a.lastOutboundAt ?? a.updatedAt;
+      const bKey = b.lastInboundAt ?? b.lastOutboundAt ?? b.updatedAt;
+      return aKey < bKey ? 1 : -1;
+    });
+    const limited = opts?.limit ? rows.slice(0, opts.limit) : rows;
+    return limited.map((t) => ({ ...t }));
+  },
+
+  async setCompany(threadId, companyId) {
+    const idx = threadStore.findIndex((t) => t.id === threadId);
+    if (idx < 0) return;
+    threadStore[idx] = {
+      ...threadStore[idx],
+      companyId,
+      updatedAt: new Date().toISOString()
+    };
+  },
+
   async getThread(id) {
     const t = threadStore.find((x) => x.id === id);
     return t ? { ...t } : null;

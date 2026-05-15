@@ -153,7 +153,8 @@ export function InboxView({
   contacts,
   contracts,
   programs,
-  internalComments: initialComments
+  internalComments: initialComments,
+  unassignedCount = 0
 }: {
   threads: AdaptedEmailThread[];
   messages: AdaptedEmailMessage[];
@@ -163,6 +164,7 @@ export function InboxView({
   contracts: Contract[];
   programs: ProgramTerm[];
   internalComments: AdaptedInternalThreadComment[];
+  unassignedCount?: number;
 }) {
   const params = useSearchParams();
   const queryThreadId = params?.get("threadId") ?? null;
@@ -367,6 +369,14 @@ export function InboxView({
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs">
+          {unassignedCount > 0 && (
+            <Link
+              href="/inbox/unassigned"
+              className="px-3 py-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+            >
+              未割当 {unassignedCount} 件
+            </Link>
+          )}
           <Link
             href="/inbox/extractions"
             className="px-3 py-1.5 rounded-full bg-ink-900 text-white hover:opacity-90"
