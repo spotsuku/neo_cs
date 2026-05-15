@@ -13,8 +13,8 @@ import {
 } from "@/lib/surveys/pipeline";
 import { summarizeColumns } from "@/lib/surveys/csv";
 import { extractInsights } from "@/lib/surveys/insights";
-import { surveyQuestions } from "@/lib/mock/surveys";
-import type { ColumnMapping } from "@/lib/mock/surveys";
+import { surveyQuestions } from "@/lib/master/surveys";
+import type { ColumnMapping } from "@/lib/master/surveys";
 
 export const runtime = "nodejs";
 

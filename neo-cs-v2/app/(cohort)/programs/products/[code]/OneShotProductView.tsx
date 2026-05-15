@@ -12,7 +12,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import type { Company } from "@/lib/mock/entities";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import {
   yen,
   courseShortName,

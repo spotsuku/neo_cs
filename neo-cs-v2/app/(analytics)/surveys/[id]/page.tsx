@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { TopNavServer } from "@/components/nav/TopNavServer";
 import { SurveyDetail } from "./SurveyDetail";
+import { aggregateSurveyFrom } from "@/lib/master/surveys";
 import {
   aggregateSurvey,
-  aggregateSurveyFrom,
   targetCountForSurvey,
   responsesByCompany
-} from "@/lib/mock/surveys";
+} from "@/lib/master/surveys";
 import {
   surveyRepo,
   contractRepo,

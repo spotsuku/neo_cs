@@ -12,10 +12,8 @@ import {
   type ProductCode,
   productByCode
 } from "@/lib/master";
-import {
-  daysUntilStart,
-  type ActiveContract
-} from "@/lib/mock/onboarding";
+import { daysUntilStart } from "@/lib/master/date";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import type {
   ContractOnboardingItem,
   OnboardingTemplateCategoryRecord

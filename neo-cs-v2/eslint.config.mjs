@@ -14,31 +14,26 @@ export default [
   },
   {
     // クライアントコンポーネント (app/, components/) で `@/lib/mock/*` から
-    // **値** (オブジェクト・配列・関数) を import するのを禁止する。
-    // 型 import (`import type {...}`) は OK。
+    // app / components 配下から `@/lib/mock/*` への import を全面禁止 (error)。
+    // 型 import (`import type {...}`) は許可。
     //
-    // 背景: 本番 (REPO_DRIVER=supabase) でも mock データが画面に表示される
-    // 不具合の再発を防止する。データは Server Component で repo から fetch して
-    // props 経由で渡すこと。
+    // 背景:
+    //   - 本番 (REPO_DRIVER=supabase) で lib/mock/ は参照されないため、ここを
+    //     編集しても何も達成しない。並行会話での誤編集事故を構造的に防ぐ。
+    //   - マスタ系・utility は lib/master/ に分離済 (commit 6e05a15)
+    //   - 実データは @/lib/repository/server 経由
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
     ignores: ["**/*.test.ts", "**/*.test.tsx"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
             {
-              group: ["@/lib/mock/*"],
-              importNames: [
-                "companies", "onboardingTasks", "activeContracts", "allContracts",
-                "contractOnboardingItems", "seedCompanyJourneys", "seedBusinessJourneys",
-                "weeklyReviews", "emailThreads", "emailMessages",
-                "surveys", "surveyInsights", "surveySchedules", "surveyResponses",
-                "participants", "sessions", "attendanceRecords",
-                "churnRecords", "vocItems",
-                "mockHealthSnapshots", "mockChurnSignals", "mockExpansionOpportunities"
-              ],
-              message: "クライアント側で @/lib/mock/* のデータ values を import しないでください。Server Component で `@/lib/repository/server` から fetch して props で渡すこと。"
+              group: ["@/lib/mock/*", "@/lib/mock"],
+              allowTypeImports: true,
+              message:
+                "@/lib/mock/* からの値 import は禁止です。マスタは @/lib/master/* から、実データは @/lib/repository/server から取得してください。"
             }
           ]
         }

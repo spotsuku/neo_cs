@@ -8,7 +8,7 @@ import {
   ROLE_LEVEL_ORDER,
   type Participant,
   type Session
-} from "@/lib/mock/participants";
+} from "@/lib/master/participants";
 import type { ProductCode } from "@/lib/repository/types";
 
 /**

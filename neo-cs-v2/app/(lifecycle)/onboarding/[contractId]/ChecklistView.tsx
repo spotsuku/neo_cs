@@ -13,7 +13,7 @@ import type {
   ContractOnboardingItem,
   OnboardingItemEditableStatus
 } from "@/lib/repository/types";
-import type { OnboardingCategory } from "@/lib/mock/onboarding";
+import type { OnboardingCategory } from "@/lib/master/onboarding";
 import {
   setOnboardingItemStatus,
   setOnboardingItemAssignee,

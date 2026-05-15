@@ -5,7 +5,7 @@
 
 import type { ContractLifecycleSnapshot } from "@/lib/repository/types";
 import type { Company } from "@/lib/mock/entities";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import { ProductBadge } from "./ProductBadge";
 
 const ENDED_AS_LABEL: Record<ContractLifecycleSnapshot["endedAs"], string> = {

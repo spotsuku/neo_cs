@@ -4,18 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { ProductBadge } from "@/components/contract/ProductBadge";
 import { KpiCard } from "@/components/kpi/KpiCard";
-import {
+import type {
   Survey,
   SurveyResponse,
   SurveyInsight,
   SurveyImport,
   SurveyInsightCategory,
-  SurveySchedule,
-  aggregateSurvey,
-  questionById,
-  describeRespondentTarget,
-  describeTrigger
-} from "@/lib/mock/surveys";
+  SurveySchedule
+} from "@/lib/master/surveys";
+import { describeRespondentTarget, describeTrigger } from "@/lib/master/surveys";
+import { aggregateSurvey, questionById } from "@/lib/master/surveys";
 import { ProductCode } from "@/lib/master";
 import { VocScanButton } from "@/components/voc/VocScanButton";
 import type { VocSourceTextInput } from "@/lib/domain/voc/voc";

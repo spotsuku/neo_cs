@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import type { Company } from "@/lib/mock/entities";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import { yen, courseShortName, hasMultipleCourses, type ProductCode } from "@/lib/master";
 
 const CYCLE_STATUS_LABEL: Record<string, string> = {

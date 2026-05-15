@@ -18,12 +18,12 @@ import { getWeekRange } from "@/lib/master/date";
 import {
   weeksStuck,
   CURRENT_WEEK_MONDAY
-} from "@/lib/mock/weekly";
+} from "@/lib/master/date";
 import type {
   WeeklyReview,
   WeeklyAction,
   WeeklyNextAction
-} from "@/lib/mock/weekly";
+} from "@/lib/master/date";
 import {
   CompanyWeeklyEditor,
   WeeklyDraft,

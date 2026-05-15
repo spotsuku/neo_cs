@@ -7,7 +7,7 @@
 // Q1 と FY は from/to が別物 (kpi.periodFor) になり、結果も別になる。
 
 import { useMemo, useState } from "react";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import { yen } from "@/lib/master";
 import {
   computePeriodPerformance,

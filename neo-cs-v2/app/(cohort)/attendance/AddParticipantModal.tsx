@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import type { Company } from "@/lib/mock/entities";
 import type {
   Participant,
   ParticipantSeniority
-} from "@/lib/mock/participants";
+} from "@/lib/master/participants";
 
 const SENIORITY_OPTIONS: { value: ParticipantSeniority; label: string }[] = [
   { value: "young", label: "若手" },

@@ -25,7 +25,7 @@ import {
   CURRENT_WEEK_MONDAY,
   weeksStuck,
   WeeklyReview
-} from "@/lib/mock/weekly";
+} from "@/lib/master/date";
 import type { Company, Contract } from "@/lib/repository/server";
 import { CompanyWeeklyEditor, WeeklyDraft } from "./CompanyWeeklyEditor";
 import { WeeklyTable } from "./WeeklyTable";

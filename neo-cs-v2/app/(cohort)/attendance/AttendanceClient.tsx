@@ -5,8 +5,8 @@ import type {
   Participant,
   Session,
   AttendanceRecord
-} from "@/lib/mock/participants";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+} from "@/lib/master/participants";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import type { Company as MockCompany, Contact } from "@/lib/mock/entities";
 
 type Company = MockCompany;

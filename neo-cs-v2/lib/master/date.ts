@@ -50,3 +50,21 @@ export function nextWeekDate(monday: string): string {
   d.setDate(d.getDate() + 7);
   return d.toISOString().slice(0, 10);
 }
+
+// 開始日まで残り日数 (現在時刻基準)
+export function daysUntilStart(startDate: string): number {
+  const diff = (new Date(startDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  return Math.ceil(diff);
+}
+
+// ─────────────────────────────────────────────
+// 旧 lib/mock/weekly.ts の utility を master 経由で再公開
+// ※ 元の関数本体は lib/mock/weekly.ts に残るが、app/components からは
+//   master 経由でのみアクセスする
+// ─────────────────────────────────────────────
+export { weeksStuck, CURRENT_WEEK_MONDAY } from "@/lib/mock/weekly";
+export type {
+  WeeklyReview,
+  WeeklyAction,
+  WeeklyNextAction
+} from "@/lib/mock/weekly";

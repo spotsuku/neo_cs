@@ -13,8 +13,8 @@ import {
   hasMultipleCourses,
   productCourses
 } from "@/lib/master";
-import { productJourney } from "@/lib/mock/onboarding";
-import { aggregateSurvey } from "@/lib/mock/surveys";
+import { productJourney } from "@/lib/master/onboarding";
+import { aggregateSurvey } from "@/lib/master/surveys";
 import {
   companyRepo,
   contractRepo,

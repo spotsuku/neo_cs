@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { BusinessLifecycleState } from "@/lib/repository/types";
-import { LIFECYCLE_STATE_LABEL } from "@/lib/mock/journeys";
+import { LIFECYCLE_STATE_LABEL } from "@/lib/master/journey";
 import { setBusinessLifecycleStateAction } from "@/app/(relationship)/companies/[id]/journey-actions";
 
 const STATE_TONE: Record<BusinessLifecycleState, string> = {

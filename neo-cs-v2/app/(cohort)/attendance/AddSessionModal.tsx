@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import type { Company, Contact, ContactRoleLevel } from "@/lib/mock/entities";
 import {
   resolveParticipantRole,
@@ -9,7 +9,7 @@ import {
   ROLE_LEVEL_ORDER,
   type Participant,
   type Session
-} from "@/lib/mock/participants";
+} from "@/lib/master/participants";
 import type { ProductCode } from "@/lib/repository/types";
 
 type ScopeMode = "all" | "by_role";

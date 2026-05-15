@@ -9,7 +9,7 @@ import {
   describeTrigger,
   describeRespondentTarget,
   SurveyRespondentType
-} from "@/lib/mock/surveys";
+} from "@/lib/master/surveys";
 import type { Survey, SurveySchedule } from "@/lib/repository/server";
 import { ProductCode, products, productByCode } from "@/lib/master";
 

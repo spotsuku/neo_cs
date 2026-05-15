@@ -3,13 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/nav/TopNav";
-import {
-  ColumnMapping,
-  mockAiAnalyzeCsv,
-  surveyQuestions,
-  describeTrigger,
-  describeRespondentTarget
-} from "@/lib/mock/surveys";
+import type { ColumnMapping } from "@/lib/master/surveys";
+import { describeTrigger, describeRespondentTarget } from "@/lib/master/surveys";
+import { mockAiAnalyzeCsv, surveyQuestions } from "@/lib/master/surveys";
 import type { SurveySchedule } from "@/lib/repository/server";
 import { parseSurveyCsv } from "@/lib/surveys/csv";
 import { ProductCode, productByCode, products } from "@/lib/master";

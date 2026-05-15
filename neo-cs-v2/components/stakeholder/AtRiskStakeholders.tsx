@@ -8,7 +8,7 @@ import Link from "next/link";
 import { stakeholderRepo, meetingLogRepo, companyRepo } from "@/lib/repository/server";
 import { computeStakeholderEngagement } from "@/lib/domain/community/engagement-builder";
 import { EngagementBadge } from "./StakeholderEngagementCard";
-import { stakeholderTypeLabel } from "@/lib/mock/cycles";
+import { stakeholderTypeLabel } from "@/lib/master/cycles";
 
 export async function AtRiskStakeholders({ limit = 5 }: { limit?: number }) {
   const [stakeholders, companies] = await Promise.all([

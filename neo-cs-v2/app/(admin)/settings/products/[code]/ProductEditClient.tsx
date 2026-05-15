@@ -8,14 +8,18 @@ import CoursesEditor from "./CoursesEditor";
 import { OnboardingTemplateEditor } from "./OnboardingTemplateEditor";
 import {
   productOnboardingTemplates,
-  OnboardingCategory,
-  OnboardingTemplateItem,
+  type OnboardingCategory,
+  type OnboardingTemplateItem,
   type ActiveContract
-} from "@/lib/mock/onboarding";
+} from "@/lib/master/onboarding";
+import type {
+  Session,
+  AttendanceRecord
+} from "@/lib/master/participants";
 import {
   sessions as allSessionsData,
   attendanceRecords as allAttendanceData
-} from "@/lib/mock/participants";
+} from "@/lib/master/participants";
 
 type Product = (typeof products)[number];
 

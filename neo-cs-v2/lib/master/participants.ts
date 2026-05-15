@@ -236,3 +236,18 @@ export type AttendanceRecord = {
   recordedBy: string;
   note?: string;
 };
+
+// ─────────────────────────────────────────────
+// 後方互換 re-export: 旧 lib/mock/participants の seed 依存関数を master 経由で公開。
+// アプリ側は @/lib/master/participants から import すること。
+// (現状 mock seed を参照しているが、将来 repo / DB ベースに差し替え予定)
+// ─────────────────────────────────────────────
+export {
+  participantEngagement,
+  contractEngagementSummary,
+  productAttendanceByAttribute,
+  participantSurveyResponseRate,
+  participants,
+  sessions,
+  attendanceRecords
+} from "@/lib/mock/participants";

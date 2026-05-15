@@ -6,7 +6,7 @@ import { TopNav } from "@/components/nav/TopNav";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness/completeness";
 import type { CompanyWeather } from "@/lib/domain/weather/weather";
 import { WeatherIcon } from "@/components/health/WeatherIcon";
-import { DEFAULT_COMPANY_STAGES } from "@/lib/mock/journeys";
+import { DEFAULT_COMPANY_STAGES } from "@/lib/master/journey";
 import { ENGAGEMENT_TIER_LABEL } from "@/lib/domain/community/engagement-aggregation";
 // コース表示に対応
 import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/master";

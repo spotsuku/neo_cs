@@ -8,17 +8,19 @@ import {
   hasMultipleCourses
 } from "@/lib/master";
 import {
-  CURRENT_WEEK_MONDAY,
   formatWeekRange,
   prevWeek,
   nextWeekDate,
-  getWeekRange,
+  getWeekRange
+} from "@/lib/master/date";
+import {
+  CURRENT_WEEK_MONDAY,
   WeeklyReview,
   WeeklyAction,
   WeeklyNextAction,
   weeksStuck
-} from "@/lib/mock/weekly";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+} from "@/lib/master/date";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import { submitWeeklyReviewAction } from "@/app/(cohort)/weekly/actions";
 import { useDraftPersistence } from "@/lib/hooks/useDraftPersistence";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";

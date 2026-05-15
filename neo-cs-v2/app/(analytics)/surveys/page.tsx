@@ -1,5 +1,5 @@
 import { surveyRepo } from "@/lib/repository/server";
-import { aggregateSurveyFrom } from "@/lib/mock/surveys";
+import { aggregateSurveyFrom } from "@/lib/master/surveys";
 import SurveysClient from "./SurveysClient";
 
 export const dynamic = "force-dynamic";

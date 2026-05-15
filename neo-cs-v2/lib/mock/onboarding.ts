@@ -588,7 +588,5 @@ export function contractProgress(contractId: string) {
   return { done, total: items.length, overdue };
 }
 
-export function daysUntilStart(startDate: string): number {
-  const diff = (new Date(startDate).getTime() - new Date(TODAY).getTime()) / (1000 * 60 * 60 * 24);
-  return Math.ceil(diff);
-}
+// daysUntilStart は master/date に移動済。後方互換 re-export を残す。
+export { daysUntilStart } from "@/lib/master/date";

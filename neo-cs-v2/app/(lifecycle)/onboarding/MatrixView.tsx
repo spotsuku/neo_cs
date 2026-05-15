@@ -12,7 +12,7 @@ import {
   hasMultipleCourses,
   courseShortName
 } from "@/lib/master";
-import { type ActiveContract } from "@/lib/mock/onboarding";
+import { type ActiveContract } from "@/lib/master/onboarding";
 import type {
   ContractOnboardingItem,
   ContractStatus,

@@ -24,23 +24,19 @@ import type {
 } from "@/lib/mock/entities";
 // コース表示に対応
 import { ProductCode, productByCode, yen, hasMultipleCourses, courseShortName, courseName, cycleLabel } from "@/lib/master";
-import type { ActiveContract } from "@/lib/mock/onboarding";
+import type { ActiveContract } from "@/lib/master/onboarding";
 import type { ContractOnboardingItem } from "@/lib/repository/types";
-import {
-  productOnboardingTemplates,
-  categoryProgress,
-  contractProgress
-} from "@/lib/mock/onboarding";
+import { productOnboardingTemplates } from "@/lib/master/onboarding";
 import type {
   Stakeholder,
   SuccessPlan,
   AccountJourney
-} from "@/lib/mock/cycles";
+} from "@/lib/master/cycles";
 import {
   stakeholderTypeLabel,
   journeyStageLabel,
   journeyStageOrder
-} from "@/lib/mock/cycles";
+} from "@/lib/master/cycles";
 import type {
   CompanyJourney,
   BusinessJourney,
@@ -109,26 +105,24 @@ import {
   type StakeholderEngagementMetrics
 } from "@/components/stakeholder/StakeholderEngagementCard";
 import { useHealthSnapshots } from "@/lib/hooks/useHealthSnapshots";
-import type { ChurnRecord } from "@/lib/mock/churn";
-import { reasonCategoryLabels, reasonCategoryOrder } from "@/lib/mock/churn";
+import type { ChurnRecord } from "@/lib/master/churn";
+import { reasonCategoryLabels, reasonCategoryOrder } from "@/lib/master/churn";
 import type { EmailThreadStatus } from "@/lib/mock/email";
 import type { EmailThread, EmailMessage } from "@/lib/repository/types";
-import {
-  aggregateSurvey,
-  targetCountForSurvey,
-  type Survey,
-  type SurveyResponse
-} from "@/lib/mock/surveys";
+import type { Survey, SurveyResponse } from "@/lib/master/surveys";
+import { aggregateSurvey, targetCountForSurvey } from "@/lib/master/surveys";
 import type { SurveyInsightRecord } from "@/lib/repository/types";
 import {
-  participantEngagement,
-  participantSurveyResponseRate,
   participantFieldSchemas,
   participantTermByProduct,
   type Session,
-  type AttendanceRecord
-} from "@/lib/mock/participants";
-import type { Participant } from "@/lib/mock/participants";
+  type AttendanceRecord,
+  type Participant
+} from "@/lib/master/participants";
+import {
+  participantEngagement,
+  participantSurveyResponseRate
+} from "@/lib/master/participants";
 
 type HealthColor = "green" | "yellow" | "red";
 

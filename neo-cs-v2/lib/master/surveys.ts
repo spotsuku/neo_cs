@@ -224,6 +224,25 @@ export function describeTrigger(trigger: SurveyScheduleTrigger): string {
   return `年${trigger.atMonths.length}回 (${trigger.atMonths.map((m) => `${m}月`).join(",")})`;
 }
 
+// ─────────────────────────────────────────────
+// 後方互換 re-export: 旧 lib/mock/surveys の seed 依存関数を master 経由で公開。
+// アプリ側は @/lib/master/surveys から import すること。
+// (これらは現状 mock seed を参照しているが、将来的に repo / DB ベースに差し替え予定)
+// ─────────────────────────────────────────────
+export {
+  aggregateSurvey,
+  surveyQuestions,
+  surveyTemplates,
+  surveySchedules,
+  targetCountForSurvey,
+  responsesByCompany,
+  questionByKey,
+  questionById,
+  mockAiAnalyzeCsv,
+  mockExtractInsights,
+  scheduleById
+} from "@/lib/mock/surveys";
+
 export function describeRespondentTarget(t: SurveyRespondentTarget): string {
   switch (t) {
     case "all_stakeholders":

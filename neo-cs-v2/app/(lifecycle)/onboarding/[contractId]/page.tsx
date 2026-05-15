@@ -6,9 +6,9 @@ import { ProductBadge } from "@/components/contract/ProductBadge";
 import { productByCode, yen, hasMultipleCourses, courseName } from "@/lib/master";
 import {
   productOnboardingTemplates,
-  daysUntilStart,
   filterTemplateByCourse
-} from "@/lib/mock/onboarding";
+} from "@/lib/master/onboarding";
+import { daysUntilStart } from "@/lib/master/date";
 import {
   onboardingItemRepo,
   userRepo,
