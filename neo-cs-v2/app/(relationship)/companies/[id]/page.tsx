@@ -38,6 +38,7 @@ import {
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { HealthColor } from "@/lib/domain/health/health";
 import { computeCccBreakdown } from "@/lib/domain/ccc/breakdown";
+import { aggregateEngagementTier } from "@/lib/domain/community/engagement-aggregation";
 import {
   suggestBusinessStage,
   suggestCompanyStage,
@@ -312,7 +313,7 @@ export default async function CompanyDetailPage({
     surveyScore: null,
     newParticipantCount: participantList.length,
     referralCount: null,
-    engagementTier: null
+    engagementTier: aggregateEngagementTier(stakeholders)
   });
 
   return (
