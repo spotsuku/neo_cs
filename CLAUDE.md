@@ -23,10 +23,27 @@
 
 ## 1. 鉄則 (絶対に守る)
 
+### 1.0 ⚠️ 最重要: `lib/mock/*` を一切触らない
+
+**`lib/mock/*` は本番運用では一切参照されない**。新規ファイル追加・既存ファイル編集・seed 配列の更新、すべて禁止。
+
+理由:
+- 本番は `REPO_DRIVER=supabase` で `lib/repository/supabase/*` 経由で実 DB を読む
+- `lib/mock/*` は (将来削除予定の) 旧開発用 stub
+- ここに変更を加えても本番には**一切反映されない**
+- 「mock を触る = 何も達成していない」と理解すること
+
+**マスタ系データを変更したい場合**:
+- `products` / 事業・コース定義 → `lib/master/products.ts` (or DB の `products` テーブル)
+- 表示フォーマッタ (yen / pct 等) → `lib/master/format.ts`
+- 日付ユーティリティ → `lib/master/date.ts`
+
+**実データ操作**:
+- 必ず `@/lib/repository/server` 経由
+
 ### 1.1 Repository 層の使い分け
-- **Server から Repository を使う場合は必ず `@/lib/repository/server` から import**。`@/lib/repository` は Server で使わない。
+- **Server から Repository を使う場合は必ず `@/lib/repository/server` から import**。`@/lib/repository` は Server で使わない (Client 用旧ファサード)。
 - Client Component から Repository を直接呼ばない。Server Component or Server Action 経由でデータを受け取る。
-- `lib/mock/*` を直接 import しない (Repository ファサード経由のみ)。
 - 詳細: [docs/ARCHITECTURE.md §3](docs/ARCHITECTURE.md)
 
 ### 1.2 不可逆アクションは人間のクリック必須
