@@ -9,7 +9,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { assignThreadCompanyAction } from "./actions";
+import {
+  assignThreadCompanyAction,
+  suggestCompanyForThreadAction
+} from "./actions";
 
 export type UnassignedThreadRow = {
   id: string;
@@ -66,8 +69,44 @@ function ThreadRow({
   const [selected, setSelected] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [suggestPending, startSuggestTransition] = useTransition();
+  const [suggestion, setSuggestion] = useState<
+    | null
+    | {
+        companyId: string | null;
+        companyName?: string;
+        confidence: number;
+        reasoning: string;
+      }
+  >(null);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
 
   const listId = `company-list-${thread.id}`;
+
+  const onSuggest = () => {
+    setSuggestError(null);
+    setSuggestion(null);
+    startSuggestTransition(async () => {
+      const res = await suggestCompanyForThreadAction(thread.id);
+      if (res.ok) {
+        setSuggestion(res.suggestion);
+      } else {
+        setSuggestError(res.message);
+      }
+    });
+  };
+
+  const onAdoptSuggestion = (companyId: string) => {
+    setError(null);
+    startTransition(async () => {
+      const res = await assignThreadCompanyAction(thread.id, companyId);
+      if (res.ok) {
+        router.refresh();
+      } else {
+        setError(res.message);
+      }
+    });
+  };
 
   const onSave = () => {
     setError(null);
@@ -141,9 +180,53 @@ function ThreadRow({
           >
             {pending ? "保存中…" : "保存"}
           </button>
+          <button
+            type="button"
+            onClick={onSuggest}
+            disabled={suggestPending || pending}
+            className="rounded-md border border-ink-300 px-2 py-1 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-40 whitespace-nowrap"
+            title="件名・本文から AI が企業を推定します"
+          >
+            {suggestPending ? "推定中…" : "AI で候補を提案"}
+          </button>
         </div>
         {error && (
           <p className="mt-1 text-xs text-rose-600">{error}</p>
+        )}
+        {suggestError && (
+          <p className="mt-1 text-xs text-rose-600">AI エラー: {suggestError}</p>
+        )}
+        {suggestion && (
+          <div className="mt-1 text-xs text-ink-700">
+            {suggestion.companyId ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span>
+                  AI 候補:{" "}
+                  <span className="font-medium text-ink-900">
+                    {suggestion.companyName ?? suggestion.companyId}
+                  </span>{" "}
+                  <span className="text-ink-500">
+                    (信頼度 {suggestion.confidence.toFixed(2)})
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onAdoptSuggestion(suggestion.companyId!)}
+                  disabled={pending}
+                  className="rounded-md bg-brand-blue px-2 py-0.5 text-xs text-white hover:opacity-90 disabled:opacity-40"
+                >
+                  {pending ? "適用中…" : "採用"}
+                </button>
+                {suggestion.reasoning && (
+                  <span className="text-ink-500">— {suggestion.reasoning}</span>
+                )}
+              </div>
+            ) : (
+              <span className="text-ink-500">
+                候補が見つかりませんでした ({suggestion.reasoning})
+              </span>
+            )}
+          </div>
         )}
       </td>
     </tr>

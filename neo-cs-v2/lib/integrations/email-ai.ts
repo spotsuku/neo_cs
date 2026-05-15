@@ -198,3 +198,183 @@ export async function extractAndSaveEmailSignals(
   log.info({ kind: "extracted", saved, candidates: items.length });
   return { attempted: true, saved };
 }
+
+// ─────────────────────────────────────────────
+// 未割当スレッド向け: 企業候補提示 (on-demand)
+// ─────────────────────────────────────────────
+//
+// /inbox/unassigned から手動トリガーで呼ばれる。
+// 件名・本文・送信者・受信者と既知 companies 一覧を Claude に渡し、
+// 最も尤もらしい企業 id (or null) を返してもらう。
+// 履歴は ai_extractions に extraction_type="company_suggestion" で残す
+// (reviewed=false; 採用クリック時に既存 assignThreadCompanyAction で
+//  thread.company_id が更新されるが ai_extractions 自体は audit 用途)。
+
+const COMPANY_SUGGEST_SYSTEM_PROMPT = `あなたは B2B カスタマーサクセスのメール振り分けアシスタントです。
+受信メールの件名・本文・送信者・受信者と、既知の企業リストを与えられます。
+このメールがどの企業のものか、最も尤もらしい候補を 1 件だけ選んでください。
+
+判断材料:
+- 送信者メールアドレスのドメイン
+- 本文・件名に登場する企業名・サービス名
+- 担当者名 (本文中の署名)
+- メール文中の文脈
+
+出力は strict JSON:
+{
+  "company_id": "<候補企業の id> | null",
+  "confidence": 0.0-1.0,
+  "reasoning": "なぜそう判断したか (120 字以内)"
+}
+
+注意:
+- 確信が持てない (該当無し / 営業 DM / 自動配信) 場合は company_id を null にする
+- company_id は必ず与えられたリストの id をそのまま返す (新規に作らない)
+- confidence は控えめに (0.5 未満なら null を推奨)`;
+
+export type CompanySuggestInput = {
+  organizationId: string;
+  /** email_threads.id (履歴の sourceId として使う) */
+  threadId: string;
+  subject: string;
+  body: string;
+  senderEmail: string;
+  recipients: string[];
+  companies: Array<{ id: string; name: string; emailDomains?: string[] }>;
+};
+
+export type CompanySuggestResult = {
+  companyId: string | null;
+  confidence: number;
+  reasoning: string;
+};
+
+export async function suggestCompanyForThread(
+  input: CompanySuggestInput
+): Promise<CompanySuggestResult> {
+  const log = (await getLogger()).child({
+    integration: "email-ai",
+    op: "suggest_company",
+    threadId: input.threadId
+  });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return { companyId: null, confidence: 0, reasoning: "AI 未設定" };
+  }
+  if (process.env.DEGRADED_ANTHROPIC === "true") {
+    return { companyId: null, confidence: 0, reasoning: "AI 一時停止中" };
+  }
+
+  // 企業リストが空なら呼ぶ意味がない
+  if (input.companies.length === 0) {
+    return { companyId: null, confidence: 0, reasoning: "候補企業がありません" };
+  }
+
+  const companyLines = input.companies
+    .slice(0, 200) // プロンプト爆発防止
+    .map((c) => {
+      const domains =
+        c.emailDomains && c.emailDomains.length > 0
+          ? ` (domains: ${c.emailDomains.join(", ")})`
+          : "";
+      return `- id=${c.id} / name=${c.name}${domains}`;
+    })
+    .join("\n");
+
+  const body = (input.body ?? "").trim().slice(0, 6000);
+  const userPrompt = [
+    `件名: ${input.subject}`,
+    `送信者: ${input.senderEmail}`,
+    `受信者: ${input.recipients.slice(0, 5).join(", ")}`,
+    "",
+    "既知の企業リスト:",
+    companyLines,
+    "",
+    "本文:",
+    body
+  ].join("\n");
+
+  let parsed: { company_id: string | null; confidence?: number; reasoning?: string };
+  try {
+    const { response } = await fetchHard(ANTHROPIC_API, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 512,
+        system: COMPANY_SUGGEST_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userPrompt }]
+      }),
+      timeoutMs: 30_000,
+      retryNonIdempotent: true
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      log.warn({
+        kind: "claude_http_error",
+        status: response.status,
+        body: text.slice(0, 500)
+      });
+      return { companyId: null, confidence: 0, reasoning: "推論失敗" };
+    }
+    const json = (await response.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+    };
+    const text = (json.content ?? [])
+      .map((c) => (c.type === "text" ? c.text ?? "" : ""))
+      .join("");
+    const cleaned = text
+      .replace(/^[\s\S]*?```json\s*/i, "")
+      .replace(/```[\s\S]*$/, "")
+      .trim();
+    parsed = JSON.parse(cleaned.length > 0 ? cleaned : text);
+  } catch (e) {
+    log.warn({ kind: "claude_parse_failed", message: (e as Error).message });
+    return { companyId: null, confidence: 0, reasoning: "推論失敗" };
+  }
+
+  // company_id が与えたリストに存在するか検証
+  const rawId =
+    typeof parsed.company_id === "string" && parsed.company_id.length > 0
+      ? parsed.company_id
+      : null;
+  const matched =
+    rawId !== null ? input.companies.find((c) => c.id === rawId) ?? null : null;
+  const companyId = matched ? matched.id : null;
+  const confidence =
+    typeof parsed.confidence === "number"
+      ? Math.max(0, Math.min(1, parsed.confidence))
+      : 0;
+  const reasoning =
+    typeof parsed.reasoning === "string" && parsed.reasoning.length > 0
+      ? parsed.reasoning.slice(0, 200)
+      : companyId
+        ? "判断根拠なし"
+        : "候補が見つかりませんでした";
+
+  // 履歴を ai_extractions に保存 (失敗しても結果は返す)
+  try {
+    await aiExtractionRepo.create({
+      organizationId: input.organizationId,
+      sourceType: "email",
+      sourceId: input.threadId,
+      companyId: companyId ?? undefined,
+      extractionType: "company_suggestion",
+      excerpt: reasoning,
+      confidence,
+      suggestedAction: companyId ? `企業 ${companyId} へアサインを提案` : undefined
+    });
+  } catch (e) {
+    log.warn({
+      kind: "suggestion_save_failed",
+      message: (e as Error).message
+    });
+  }
+
+  log.info({ kind: "company_suggested", companyId, confidence });
+  return { companyId, confidence, reasoning };
+}

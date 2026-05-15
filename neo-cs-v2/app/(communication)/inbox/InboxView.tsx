@@ -117,14 +117,16 @@ const TYPE_LABEL: Record<AiExtractionType, string> = {
   risk_signal: "リスク",
   churn_signal: "解約シグナル",
   expansion_signal: "拡張シグナル",
-  meeting_request: "ミーティング"
+  meeting_request: "ミーティング",
+  company_suggestion: "企業候補"
 };
 const TYPE_COLOR: Record<AiExtractionType, string> = {
   progress_signal: "#10B981",
   risk_signal: "#EF4444",
   churn_signal: "#F59E0B",
   expansion_signal: "#3D9EFF",
-  meeting_request: "#8B5CF6"
+  meeting_request: "#8B5CF6",
+  company_suggestion: "#64748B"
 };
 
 type Filter = "received" | "assigned" | "program" | "all";

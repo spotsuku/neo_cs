@@ -1497,7 +1497,8 @@ export type AiExtractionType =
   | "risk_signal"
   | "churn_signal"
   | "expansion_signal"
-  | "meeting_request";
+  | "meeting_request"
+  | "company_suggestion";
 
 export type AiExtraction = {
   id: string;

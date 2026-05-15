@@ -10,14 +10,16 @@ const TYPE_LABEL: Record<AiExtractionType, string> = {
   risk_signal: "リスク",
   churn_signal: "解約シグナル",
   expansion_signal: "拡張シグナル",
-  meeting_request: "ミーティング"
+  meeting_request: "ミーティング",
+  company_suggestion: "企業候補"
 };
 const TYPE_COLOR: Record<AiExtractionType, string> = {
   progress_signal: "#10B981",
   risk_signal: "#EF4444",
   churn_signal: "#F59E0B",
   expansion_signal: "#3D9EFF",
-  meeting_request: "#8B5CF6"
+  meeting_request: "#8B5CF6",
+  company_suggestion: "#64748B"
 };
 
 // adapter 後の AI 抽出 shape (page.tsx で組み立てる)
@@ -58,7 +60,8 @@ export function MeExtractions({ items }: { items: MeExtractionItem[] }) {
     risk_signal: 0,
     churn_signal: 0,
     expansion_signal: 0,
-    meeting_request: 0
+    meeting_request: 0,
+    company_suggestion: 0
   };
   pending.forEach((p) => counts[p.extraction.type]++);
   const highCount = pending.filter((p) => p.extraction.confidence >= 0.9).length;
