@@ -15,6 +15,7 @@ import {
   stakeholderRepo,
   accountJourneyRepo,
   onboardingItemRepo,
+  onboardingTemplateRepo,
   successPlanRepo,
   assignmentRepo,
   companyTaskRepo,
@@ -115,10 +116,47 @@ export default async function CompanyDetailPage({
   const activeContractIds = contracts.map((c) => c.id);
   const allContractIds = allCycles.map((c) => c.id);
 
-  const [onboardingItemsAll, plansAll] = await Promise.all([
+  // 契約に登場する事業 (product) の onboarding テンプレを DB から取得。
+  // ToDo タブの ChecklistView がここから category 構造を組み立てる。
+  // (旧: lib/master/onboarding.ts の hardcoded productOnboardingTemplates)
+  const productsInUse = Array.from(new Set(allCycles.map((c) => c.product)));
+
+  const [onboardingItemsAll, plansAll, ...productTemplates] = await Promise.all([
     onboardingItemRepo.listByContractIds(activeContractIds),
-    successPlanRepo.listByContractIds(allContractIds)
+    successPlanRepo.listByContractIds(allContractIds),
+    ...productsInUse.map((p) => onboardingTemplateRepo.listByProduct(p))
   ]);
+
+  // DB 形 (OnboardingTemplateCategoryRecord) → mock 形 (OnboardingCategory) に変換
+  // (ChecklistView の既存 I/F を温存して局所変更で済ませる)
+  const onboardingTemplatesByProduct: Record<string, Array<{
+    key: string;
+    label: string;
+    order: number;
+    items: Array<{
+      key: string;
+      name: string;
+      dueOffsetDays: number;
+      required: boolean;
+      defaultAssigneeRole?: "cs" | "pr" | "ops" | "finance";
+      courseKey?: string;
+    }>;
+  }>> = {};
+  productsInUse.forEach((p, i) => {
+    onboardingTemplatesByProduct[p] = productTemplates[i].map((cat) => ({
+      key: cat.categoryKey,
+      label: cat.label,
+      order: cat.displayOrder,
+      items: cat.items.map((it) => ({
+        key: it.itemKey,
+        name: it.name,
+        dueOffsetDays: it.dueOffsetDays,
+        required: it.required,
+        defaultAssigneeRole: it.defaultAssigneeRole ?? undefined,
+        courseKey: it.courseKey ?? undefined
+      }))
+    }));
+  });
 
   // 念のため (リポジトリが ID 厳格でない実装に化けても安全): Set で再フィルタ。
   // O(n) で済むため過剰コストにはならない。
@@ -418,6 +456,7 @@ export default async function CompanyDetailPage({
         driveSendLogs={driveSendLogs}
         cccBreakdown={cccBreakdown}
         innerRingsComputed={innerRingsComputed}
+        onboardingTemplatesByProduct={onboardingTemplatesByProduct}
         surveys={companySurveys}
         surveyResponses={allSurveyResponses}
         surveyInsights={allSurveyInsights}

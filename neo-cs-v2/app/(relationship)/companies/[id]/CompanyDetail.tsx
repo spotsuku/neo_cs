@@ -24,7 +24,7 @@ import type {
 } from "@/lib/mock/entities";
 // コース表示に対応
 import { ProductCode, productByCode, yen, hasMultipleCourses, courseShortName, courseName, cycleLabel } from "@/lib/master";
-import type { ActiveContract } from "@/lib/master/onboarding";
+import type { ActiveContract, OnboardingCategory } from "@/lib/master/onboarding";
 import type { ContractOnboardingItem } from "@/lib/repository/types";
 import { productOnboardingTemplates } from "@/lib/master/onboarding";
 import type {
@@ -242,6 +242,7 @@ export function CompanyDetail({
   driveSendLogs = [],
   cccBreakdown,
   innerRingsComputed = {},
+  onboardingTemplatesByProduct,
   surveys: surveysProp = [],
   surveyResponses: surveyResponsesProp = [],
   surveyInsights: surveyInsightsProp = [],
@@ -336,6 +337,8 @@ export function CompanyDetail({
     string,
     { suggestedTier: "core" | "active" | "casual" | "at_risk"; reasons: string[] }
   >;
+  /** DB から取得した事業別オンボテンプレ (ChecklistView の category 構造の正本) */
+  onboardingTemplatesByProduct?: Record<string, OnboardingCategory[]>;
   /** アンケート一覧 (この企業に関連する surveys) */
   surveys?: Survey[];
   /** アンケート回答一覧 (上記 surveys に紐づく) */
@@ -574,6 +577,7 @@ export function CompanyDetail({
           tasks={tasks}
           members={members}
           programData={programData}
+          onboardingTemplatesByProduct={onboardingTemplatesByProduct}
         />
       )}
       {tab === "weekly" && (
@@ -998,6 +1002,9 @@ function OverviewTab({
     string,
     { suggestedTier: "core" | "active" | "casual" | "at_risk"; reasons: string[] }
   >;
+  /** DB から取得した事業別オンボテンプレ。ChecklistView の category 構造の正本。
+   *  未指定なら旧 master の productOnboardingTemplates にフォールバック。 */
+  onboardingTemplatesByProduct?: Record<string, OnboardingCategory[]>;
 }) {
   // 直近の動き: 面談ログ + 週次レビューを時系列でマージ
   const recentActivity = buildRecentActivity(logs, weeklyReviews, 6);
@@ -1546,7 +1553,8 @@ function TodoTab({
   items,
   tasks,
   members,
-  programData
+  programData,
+  onboardingTemplatesByProduct
 }: {
   companyId: string;
   companyName: string;
@@ -1556,6 +1564,7 @@ function TodoTab({
   tasks: CompanyTask[];
   members: { id: string; name: string }[];
   programData: ProgramBundle[];
+  onboardingTemplatesByProduct?: Record<string, OnboardingCategory[]>;
 }) {
   const productCodes = Array.from(new Set(contracts.map((c) => c.product)));
   const [selectedCode, setSelectedCode] = useState<ProductCode | "all">("all");
@@ -1648,6 +1657,7 @@ function TodoTab({
           items={filteredItems}
           members={members}
           today={new Date().toISOString().slice(0, 10)}
+          templatesByProduct={onboardingTemplatesByProduct}
         />
       )}
       {subcat === "program" && (
@@ -1983,12 +1993,14 @@ function OnboardingTab({
   contracts,
   items,
   members,
-  today
+  today,
+  templatesByProduct
 }: {
   contracts: ActiveContract[];
   items: ContractOnboardingItem[];
   members: { id: string; name: string }[];
   today: string;
+  templatesByProduct?: Record<string, OnboardingCategory[]>;
 }) {
   if (contracts.length === 0) {
     return (
@@ -2002,7 +2014,10 @@ function OnboardingTab({
     <section className="space-y-5">
       {contracts.map((contract) => {
         const p = productByCode[contract.product];
-        const template = productOnboardingTemplates[contract.product];
+        // DB から取得したテンプレを優先。未指定なら hardcoded master fallback。
+        const template =
+          templatesByProduct?.[contract.product] ??
+          productOnboardingTemplates[contract.product];
         const contractItems = items.filter((i) => i.contractId === contract.id);
         // 進捗集計
         let done = 0;
