@@ -16,7 +16,7 @@ import {
   describeRespondentTarget,
   describeTrigger
 } from "@/lib/mock/surveys";
-import { ProductCode } from "@/lib/mock/data";
+import { ProductCode } from "@/lib/master";
 import { VocScanButton } from "@/components/voc/VocScanButton";
 import type { VocSourceTextInput } from "@/lib/domain/voc/voc";
 

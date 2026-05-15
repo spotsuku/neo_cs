@@ -11,7 +11,7 @@ import type { Company as MockCompany, Contact } from "@/lib/mock/entities";
 
 type Company = MockCompany;
 import type { ProductCode } from "@/lib/repository/types";
-import type { products as ProductList } from "@/lib/mock/data";
+import type { products as ProductList } from "@/lib/master";
 import { AddSessionModal } from "./AddSessionModal";
 import { AddParticipantModal } from "./AddParticipantModal";
 import { ExpectedTargetModal } from "./ExpectedTargetModal";

@@ -23,7 +23,7 @@ import type {
   AppUserRole,
   ProgramScopeRole
 } from "@/lib/repository/types";
-import { products, productByCode } from "@/lib/mock/data";
+import { products, productByCode } from "@/lib/master";
 
 const ROLE_STYLE: Record<AppUserRole, { color: string; bg: string; label: string }> = {
   admin: { color: "#6366f1", bg: "#6366f114", label: "Admin" },

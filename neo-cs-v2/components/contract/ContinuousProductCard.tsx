@@ -7,7 +7,7 @@ import {
   hasMultipleCourses,
   productCourses,
   courseShortName
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import type { Contract } from "@/lib/repository/types";
 import { HealthDistribution } from "../health/HealthDistribution";
 

@@ -5,7 +5,7 @@ import { summarizeProgress } from "@/lib/domain/program/program";
 import { ProgramsView, type EnrichedTerm } from "./ProgramsView";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canPerform } from "@/lib/auth/role-permissions";
-import { products } from "@/lib/mock/data";
+import { products } from "@/lib/master";
 
 export const dynamic = "force-dynamic";
 

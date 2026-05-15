@@ -12,7 +12,7 @@ import {
   contractRepo,
   onboardingTemplateRepo
 } from "@/lib/repository/server";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 import type { OnboardingTemplateCategoryRecord } from "@/lib/repository/types";
 import { OnboardingView } from "./OnboardingView";
 

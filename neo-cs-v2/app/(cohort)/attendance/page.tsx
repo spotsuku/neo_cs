@@ -8,7 +8,7 @@ import {
   companyRepo,
   contactRepo
 } from "@/lib/repository/server";
-import { products } from "@/lib/mock/data";
+import { products } from "@/lib/master";
 
 export const dynamic = "force-dynamic";
 

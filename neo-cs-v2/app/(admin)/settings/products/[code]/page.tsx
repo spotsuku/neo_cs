@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ProductCode } from "@/lib/mock/data";
+import { ProductCode } from "@/lib/master";
 import {
   contractRepo,
   companyRepo,

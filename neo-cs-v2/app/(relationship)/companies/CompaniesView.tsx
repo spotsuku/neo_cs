@@ -9,7 +9,7 @@ import { WeatherIcon } from "@/components/health/WeatherIcon";
 import { DEFAULT_COMPANY_STAGES } from "@/lib/mock/journeys";
 import { ENGAGEMENT_TIER_LABEL } from "@/lib/domain/community/engagement-aggregation";
 // コース表示に対応
-import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/mock/data";
+import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/master";
 import type {
   Company,
   Contract,

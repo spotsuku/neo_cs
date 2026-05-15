@@ -7,7 +7,7 @@ import {
   contractRepo,
   onboardingItemRepo
 } from "@/lib/repository/server";
-import { productByCode, courseShortName, hasMultipleCourses, type ProductCode } from "@/lib/mock/data";
+import { productByCode, courseShortName, hasMultipleCourses, type ProductCode } from "@/lib/master";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canPerform } from "@/lib/auth/role-permissions";
 import { TermHubView } from "./TermHubView";

@@ -5,7 +5,7 @@
 //   全事業を横並びで表示し、現在選択中をホワイト浮き上がりで示す。
 
 import Link from "next/link";
-import { products, type ProductCode } from "@/lib/mock/data";
+import { products, type ProductCode } from "@/lib/master";
 
 export function ProductSwitcher({ currentCode }: { currentCode: ProductCode }) {
   return (

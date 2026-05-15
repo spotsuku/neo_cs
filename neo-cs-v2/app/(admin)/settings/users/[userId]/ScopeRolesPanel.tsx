@@ -5,7 +5,7 @@
 // クリックで即時保存（楽観的更新）
 
 import { useState, useTransition } from "react";
-import { products } from "@/lib/mock/data";
+import { products } from "@/lib/master";
 import type { ProgramScopeRole } from "@/lib/repository/types";
 import { upsertProgramScopeRole, removeProgramScopeRole } from "../actions";
 

@@ -13,7 +13,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createNextCycleAction } from "@/app/(relationship)/companies/[id]/cycle-actions";
-import { productCourses, type ProductCode } from "@/lib/mock/data";
+import { productCourses, type ProductCode } from "@/lib/master";
 
 export type NextCycleDefaults = {
   currentContractId: string;

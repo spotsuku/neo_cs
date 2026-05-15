@@ -6,7 +6,7 @@ import {
   productByCode,
   courseShortName,
   hasMultipleCourses
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import {
   CURRENT_WEEK_MONDAY,
   formatWeekRange,

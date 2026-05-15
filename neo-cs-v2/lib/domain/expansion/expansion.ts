@@ -18,7 +18,7 @@
 //   - seat_expansion          席数追加 / 受講人数追加
 //   - renewal_uplift          更新時の単価アップ
 
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 import { HEALTH_THRESHOLDS } from "../health/health";
 
 export type ExpansionKind =

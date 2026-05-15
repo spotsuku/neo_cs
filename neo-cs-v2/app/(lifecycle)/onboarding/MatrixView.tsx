@@ -11,7 +11,7 @@ import {
   productByCode,
   hasMultipleCourses,
   courseShortName
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import { type ActiveContract } from "@/lib/mock/onboarding";
 import type {
   ContractOnboardingItem,

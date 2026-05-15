@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { TopNavServer } from "@/components/nav/TopNavServer";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canSeeManagerView, assignedProductCodes } from "@/lib/auth/permissions";
-import { products as allProducts, productByCode } from "@/lib/mock/data";
+import { products as allProducts, productByCode } from "@/lib/master";
 import {
   contractRepo,
   weeklyReviewRepo,

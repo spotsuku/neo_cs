@@ -12,7 +12,7 @@ import {
   ProductCode,
   hasMultipleCourses,
   productCourses
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import { productJourney } from "@/lib/mock/onboarding";
 import { aggregateSurvey } from "@/lib/mock/surveys";
 import {

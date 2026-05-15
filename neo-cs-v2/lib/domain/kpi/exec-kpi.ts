@@ -5,7 +5,7 @@
 // を別関数で算出する。単発商材 (aiken/commu) はリピート率・平均単価などのスループット指標。
 
 import type { Contract, ContractStatus } from "@/lib/mock/contracts";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 
 export const CONTINUOUS_PRODUCTS: ProductCode[] = ["academia", "hyogikai"];
 export const ONESHOT_PRODUCTS: ProductCode[] = ["aiken", "commu"];

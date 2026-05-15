@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { products, type ProductCode } from "@/lib/mock/data";
+import { products, type ProductCode } from "@/lib/master";
 import type { Contact } from "@/lib/mock/entities";
 import {
   addMeetingLogAction,

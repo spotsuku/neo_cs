@@ -2,7 +2,7 @@
 // 一覧画面を挟まず、ヘッダ右上の ProductSwitcher で切替する設計
 
 import { redirect } from "next/navigation";
-import { products } from "@/lib/mock/data";
+import { products } from "@/lib/master";
 
 export const dynamic = "force-dynamic";
 

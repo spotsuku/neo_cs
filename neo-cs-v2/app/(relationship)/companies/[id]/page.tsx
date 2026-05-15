@@ -3,7 +3,7 @@ import { TopNavServer } from "@/components/nav/TopNavServer";
 import { CompanyDetail } from "./CompanyDetail";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canPerform } from "@/lib/auth/role-permissions";
-import { products } from "@/lib/mock/data";
+import { products } from "@/lib/master";
 import { checkCompanyCompleteness } from "@/lib/domain/completeness/completeness";
 import { computeStakeholderEngagement } from "@/lib/domain/community/engagement-builder";
 import type { StakeholderEngagementMetrics } from "@/components/stakeholder/StakeholderEngagementCard";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { products, ProductCode } from "@/lib/mock/data";
+import { products, ProductCode } from "@/lib/master";
 import { HealthDistribution } from "./HealthDistribution";
 
 // Health対象は継続型のみ

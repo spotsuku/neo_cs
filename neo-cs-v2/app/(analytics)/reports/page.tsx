@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { TopNavServer } from "@/components/nav/TopNavServer";
-import { yen } from "@/lib/mock/data";
+import { yen } from "@/lib/master";
 import {
   computeMrr,
   computeMrrTrend,

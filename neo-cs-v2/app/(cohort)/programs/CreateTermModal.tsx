@@ -7,7 +7,7 @@ import {
   productCourses,
   hasMultipleCourses,
   type ProductCode
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import type { ProgramTerm } from "@/lib/repository/types";
 import { createProgramTerm } from "./termActions";
 

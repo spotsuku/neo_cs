@@ -15,7 +15,7 @@ import {
   productCourses,
   yen,
   type ProductCode
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import { companyRepo, contractRepo } from "@/lib/repository/server";
 import { ContinuousProductView } from "./ContinuousProductView";
 import { OneShotProductView } from "./OneShotProductView";

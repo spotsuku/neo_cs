@@ -1,4 +1,4 @@
-import { productByCode, ProductCode } from "@/lib/mock/data";
+import { productByCode, ProductCode } from "@/lib/master";
 
 export function ProductBadge({ code, size = "md" }: { code: ProductCode; size?: "sm" | "md" }) {
   const p = productByCode[code];

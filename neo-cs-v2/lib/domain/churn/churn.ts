@@ -14,7 +14,7 @@
 //   5. usage_drop          直近4週の活動ペースがベースラインの50%以下
 //   6. survey_detractor    最新サーベイ NPS推奨度が 0..6 (detractor)
 
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 import { HEALTH_THRESHOLDS } from "../health/health";
 
 export type ChurnSignalRule =

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { TopNavServer } from "@/components/nav/TopNavServer";
-import { products } from "@/lib/mock/data";
+import { products } from "@/lib/master";
 
 export default function ProductsSettingsPage() {
   return (

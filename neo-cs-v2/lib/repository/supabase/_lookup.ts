@@ -493,6 +493,7 @@ export const supabaseOnboardingItemRepo: OnboardingItemRepo = {
       id: it.id,
       organization_id: it.organizationId ?? DEFAULT_ORG_ID,
       contract_id: it.contractId,
+      template_item_id: it.templateItemId ?? null,
       phase_key: it.categoryKey,
       name: it.name,
       due_date: it.dueDate || null,

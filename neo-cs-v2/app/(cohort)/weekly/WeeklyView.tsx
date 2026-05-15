@@ -15,12 +15,14 @@ import {
   productByCode,
   hasMultipleCourses,
   courseShortName
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import {
-  CURRENT_WEEK_MONDAY,
   getWeekRange,
   formatWeekRange,
-  prevWeek,
+  prevWeek
+} from "@/lib/master/date";
+import {
+  CURRENT_WEEK_MONDAY,
   weeksStuck,
   WeeklyReview
 } from "@/lib/mock/weekly";

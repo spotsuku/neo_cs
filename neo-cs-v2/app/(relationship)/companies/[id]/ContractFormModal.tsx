@@ -13,7 +13,7 @@ import {
   createContractAction,
   updateContractAction
 } from "./contract-actions";
-import { products, productCourses } from "@/lib/mock/data";
+import { products, productCourses } from "@/lib/master";
 import type { ProductCode, ContractStatus } from "@/lib/repository/types";
 
 // 編集モードで受け取る既存契約は ActiveContract / Contract のどちらでも良いよう

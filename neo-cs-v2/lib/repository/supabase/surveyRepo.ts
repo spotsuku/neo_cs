@@ -39,7 +39,7 @@ import type {
   SurveyScheduleTrigger,
   SurveyRespondentTarget
 } from "@/lib/mock/surveys";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 import { DEFAULT_ORG_ID } from "../types";
 
 type SurveyRow = {

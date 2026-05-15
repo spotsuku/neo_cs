@@ -17,7 +17,7 @@ import {
   yen,
   courseShortName,
   type ProductCode
-} from "@/lib/mock/data";
+} from "@/lib/master";
 
 type CellStatus = "consent" | "contracted" | "completed" | "churned";
 

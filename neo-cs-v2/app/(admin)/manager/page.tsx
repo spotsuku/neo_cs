@@ -22,7 +22,7 @@ import {
   effectiveRole,
   assignedProductCodes
 } from "@/lib/auth/permissions";
-import { products, productByCode } from "@/lib/mock/data";
+import { products, productByCode } from "@/lib/master";
 import {
   contractRepo,
   churnSignalRepo,

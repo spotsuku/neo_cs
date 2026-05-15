@@ -22,7 +22,7 @@
 //   - At-Risk MRR: severity=high の churnSignal を持つ契約の MRR 合計
 
 import type { Contract } from "@/lib/mock/contracts";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 import type { ChurnSignalRecord } from "@/lib/repository";
 
 // ── 期間プリセット ────────────────────────────────────────────────

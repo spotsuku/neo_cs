@@ -12,7 +12,7 @@ import {
 } from "@/lib/mock/surveys";
 import type { SurveySchedule } from "@/lib/repository/server";
 import { parseSurveyCsv } from "@/lib/surveys/csv";
-import { ProductCode, productByCode, products } from "@/lib/mock/data";
+import { ProductCode, productByCode, products } from "@/lib/master";
 
 type Step = 1 | 2 | 3;
 

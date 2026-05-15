@@ -172,6 +172,7 @@ export async function applyTemplateToActiveContractsAction(input: {
             id: `${c.id}-${cat.categoryKey}-${item.itemKey}`,
             organizationId: DEFAULT_ORG_ID,
             contractId: c.id,
+            templateItemId: item.id,
             categoryKey: cat.categoryKey,
             itemKey: item.itemKey,
             name: item.name,

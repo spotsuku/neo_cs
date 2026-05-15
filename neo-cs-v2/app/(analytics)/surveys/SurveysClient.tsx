@@ -11,7 +11,7 @@ import {
   SurveyRespondentType
 } from "@/lib/mock/surveys";
 import type { Survey, SurveySchedule } from "@/lib/repository/server";
-import { ProductCode, products, productByCode } from "@/lib/mock/data";
+import { ProductCode, products, productByCode } from "@/lib/master";
 
 type RespondentFilter = "all" | SurveyRespondentType;
 

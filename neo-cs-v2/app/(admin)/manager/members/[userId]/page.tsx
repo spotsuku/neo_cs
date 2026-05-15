@@ -19,7 +19,7 @@ import {
   healthSnapshotRepo,
   churnSignalRepo
 } from "@/lib/repository/server";
-import { productByCode } from "@/lib/mock/data";
+import { productByCode } from "@/lib/master";
 import { currentWeekMondayISO } from "@/lib/domain/week/week";
 
 export const metadata: Metadata = {

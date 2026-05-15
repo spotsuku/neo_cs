@@ -3,7 +3,7 @@ import Link from "next/link";
 import { TopNavServer } from "@/components/nav/TopNavServer";
 import { ProductBadge } from "@/components/contract/ProductBadge";
 // コース表示に対応
-import { productByCode, yen, hasMultipleCourses, courseName } from "@/lib/mock/data";
+import { productByCode, yen, hasMultipleCourses, courseName } from "@/lib/master";
 import {
   productOnboardingTemplates,
   daysUntilStart,

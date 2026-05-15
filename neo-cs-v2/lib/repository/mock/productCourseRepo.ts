@@ -6,7 +6,7 @@
 // 注意: mock は process メモリ常駐なので HMR で再評価されると初期化される。
 // 本番 (Supabase 実装) では DB の真値を参照する。
 
-import { productCourses } from "@/lib/mock/data";
+import { productCourses } from "@/lib/master";
 import { allContracts } from "@/lib/mock/onboarding";
 import type {
   ProductCourse,

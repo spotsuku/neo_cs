@@ -21,7 +21,7 @@ import {
   productCourses,
   courseShortName,
   ProductCode
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import { MeExtractions, MeExtractionItem } from "./MeExtractions";
 
 const TODAY = new Date().toISOString().slice(0, 10);

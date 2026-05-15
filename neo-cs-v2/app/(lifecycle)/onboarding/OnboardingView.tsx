@@ -3,14 +3,15 @@
 // /onboarding 一覧 (item マトリクスのみ)。
 // 事業内ToDo と同じ操作感: セルのクリック / 右クリック / 列ヘッダの一括期日・責任者設定。
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/kpi/KpiCard";
+import { applyTemplateToActiveContractsAction } from "../../(admin)/settings/products/[code]/onboarding-actions";
 import {
   products,
   type ProductCode,
   productByCode
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import {
   daysUntilStart,
   type ActiveContract
@@ -74,8 +75,36 @@ export function OnboardingView({
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [applyPending, startApply] = useTransition();
+  const [applyResult, setApplyResult] = useState<string | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   const p = productByCode[product];
+
+  const onLoadFromTemplate = () => {
+    setApplyResult(null);
+    setApplyError(null);
+    if (
+      !window.confirm(
+        `${p.shortName} の進行中契約に、現在のテンプレ項目をオンボ項目として読み込みます。\n` +
+          `既存の項目は重複せず保持されます。実行しますか？`
+      )
+    ) {
+      return;
+    }
+    startApply(async () => {
+      const r = await applyTemplateToActiveContractsAction({ productCode: product });
+      if (!r.ok) {
+        setApplyError(r.message);
+        return;
+      }
+      setApplyResult(
+        `対象 ${r.targetContracts} 契約 / 新規 ${r.created} 件 / 既存スキップ ${r.skipped} 件`
+      );
+      // 反映後にサーバーから取り直す
+      window.location.reload();
+    });
+  };
 
   // 事業内の全契約 (期トグル候補を作るために product だけで先に絞る)
   const productAllContracts = useMemo(
@@ -292,6 +321,15 @@ export function OnboardingView({
           <span className="text-xs text-ink-500">
             {filteredInProgress.length} / {inProgress.length} 件
           </span>
+          <button
+            type="button"
+            onClick={onLoadFromTemplate}
+            disabled={applyPending}
+            className="text-xs px-3 py-1.5 rounded-full border border-ink-200 bg-white text-ink-700 hover:bg-ink-50 disabled:opacity-50"
+            title="現テンプレの項目を、この事業の進行中契約のオンボ項目として一括読み込みします (既存項目は維持)"
+          >
+            {applyPending ? "読み込み中…" : "テンプレからオンボ項目を読み込む"}
+          </button>
           <Link
             href={`/settings/products/${product}`}
             className="text-xs text-ink-500 hover:text-ink-700 underline"
@@ -300,6 +338,17 @@ export function OnboardingView({
           </Link>
         </div>
       </section>
+
+      {(applyResult || applyError) && (
+        <section
+          className={[
+            "liquid-surface px-4 py-2 text-xs",
+            applyError ? "text-rose-600" : "text-ink-600"
+          ].join(" ")}
+        >
+          {applyError ?? applyResult}
+        </section>
+      )}
 
       {/* 進行中マトリクス */}
       <section>

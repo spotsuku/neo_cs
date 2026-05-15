@@ -17,7 +17,7 @@
 // surveyScore は CSV取り込み済みの直近アンケート (NPS / 全体満足度) から派生する
 
 import type { Contract } from "@/lib/mock/contracts";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 
 /**
  * Health Score の色分け閾値・トーン判定に使う共通定数。

@@ -4,7 +4,7 @@
 import { activeContracts } from "@/lib/mock/onboarding";
 import { stakeholders as mockStakeholders } from "@/lib/mock/cycles";
 import { surveyResponses } from "@/lib/mock/surveys";
-import { productByCode } from "@/lib/mock/data";
+import { productByCode } from "@/lib/master";
 import { detectExpansionOpportunities } from "@/lib/domain/expansion/expansion";
 import { mockHealthSnapshotRepo } from "./healthSnapshotRepo";
 import { DEFAULT_ORG_ID } from "../types";

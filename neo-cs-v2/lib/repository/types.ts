@@ -23,7 +23,7 @@ import type {
   WeeklyAction,
   WeeklyNextAction
 } from "@/lib/mock/weekly";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 import type {
   Stakeholder as MockStakeholder,
   AccountJourney,
@@ -78,7 +78,11 @@ export type Contract = MockContract & { organizationId: string };
 export type MeetingLog = MockMeetingLog & { organizationId: string };
 export type OnboardingTask = MockOnboardingTask & { organizationId: string };
 export type WeeklyReview = MockWeeklyReview & { organizationId: string };
-export type ContractOnboardingItem = MockContractOnboardingItem & { organizationId: string };
+export type ContractOnboardingItem = MockContractOnboardingItem & {
+  organizationId: string;
+  /** onboarding_template_items.id (null = テンプレ未紐付け task) */
+  templateItemId?: string | null;
+};
 
 // 拡張不要な型は素通し
 export type {

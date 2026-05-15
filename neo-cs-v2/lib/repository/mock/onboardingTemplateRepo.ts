@@ -2,7 +2,7 @@
 // 既存の lib/mock/onboarding.ts:productOnboardingTemplates をスタートライン値として使う
 
 import { productOnboardingTemplates } from "@/lib/mock/onboarding";
-import type { ProductCode } from "@/lib/mock/data";
+import type { ProductCode } from "@/lib/master";
 import type {
   OnboardingTemplateCategoryRecord,
   OnboardingTemplateItemRecord,

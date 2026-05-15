@@ -12,7 +12,7 @@ import {
   courseShortName,
   hasMultipleCourses,
   type ProductCode
-} from "@/lib/mock/data";
+} from "@/lib/master";
 import {
   PROGRAM_TERM_STATUS_LABEL,
   type ProgressSummary

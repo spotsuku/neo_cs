@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from "react";
 import type { ActiveContract } from "@/lib/mock/onboarding";
-import { yen } from "@/lib/mock/data";
+import { yen } from "@/lib/master";
 import {
   computePeriodPerformance,
   periodFor,

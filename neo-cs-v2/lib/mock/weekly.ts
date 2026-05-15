@@ -1,8 +1,18 @@
-// 週次レビュー (企業 × 研修) のデータモデル
+// 週次レビュー (企業 × 研修) の **mock seed** 専用ファイル。
+//
+// 日付ユーティリティ (getWeekRange / formatWeekRange / getMondayOf / prevWeek /
+// nextWeekDate) はマスタなので `@/lib/master/date` に移動済。
+// 新規コードはそちらから import すること。
+//
 // CS週次運用: 実施事項 / Good / More / 来週やること
 // Carry-over: 先週のNextが今週の実施事項候補として持ち越される
 
-import { ProductCode } from "./data";
+import type { ProductCode } from "@/lib/master/products";
+import { getMondayOf, getWeekRange } from "@/lib/master/date";
+
+// 後方互換: 旧来 `from "@/lib/mock/weekly"` で日付 util を import している
+// 箇所のために re-export する。新規コードは `@/lib/master/date` を使うこと。
+export { getWeekRange, formatWeekRange, getMondayOf, prevWeek, nextWeekDate } from "@/lib/master/date";
 
 export type WeeklyAction = {
   id: string;
@@ -37,60 +47,10 @@ export type WeeklyReview = {
   updatedAt: string;
 };
 
-// 週番号 → 日付範囲ヘルパー
-// 今日を 2026-04-24 (金) とする。月曜起点の週番号 W = ISO週+何か
-// シンプルに: 月曜基点、2026-04-20 を W17 とする
-
-export function getWeekRange(weekStart: string): { start: string; end: string; label: string } {
-  const d = new Date(weekStart);
-  const end = new Date(d);
-  end.setDate(end.getDate() + 6);
-  // W番号は2026-01-05(W01) を基準
-  const baseMonday = new Date("2026-01-05");
-  const diffDays = Math.floor(
-    (d.getTime() - baseMonday.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const weekNo = Math.floor(diffDays / 7) + 1;
-  return {
-    start: weekStart,
-    end: end.toISOString().slice(0, 10),
-    label: `W${String(weekNo).padStart(2, "0")}`
-  };
-}
-
-export function formatWeekRange(start: string, end: string): string {
-  const s = new Date(start);
-  const e = new Date(end);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(s.getMonth() + 1)}/${pad(s.getDate())}〜${pad(e.getMonth() + 1)}/${pad(e.getDate())}`;
-}
-
-// 月曜日を日付から計算
-export function getMondayOf(dateStr: string): string {
-  const d = new Date(dateStr);
-  const day = d.getDay(); // 0=日 1=月..6=土
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
-
-// 前の週の月曜
-export function prevWeek(monday: string): string {
-  const d = new Date(monday);
-  d.setDate(d.getDate() - 7);
-  return d.toISOString().slice(0, 10);
-}
-
-// 次の週の月曜
-export function nextWeekDate(monday: string): string {
-  const d = new Date(monday);
-  d.setDate(d.getDate() + 7);
-  return d.toISOString().slice(0, 10);
-}
-
-// 今日の月曜 (2026-04-24 は金曜 → 月曜は 2026-04-20)
-export const TODAY_STR = new Date().toISOString().slice(0, 10);
-export const CURRENT_WEEK_MONDAY = getMondayOf(TODAY_STR); // "2026-04-20"
+// mock seed 用の今日 / 今週月曜
+// (本番ロジックは lib/domain/week/week.ts の currentWeekMondayISO を使うこと)
+const TODAY_STR = new Date().toISOString().slice(0, 10);
+export const CURRENT_WEEK_MONDAY = getMondayOf(TODAY_STR); // mock seed 用基準日
 
 // ─────────────────────────────────────────────
 // ダミーデータ生成: いくつかの (企業×研修) ペアで過去4〜5週分

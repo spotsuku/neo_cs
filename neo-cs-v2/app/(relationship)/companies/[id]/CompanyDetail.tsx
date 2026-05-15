@@ -23,7 +23,7 @@ import type {
   MeetingLog
 } from "@/lib/mock/entities";
 // コース表示に対応
-import { ProductCode, productByCode, yen, hasMultipleCourses, courseShortName, courseName, cycleLabel } from "@/lib/mock/data";
+import { ProductCode, productByCode, yen, hasMultipleCourses, courseShortName, courseName, cycleLabel } from "@/lib/master";
 import type { ActiveContract } from "@/lib/mock/onboarding";
 import type { ContractOnboardingItem } from "@/lib/repository/types";
 import {
