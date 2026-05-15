@@ -115,7 +115,27 @@ export const supabaseDriveSendLogRepo: DriveSendLogRepo = {
       .insert(row)
       .select()
       .single();
-    if (error) throw new Error(`drive_send_logs.create: ${error.message}`);
+    if (error) {
+      // 0047 で張った UNIQUE (drive_file_id, company_id, sent_to_email, sent_at) との
+      // 衝突。再同期で同一 Gmail message から抽出した重複なので、既存行を返して呼び出し側に
+      // 同一 I/F を提供する。
+      if (error.code === "23505") {
+        const sentAtIso = (row.sent_at as string | undefined) ?? new Date().toISOString();
+        const { data: existing, error: lookupErr } = await sb
+          .from("drive_send_logs")
+          .select()
+          .eq("drive_file_id", input.driveFileId)
+          .eq("company_id", input.companyId)
+          .eq("sent_to_email", input.sentToEmail)
+          .eq("sent_at", sentAtIso)
+          .single();
+        if (lookupErr || !existing) {
+          throw new Error(`drive_send_logs.create dedup lookup failed: ${lookupErr?.message ?? "no row"}`);
+        }
+        return toDomain(existing as Row);
+      }
+      throw new Error(`drive_send_logs.create: ${error.message}`);
+    }
     const created = toDomain(data as Row);
     await runAfterWrite({
       entityType: "drive_send_logs",

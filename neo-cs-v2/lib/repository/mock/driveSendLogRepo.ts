@@ -62,6 +62,17 @@ export const mockDriveSendLogRepo: DriveSendLogRepo = {
 
   async create(input: DriveSendLogCreateInput) {
     const now = new Date().toISOString();
+    const sentAt = input.sentAt ?? now;
+    // supabase 側の 0047 unique 制約と同等の dedup
+    // (driveFileId, companyId, sentToEmail, sentAt)
+    const existing = store.find(
+      (r) =>
+        r.driveFileId === input.driveFileId &&
+        r.companyId === input.companyId &&
+        r.sentToEmail === input.sentToEmail &&
+        r.sentAt === sentAt
+    );
+    if (existing) return clone(existing);
     const created: DriveSendLog = {
       id: genId(),
       organizationId: input.organizationId ?? DEFAULT_ORG_ID,
@@ -76,7 +87,7 @@ export const mockDriveSendLogRepo: DriveSendLogRepo = {
       sentByUserId: input.sentByUserId,
       sentVia: input.sentVia,
       note: input.note ?? null,
-      sentAt: input.sentAt ?? now,
+      sentAt,
       createdAt: now
     };
     store.push(created);
