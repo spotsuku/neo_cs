@@ -22,7 +22,7 @@ import {
   emailThreads as legacyThreads,
   type AiExtractionType as LegacyType
 } from "@/lib/mock/email";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
 const TYPE_MAP: Record<LegacyType, AiExtractionType> = {
   onboarding_task_done: "progress_signal",
@@ -54,7 +54,7 @@ function seed(): AiExtraction[] {
   });
 }
 
-const store = useGlobalStore<AiExtraction[]>("__aiExtractionStore", seed);
+const store = getOrInitGlobalStore<AiExtraction[]>("__aiExtractionStore", seed);
 
 function applyOpts(rows: AiExtraction[], opts?: AiExtractionListOpts): AiExtraction[] {
   let out = rows.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));

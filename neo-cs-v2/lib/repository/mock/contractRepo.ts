@@ -6,10 +6,10 @@ import type {
   ContractRepo,
   ContractStatus
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
 
-const store = useGlobalStore<Contract[]>("__contractStore", () =>
+const store = getOrInitGlobalStore<Contract[]>("__contractStore", () =>
   allContracts.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID }))
 );
 const activeIds = new Set(activeContracts.map((c) => c.id));

@@ -99,9 +99,9 @@ async function seedOpportunities(): Promise<ExpansionOpportunityRecord[]> {
   return out;
 }
 
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
-const state = useGlobalStore<{
+const state = getOrInitGlobalStore<{
   store: ExpansionOpportunityRecord[];
   seeded: boolean;
 }>("__expansionOppState", () => ({ store: [], seeded: false }));

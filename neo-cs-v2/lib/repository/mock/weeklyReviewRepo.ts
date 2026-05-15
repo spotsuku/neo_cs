@@ -6,10 +6,10 @@ import type {
   WeeklyReviewRepo,
   WeeklyReviewUpsert
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
 
-const store = useGlobalStore<WeeklyReview[]>("__weeklyReviewStore", () =>
+const store = getOrInitGlobalStore<WeeklyReview[]>("__weeklyReviewStore", () =>
   weeklyReviews.map((r) => ({
     ...r,
     organizationId: DEFAULT_ORG_ID,

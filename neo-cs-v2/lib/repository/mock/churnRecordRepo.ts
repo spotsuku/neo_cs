@@ -10,14 +10,14 @@ import type {
   ChurnRecordRepo,
   ChurnRecordUpsertInput
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
 // contractId → companyId の解決 (listByCompany 用)
 function resolveCompanyId(contractId: string): string | undefined {
   return activeContracts.find((c) => c.id === contractId)?.companyId;
 }
 
-const state = useGlobalStore<{ store: ChurnRecord[] }>(
+const state = getOrInitGlobalStore<{ store: ChurnRecord[] }>(
   "__churnRecordState",
   () => ({ store: initialChurnRecords.map((r) => ({ ...r })) })
 );

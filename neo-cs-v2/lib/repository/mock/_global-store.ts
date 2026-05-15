@@ -8,11 +8,11 @@
 //   globalThis (Node プロセス単位) なら両者が同じ参照を見る。
 //
 // 利用法:
-//   const store = useGlobalStore<Foo>("__fooStore", () => seed.map(...));
+//   const store = getOrInitGlobalStore<Foo>("__fooStore", () => seed.map(...));
 
 type GlobalBucket = Record<string, unknown>;
 
-export function useGlobalStore<T>(key: string, factory: () => T): T {
+export function getOrInitGlobalStore<T>(key: string, factory: () => T): T {
   const G = globalThis as unknown as GlobalBucket;
   if (G[key] === undefined) {
     G[key] = factory();

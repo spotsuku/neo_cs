@@ -15,7 +15,7 @@ import type {
   ProgramTermStatus
 } from "../types";
 import { contractMatchesScope } from "@/lib/domain/program/program";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
 function genId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -157,14 +157,14 @@ const seedTemplates: ProgramTaskTemplate[] = [
   tpl("ptpl-commu1-3", "pt-commu-1", 3, "1ヶ月レビュー", "followup", 45)
 ];
 
-const termsStore = useGlobalStore<ProgramTerm[]>("__programTermsStore", () =>
+const termsStore = getOrInitGlobalStore<ProgramTerm[]>("__programTermsStore", () =>
   seedTerms.map((t) => ({ ...t }))
 );
-const templatesStore = useGlobalStore<ProgramTaskTemplate[]>(
+const templatesStore = getOrInitGlobalStore<ProgramTaskTemplate[]>(
   "__programTemplatesStore",
   () => seedTemplates.map((t) => ({ ...t }))
 );
-const cellsStore = useGlobalStore<ProgramCompanyTask[]>(
+const cellsStore = getOrInitGlobalStore<ProgramCompanyTask[]>(
   "__programCellsStore",
   () => []
 );

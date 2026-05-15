@@ -9,14 +9,14 @@ import type {
   CompanyVisionRepo,
   CompanyVisionLog
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
-const store = useGlobalStore<Map<string, CompanyVision>>(
+const store = getOrInitGlobalStore<Map<string, CompanyVision>>(
   "__companyVisionStore",
   () => new Map()
 );
 
-const logsStore = useGlobalStore<CompanyVisionLog[]>(
+const logsStore = getOrInitGlobalStore<CompanyVisionLog[]>(
   "__companyVisionLogStore",
   () => []
 );

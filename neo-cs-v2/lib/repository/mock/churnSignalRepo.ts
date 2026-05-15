@@ -102,9 +102,9 @@ async function seedSignals(): Promise<ChurnSignalRecord[]> {
   return out;
 }
 
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
-const state = useGlobalStore<{ store: ChurnSignalRecord[]; seeded: boolean }>(
+const state = getOrInitGlobalStore<{ store: ChurnSignalRecord[]; seeded: boolean }>(
   "__churnSignalState",
   () => ({ store: [], seeded: false })
 );

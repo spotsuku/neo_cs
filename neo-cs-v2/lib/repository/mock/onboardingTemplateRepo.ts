@@ -8,7 +8,7 @@ import type {
   OnboardingTemplateItemRecord,
   OnboardingTemplateRepo
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
 
 function genId(prefix: string): string {
@@ -43,7 +43,7 @@ function seed(): OnboardingTemplateCategoryRecord[] {
   return out;
 }
 
-const store = useGlobalStore<OnboardingTemplateCategoryRecord[]>(
+const store = getOrInitGlobalStore<OnboardingTemplateCategoryRecord[]>(
   "__onboardingTemplateStore",
   seed
 );

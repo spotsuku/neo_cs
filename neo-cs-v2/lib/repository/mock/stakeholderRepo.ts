@@ -2,9 +2,9 @@ import { stakeholders as seed } from "@/lib/mock/cycles";
 import { DEFAULT_ORG_ID } from "../types";
 import type { Stakeholder, StakeholderRepo, SetEngagementTierInput } from "../types";
 import { runAfterWrite } from "../_base";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
-const store = useGlobalStore<Stakeholder[]>("__stakeholderStore", () =>
+const store = getOrInitGlobalStore<Stakeholder[]>("__stakeholderStore", () =>
   seed.map((s) => ({ ...s, organizationId: DEFAULT_ORG_ID }))
 );
 

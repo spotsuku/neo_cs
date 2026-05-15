@@ -10,7 +10,7 @@ import type {
   RolePermission,
   RolePermissionRepo
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
 
 const DEFAULTS: RolePermission[] = [
@@ -28,7 +28,7 @@ const DEFAULTS: RolePermission[] = [
   }
 ];
 
-const store = useGlobalStore<RolePermission[]>(
+const store = getOrInitGlobalStore<RolePermission[]>(
   "__rolePermissionStore",
   () => DEFAULTS.map((d) => ({ ...d }))
 );

@@ -44,14 +44,14 @@ function buildDefaults(
  */
 const SEED_VERSION = "v3-2026-05";
 
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
 // 組織×タイプ単位で初期化済みかを記録 (globalThis 共有)
-const initialized = useGlobalStore<Set<string>>(
+const initialized = getOrInitGlobalStore<Set<string>>(
   "__journeyStageInitialized",
   () => new Set<string>()
 );
-const store = useGlobalStore<JourneyStageDefinition[]>(
+const store = getOrInitGlobalStore<JourneyStageDefinition[]>(
   "__journeyStageDefinitionStore",
   () => []
 );

@@ -10,10 +10,10 @@ import type {
   DriveSendLogListFilter,
   DriveSendLogRepo
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
 
-const store = useGlobalStore<DriveSendLog[]>("__driveSendLogStore", () => []);
+const store = getOrInitGlobalStore<DriveSendLog[]>("__driveSendLogStore", () => []);
 
 function genId(): string {
   return `dsl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

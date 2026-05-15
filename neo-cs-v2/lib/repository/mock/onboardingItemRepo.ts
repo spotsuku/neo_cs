@@ -1,10 +1,10 @@
 import { contractOnboardingItems as seed } from "@/lib/mock/onboarding";
 import { DEFAULT_ORG_ID } from "../types";
 import type { ContractOnboardingItem, OnboardingItemRepo } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
 // Server Action と Server Component で同じ参照を共有するため globalThis 経由
-const store = useGlobalStore<ContractOnboardingItem[]>(
+const store = getOrInitGlobalStore<ContractOnboardingItem[]>(
   "__onboardingItemsStore",
   () =>
     seed.map((i) => ({

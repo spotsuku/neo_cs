@@ -7,7 +7,7 @@ import type {
   ContractLifecycleRepo,
   ContractLifecycleSnapshot
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { allContracts } from "@/lib/mock/onboarding";
 
 // 過去サイクル契約 (renewed/churned) から自動でスナップショットを生成
@@ -45,7 +45,7 @@ function seedSnapshots(): ContractLifecycleSnapshot[] {
   return out;
 }
 
-const store = useGlobalStore<ContractLifecycleSnapshot[]>(
+const store = getOrInitGlobalStore<ContractLifecycleSnapshot[]>(
   "__contractLifecycleStore",
   seedSnapshots
 );

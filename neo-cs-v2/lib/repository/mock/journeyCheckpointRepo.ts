@@ -7,9 +7,9 @@ import type {
   JourneyCheckpointRepo,
   JourneyCheckpointStatus
 } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
-const store = useGlobalStore<JourneyCheckpointStatus[]>(
+const store = getOrInitGlobalStore<JourneyCheckpointStatus[]>(
   "__journeyCheckpointStore",
   () => []
 );

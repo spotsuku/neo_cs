@@ -11,7 +11,7 @@ import type {
   CompanyTaskUpdatePatch
 } from "../types";
 import { sortByDueAsc } from "@/lib/domain/tasks/task";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
 
 function genId(): string {
@@ -83,7 +83,7 @@ const seed: CompanyTask[] = [
   }
 ];
 
-const store = useGlobalStore<CompanyTask[]>("__companyTaskStore", () =>
+const store = getOrInitGlobalStore<CompanyTask[]>("__companyTaskStore", () =>
   seed.map((t) => ({ ...t }))
 );
 

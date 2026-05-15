@@ -292,11 +292,11 @@ function seedVocItems(): VocItemRecord[] {
   return [...HAND_SEEDED, ...auto];
 }
 
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 import { mockMutate } from "./_mockMutate";
 // v2: 4 値ステータス (open/in_progress/done/wontfix) への移行に伴い key を bump。
 // 旧キー (__vocItemStore) のキャッシュは破棄される。
-const store = useGlobalStore<VocItemRecord[]>("__vocItemStore_v2", seedVocItems);
+const store = getOrInitGlobalStore<VocItemRecord[]>("__vocItemStore_v2", seedVocItems);
 
 function clone(v: VocItemRecord): VocItemRecord {
   return {

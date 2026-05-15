@@ -5,9 +5,9 @@
 
 import type { CompanyWeather } from "@/lib/domain/weather/weather";
 import type { CompanyWeatherRepo, CompanyWeatherOverride } from "../types";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
-const store = useGlobalStore<Map<string, CompanyWeatherOverride>>(
+const store = getOrInitGlobalStore<Map<string, CompanyWeatherOverride>>(
   "__companyWeatherOverrideStore",
   () => new Map()
 );

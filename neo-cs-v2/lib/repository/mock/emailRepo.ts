@@ -20,7 +20,7 @@ import {
   emailThreads as seedThreads,
   emailMessages as seedMessages
 } from "@/lib/mock/email";
-import { useGlobalStore } from "./_global-store";
+import { getOrInitGlobalStore } from "./_global-store";
 
 // 互換用: mock の "古野" 等の名前を擬似 user_id として使う。本番 supabase 実装では
 // app_users.id (uuid) が入る。
@@ -68,11 +68,11 @@ function seedMessagesToRepo(): EmailMessage[] {
   }));
 }
 
-const threadStore = useGlobalStore<EmailThread[]>(
+const threadStore = getOrInitGlobalStore<EmailThread[]>(
   "__emailThreadStore",
   seedThreadsToRepo
 );
-const messageStore = useGlobalStore<EmailMessage[]>(
+const messageStore = getOrInitGlobalStore<EmailMessage[]>(
   "__emailMessageStore",
   seedMessagesToRepo
 );
