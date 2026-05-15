@@ -41,6 +41,10 @@
     {
       "path": "/api/cron/onboarding-overdue-notify",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/unassigned-ai-suggest",
+      "schedule": "15 */4 * * *"
     }
   ]
 }
