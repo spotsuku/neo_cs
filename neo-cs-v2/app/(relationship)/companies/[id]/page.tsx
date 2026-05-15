@@ -168,7 +168,7 @@ export default async function CompanyDetailPage({
     };
     innerRingsComputed[s.id] = {
       suggestedTier: r.suggestedTier,
-      reasons: []
+      reasons: r.reasons
     };
   }
 

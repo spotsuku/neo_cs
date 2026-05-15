@@ -114,9 +114,21 @@ function StakeholderRingCard({
         </div>
         {promote && computed && (
           <div className="mt-1">
-            <span className="inline-flex items-center rounded-pill bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-800">
+            <span
+              className="inline-flex items-center rounded-pill bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-800"
+              title={
+                computed.reasons && computed.reasons.length > 0
+                  ? computed.reasons.join(" / ")
+                  : undefined
+              }
+            >
               昇格候補 → {engagementTierLabel[computed.suggestedTier]}
             </span>
+            {computed.reasons && computed.reasons.length > 0 && (
+              <div className="mt-0.5 text-[10px] text-ink-500 leading-tight">
+                {computed.reasons.join(" ・ ")}
+              </div>
+            )}
           </div>
         )}
       </div>

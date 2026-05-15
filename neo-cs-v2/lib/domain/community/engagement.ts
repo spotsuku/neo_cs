@@ -72,6 +72,8 @@ export type EngagementResult = {
   lastTouchAt: string | null;
   touchCount30d: number;
   touchCount90d: number;
+  /** suggestedTier 判定の根拠 (人間可読の短文). UI の「昇格候補」ツールチップ等で使用 */
+  reasons: string[];
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -143,13 +145,35 @@ export function computeEngagement(input: EngagementInput): EngagementResult {
 
   const score = computeScore({ touchCount30d, touchCount90d, daysSinceLastTouch });
 
+  // 根拠の組立 — 「直近の接点頻度」と「最終接点までの経過日数」で説明する
+  const reasons: string[] = [];
+  if (touchCount30d > 0) {
+    reasons.push(`直近30日に ${touchCount30d} 件の接点`);
+  }
+  if (touchCount90d > touchCount30d) {
+    reasons.push(`直近90日に ${touchCount90d} 件の接点 (うち 30日内 ${touchCount30d} 件)`);
+  } else if (touchCount30d === 0 && touchCount90d > 0) {
+    reasons.push(`直近90日に ${touchCount90d} 件の接点`);
+  }
+  if (daysSinceLastTouch !== null) {
+    reasons.push(`最終接点 ${daysSinceLastTouch} 日前`);
+  } else {
+    reasons.push("接点記録なし");
+  }
+  if (input.overrideTier && input.overrideTier !== suggestedTier) {
+    reasons.push(
+      `手動で ${input.overrideTier} に設定済 (自動算出は ${suggestedTier})`
+    );
+  }
+
   return {
     tier,
     suggestedTier,
     score,
     lastTouchAt,
     touchCount30d,
-    touchCount90d
+    touchCount90d,
+    reasons
   };
 }
 

@@ -105,6 +105,32 @@ describe("computeEngagement — 入力 → 4 区分判定", () => {
       .slice(0, 10);
     expect(r.lastTouchAt).toBe(expected);
   });
+
+  it("接点記録なしのときは reasons に '接点記録なし' を含む", () => {
+    const r = computeEngagement({ touches: [], asOf: ASOF });
+    expect(r.reasons).toContain("接点記録なし");
+  });
+
+  it("30日内接点ありのときは件数 + 最終接点日数の reason が生成される", () => {
+    const r = computeEngagement({ touches: touchesAtDays([5, 10, 20]), asOf: ASOF });
+    expect(r.reasons.some((s) => s.includes("直近30日に 3 件"))).toBe(true);
+    expect(r.reasons.some((s) => s.includes("最終接点 5 日前"))).toBe(true);
+  });
+
+  it("override と suggestedTier が乖離しているときは差分の reason が出る", () => {
+    const r = computeEngagement({
+      touches: touchesAtDays([1, 2, 3, 4]),
+      asOf: ASOF,
+      overrideTier: "casual"
+    });
+    expect(r.suggestedTier).toBe("core");
+    expect(r.tier).toBe("casual");
+    expect(
+      r.reasons.some(
+        (s) => s.includes("手動で casual に設定済") && s.includes("自動算出は core")
+      )
+    ).toBe(true);
+  });
 });
 
 describe("tallyByTier", () => {
