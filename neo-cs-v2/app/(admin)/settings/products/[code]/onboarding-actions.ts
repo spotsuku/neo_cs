@@ -4,7 +4,13 @@
 // admin 専用 (canManageUsers と同じ閾値)
 
 import { revalidatePath } from "next/cache";
-import { onboardingTemplateRepo } from "@/lib/repository/server";
+import {
+  onboardingTemplateRepo,
+  onboardingItemRepo,
+  contractRepo
+} from "@/lib/repository/server";
+import { DEFAULT_ORG_ID } from "@/lib/repository/types";
+import type { ContractOnboardingItem } from "@/lib/repository/types";
 import { getPermissionContext } from "@/lib/auth/server";
 import { canManageUsers } from "@/lib/auth/permissions";
 
@@ -105,6 +111,91 @@ export async function deleteOnboardingItemAction(input: {
     await onboardingTemplateRepo.deleteItem(input.id);
     revalidatePath(`/settings/products/${input.productCode}`);
     return { ok: true };
+  } catch (e) {
+    return fail((e as Error).message);
+  }
+}
+
+// ─────────────────────────────────────────────
+// 既存契約への一括適用
+// 指定 product の active 契約全件に対して、現テンプレ項目をタスクとして
+// 投入する。既に存在する (contract_id, category_key, item_key) は skip。
+// ─────────────────────────────────────────────
+export async function applyTemplateToActiveContractsAction(input: {
+  productCode: string;
+}): Promise<
+  | { ok: true; created: number; skipped: number; targetContracts: number }
+  | { ok: false; message: string }
+> {
+  const g = await gate();
+  if (!g.ok) return g;
+  try {
+    const [categories, allContracts] = await Promise.all([
+      onboardingTemplateRepo.listByProduct(input.productCode),
+      contractRepo.list()
+    ]);
+
+    // active 契約 = renewed/churned 以外
+    const targets = allContracts.filter(
+      (c) =>
+        c.product === input.productCode &&
+        c.status !== "renewed" &&
+        c.status !== "churned"
+    );
+    if (targets.length === 0) {
+      return { ok: true, created: 0, skipped: 0, targetContracts: 0 };
+    }
+
+    // 既存項目 (重複防止)
+    const existing = await onboardingItemRepo.listByContractIds(
+      targets.map((c) => c.id)
+    );
+    const existingKey = new Set(
+      existing.map((it) => `${it.contractId}::${it.categoryKey}::${it.itemKey}`)
+    );
+
+    const newItems: ContractOnboardingItem[] = [];
+    for (const c of targets) {
+      const startMs = Date.parse(c.startDate);
+      for (const cat of categories) {
+        for (const item of cat.items) {
+          // courseKey 制約: null = 全コース共通、文字列 = 該当コースのみ
+          if (item.courseKey && item.courseKey !== c.courseKey) continue;
+          const key = `${c.id}::${cat.categoryKey}::${item.itemKey}`;
+          if (existingKey.has(key)) continue;
+          const dueMs = startMs + item.dueOffsetDays * 24 * 60 * 60 * 1000;
+          const dueDate = Number.isNaN(startMs)
+            ? ""
+            : new Date(dueMs).toISOString().slice(0, 10);
+          newItems.push({
+            // id は repo 側で振り直されるため適当な仮値
+            id: `${c.id}-${cat.categoryKey}-${item.itemKey}`,
+            organizationId: DEFAULT_ORG_ID,
+            contractId: c.id,
+            categoryKey: cat.categoryKey,
+            itemKey: item.itemKey,
+            name: item.name,
+            dueDate,
+            assignee: "",
+            status: "todo",
+            required: item.required
+          });
+        }
+      }
+    }
+
+    if (newItems.length > 0) {
+      await onboardingItemRepo.createBatch(newItems);
+    }
+    const totalSlots = targets.length * categories.reduce((a, c) => a + c.items.length, 0);
+    revalidatePath(`/settings/products/${input.productCode}`);
+    revalidatePath(`/onboarding`);
+    return {
+      ok: true,
+      created: newItems.length,
+      skipped: totalSlots - newItems.length,
+      targetContracts: targets.length
+    };
   } catch (e) {
     return fail((e as Error).message);
   }

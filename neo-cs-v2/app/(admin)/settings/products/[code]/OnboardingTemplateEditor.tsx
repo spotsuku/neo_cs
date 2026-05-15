@@ -8,7 +8,8 @@ import {
   upsertOnboardingCategoryAction,
   deleteOnboardingCategoryAction,
   upsertOnboardingItemAction,
-  deleteOnboardingItemAction
+  deleteOnboardingItemAction,
+  applyTemplateToActiveContractsAction
 } from "./onboarding-actions";
 import type {
   OnboardingTemplateCategoryRecord,
@@ -39,6 +40,31 @@ export function OnboardingTemplateEditor({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [addingCat, setAddingCat] = useState(false);
+  const [applyResult, setApplyResult] = useState<string | null>(null);
+  const [applyPending, startApply] = useTransition();
+
+  const onApplyToActive = () => {
+    setError(null);
+    setApplyResult(null);
+    if (
+      !window.confirm(
+        `${productCode} の active 契約全件に、現在のテンプレ項目を一括投入します。\n` +
+          `既存項目は重複せず保持されます。実行しますか？`
+      )
+    ) {
+      return;
+    }
+    startApply(async () => {
+      const r = await applyTemplateToActiveContractsAction({ productCode });
+      if (!r.ok) {
+        setError(r.message);
+        return;
+      }
+      setApplyResult(
+        `対象 ${r.targetContracts} 契約 / 新規 ${r.created} 件 / 既存スキップ ${r.skipped} 件`
+      );
+    });
+  };
 
   const refreshAfter = (mutator: () => OnboardingTemplateCategoryRecord[]) => {
     setTemplate(mutator());
@@ -184,16 +210,37 @@ export function OnboardingTemplateEditor({
           </div>
         </div>
         {canManage && (
-          <button
-            type="button"
-            onClick={() => setAddingCat(true)}
-            disabled={pending}
-            className="text-xs px-3 py-1.5 rounded-md bg-ink-900 text-white hover:bg-ink-800 disabled:opacity-50"
-          >
-            ＋ カテゴリ追加
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onApplyToActive}
+              disabled={pending || applyPending || template.length === 0}
+              title={
+                template.length === 0
+                  ? "テンプレを追加してから実行できます"
+                  : "active 契約に現テンプレ項目を一括投入"
+              }
+              className="text-xs px-3 py-1.5 rounded-md border border-ink-300 text-ink-700 hover:bg-ink-50 disabled:opacity-50"
+            >
+              {applyPending ? "適用中…" : "既存契約に一括適用"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddingCat(true)}
+              disabled={pending}
+              className="text-xs px-3 py-1.5 rounded-md bg-ink-900 text-white hover:bg-ink-800 disabled:opacity-50"
+            >
+              ＋ カテゴリ追加
+            </button>
+          </div>
         )}
       </div>
+
+      {applyResult && (
+        <div className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-md">
+          {applyResult}
+        </div>
+      )}
 
       {error && <div className="text-xs text-rose-600">{error}</div>}
 
