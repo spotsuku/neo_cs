@@ -657,7 +657,7 @@ function NpsSection({
     .filter((x): x is { schedule: SurveySchedule; count: number; avg: number } => x !== null);
 
   // 過去90日平均
-  const cutoff = new Date("2026-04-24");
+  const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 90);
   const recent = aggs.filter((x) => new Date(x.s.openedAt) >= cutoff);
   const recentAvg =

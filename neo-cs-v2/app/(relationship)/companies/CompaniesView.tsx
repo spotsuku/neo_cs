@@ -18,7 +18,7 @@ import type {
 } from "@/lib/repository/types";
 
 // 一覧の基準日 (mock 環境)。activeContracts の TODAY と揃える
-const TODAY = "2026-04-24";
+const TODAY = new Date().toISOString().slice(0, 10);
 
 // 列単位ソート: 各列のキー
 type SortColumn =

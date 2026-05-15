@@ -1,10 +1,7 @@
 // コース表示に対応
 import Link from "next/link";
 import {
-  oneShotSummary,
   productByCode,
-  yen,
-  pct,
   hasMultipleCourses,
   productCourses,
   courseShortName
@@ -19,7 +16,6 @@ export function OneShotProductCard({
   activeContracts: Contract[];
 }) {
   const p = productByCode[code];
-  const s = oneShotSummary[code];
 
   // activeContractsベースで契約数・参加者を集計
   const productContracts = activeContracts.filter((c) => c.product === code);
@@ -49,11 +45,13 @@ export function OneShotProductCard({
         </div>
         <div>
           <div className="text-[10px] text-ink-500">今年度GMV</div>
-          <div className="text-lg font-bold">{yen(s.fyGmv)}</div>
+          <div className="text-lg font-bold text-ink-300">—</div>
+          <div className="text-[10px] text-ink-400">データがまだありません</div>
         </div>
         <div>
           <div className="text-[10px] text-ink-500">今年度修了者</div>
-          <div className="text-lg font-bold">{s.fyGraduates} <span className="text-xs font-normal text-ink-500">名</span></div>
+          <div className="text-lg font-bold text-ink-300">—</div>
+          <div className="text-[10px] text-ink-400">データがまだありません</div>
         </div>
       </div>
 
@@ -77,25 +75,9 @@ export function OneShotProductCard({
       )}
 
       <div className="mt-4 pt-4 border-t border-ink-100">
-        <div className="grid grid-cols-3 gap-2 text-[11px]">
-          <div>
-            <div className="text-ink-500">修了率</div>
-            <div className="font-bold text-ink-900">{pct(s.completionRate)}</div>
-          </div>
-          <div>
-            <div className="text-ink-500">リピート率</div>
-            <div className="font-bold text-ink-900">{pct(s.repeatRate)}</div>
-          </div>
-          <div>
-            <div className="text-ink-500">NPS</div>
-            <div className="font-bold text-ink-900">{s.nps}</div>
-          </div>
+        <div className="text-[11px] text-ink-400">
+          修了率・リピート率・NPS・次回開講 データがまだありません
         </div>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between text-[11px]">
-        <span className="text-ink-500">次回開講</span>
-        <span className="text-ink-900 font-medium">{s.nextOpeningDate}</span>
       </div>
     </Link>
   );

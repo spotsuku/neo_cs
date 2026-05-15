@@ -26,7 +26,7 @@ const KIND_COLOR: Record<ChatChannel["kind"], string> = {
 function formatTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  const today = new Date("2026-04-24");
+  const today = new Date();
   const sameDay =
     d.getFullYear() === today.getFullYear() &&
     d.getMonth() === today.getMonth() &&

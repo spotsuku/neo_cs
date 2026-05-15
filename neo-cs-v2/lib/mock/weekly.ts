@@ -89,7 +89,7 @@ export function nextWeekDate(monday: string): string {
 }
 
 // 今日の月曜 (2026-04-24 は金曜 → 月曜は 2026-04-20)
-export const TODAY_STR = "2026-04-24";
+export const TODAY_STR = new Date().toISOString().slice(0, 10);
 export const CURRENT_WEEK_MONDAY = getMondayOf(TODAY_STR); // "2026-04-20"
 
 // ─────────────────────────────────────────────

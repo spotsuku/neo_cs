@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   title: "メンバー詳細 | マネージャー | NEO CS"
 };
 
-const TODAY = "2026-04-24";
+const TODAY = new Date().toISOString().slice(0, 10);
 
 export default async function MemberDetailPage({
   params

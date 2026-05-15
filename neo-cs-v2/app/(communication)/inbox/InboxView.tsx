@@ -45,7 +45,7 @@ type PendingSend = {
   bodyPlain: string;
 };
 
-const TODAY = "2026-04-24";
+const TODAY = new Date().toISOString().slice(0, 10);
 const FALLBACK_USER = "古野";
 
 // adapter 後の email thread / message / extraction の shape

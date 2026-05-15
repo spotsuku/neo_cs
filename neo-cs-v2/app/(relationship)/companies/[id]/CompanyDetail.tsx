@@ -2097,7 +2097,7 @@ function AccountJourneySection({ journeys }: { journeys: AccountJourney[] }) {
                 <ProductBadge code={j.product} size="sm" />
                 <span className="text-[11px] text-ink-500">
                   {journeyStageLabel[j.currentStage]}に{" "}
-                  {Math.max(0, Math.round((new Date("2026-04-24").getTime() - new Date(j.stageEnteredAt).getTime()) / (1000 * 60 * 60 * 24 * 30)))}ヶ月
+                  {Math.max(0, Math.round((Date.now() - new Date(j.stageEnteredAt).getTime()) / (1000 * 60 * 60 * 24 * 30)))}ヶ月
                 </span>
               </div>
               <div className="flex items-center">
@@ -2717,7 +2717,7 @@ function ChurnModal({
   onClose: () => void;
   onSave: (r: ChurnRecord) => void;
 }) {
-  const [churnedAt, setChurnedAt] = useState<string>(existing?.churnedAt ?? "2026-04-24");
+  const [churnedAt, setChurnedAt] = useState<string>(existing?.churnedAt ?? new Date().toISOString().slice(0, 10));
   const [reasonCategory, setReasonCategory] = useState<ChurnRecord["reasonCategory"]>(
     existing?.reasonCategory ?? "budget"
   );
@@ -3093,7 +3093,7 @@ function CurrentCyclePanel({
   const p = productByCode[contract.product];
   const endDate = contract.endDate;
   const daysToEnd = endDate
-    ? Math.ceil((new Date(endDate).getTime() - new Date("2026-04-24").getTime()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
   // 旧 generateRenewalMilestones は廃止。期日付きToDoは事業別ToDoに統合済み
   const renewalColor: Record<"green" | "yellow" | "red", string> = {

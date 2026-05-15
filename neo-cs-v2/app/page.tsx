@@ -23,7 +23,7 @@ import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import { computeStakeholderEngagement } from "@/lib/domain/community/engagement-builder";
 import { buildCommunityOverview } from "@/lib/domain/community/overview";
 
-const ASOF = "2026-04-24";
+const ASOF = new Date().toISOString().slice(0, 10);
 
 export const dynamic = "force-dynamic";
 

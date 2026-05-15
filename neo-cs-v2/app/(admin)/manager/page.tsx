@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   description: "担当事業の全体進捗・アラート・契約更新サマリー"
 };
 
-const TODAY = "2026-04-24";
+const TODAY = new Date().toISOString().slice(0, 10);
 
 function addDays(iso: string, days: number): string {
   const d = new Date(iso);

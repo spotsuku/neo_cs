@@ -24,7 +24,7 @@ import {
 } from "@/lib/mock/data";
 import { MeExtractions, MeExtractionItem } from "./MeExtractions";
 
-const TODAY = "2026-04-24";
+const TODAY = new Date().toISOString().slice(0, 10);
 const FALLBACK_USER = "古野";
 
 // 事業ジャーニーの短縮ラベル

@@ -12,7 +12,7 @@ import {
 import { contractRepo } from "@/lib/repository/server";
 import { ReportExportButtons } from "./ReportExportButtons";
 
-const ASOF = "2026-04-24";
+const ASOF = new Date().toISOString().slice(0, 10);
 
 export const dynamic = "force-dynamic";
 

@@ -1,12 +1,9 @@
 // コース表示に対応
 import Link from "next/link";
 import {
-  continuousSummary,
   productByCode,
   ProductCode,
   yen,
-  pct,
-  nrrFormat,
   hasMultipleCourses,
   productCourses,
   courseShortName
@@ -24,7 +21,6 @@ export function ContinuousProductCard({
   health: { green: number; yellow: number; red: number };
 }) {
   const p = productByCode[code as ProductCode];
-  const s = continuousSummary[code];
   const h = health;
 
   // 新しい activeContracts から集計
@@ -60,12 +56,8 @@ export function ContinuousProductCard({
         </div>
         <div>
           <div className="text-[10px] text-ink-500">NRR</div>
-          <div className="text-lg font-bold">
-            {nrrFormat(s.nrr)}
-            <span className={`ml-1 text-[10px] font-medium ${s.nrr >= 1 ? "text-emerald-600" : "text-rose-500"}`}>
-              {s.nrr >= 1 ? "▲" : "▼"}
-            </span>
-          </div>
+          <div className="text-lg font-bold text-ink-300">—</div>
+          <div className="text-[10px] text-ink-400">データがまだありません</div>
         </div>
       </div>
 
@@ -94,13 +86,8 @@ export function ContinuousProductCard({
       </div>
 
       <div className="mt-3 flex items-center justify-between text-[11px]">
-        <span className="text-ink-500">
-          出席 <span className="text-ink-700 font-medium">{pct(s.attendance)}</span>
-          <span className="mx-1.5 text-ink-300">·</span>
-          NPS <span className="text-ink-700 font-medium">{s.nps}</span>
-        </span>
-        <span className="text-ink-700 font-medium">
-          今後90日更新 {s.upcomingRenewals}件
+        <span className="text-ink-400">
+          出席・NPS データがまだありません
         </span>
       </div>
     </Link>
