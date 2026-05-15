@@ -4,9 +4,9 @@
 // - 与えられたテキスト群から extractVocCandidates でプレビュー
 // - 1クリックで vocItemRepo.create にまとめて投入
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { extractVocCandidates, VOC_TAG_LABEL, type VocSourceTextInput, type VocTag } from "@/lib/domain/voc/voc";
-import { createVocItemAction } from "@/app/(relationship)/voc/actions";
+import { createVocItemAction, scanAndSaveVocAIAction } from "@/app/(relationship)/voc/actions";
 
 export function VocScanButton({
   inputs,
@@ -22,6 +22,8 @@ export function VocScanButton({
   const [open, setOpen] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [err, setErr] = useState<string | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
+  const [aiPending, startAiTransition] = useTransition();
 
   const candidates = useMemo(
     () => extractVocCandidates(inputs.map((i) => ({ ...i, contractId, companyId }))),
@@ -54,6 +56,22 @@ export function VocScanButton({
       if (savedIds.has(i)) continue;
       await saveOne(i);
     }
+  }
+
+  function runAiScan() {
+    setErr(null);
+    setAiNotice(null);
+    const enriched = inputs.map((i) => ({ ...i, contractId, companyId }));
+    startAiTransition(async () => {
+      const res = await scanAndSaveVocAIAction(enriched);
+      if (res.ok) {
+        setAiNotice(
+          `AI 分析で ${res.created} 件を保存しました${res.skipped > 0 ? ` (${res.skipped} 件 skip)` : ""}`
+        );
+      } else {
+        setErr(res.message);
+      }
+    });
   }
 
   return (
@@ -94,6 +112,15 @@ export function VocScanButton({
                 </button>
                 <button
                   type="button"
+                  onClick={runAiScan}
+                  disabled={aiPending || inputs.length === 0}
+                  className="px-3 py-1.5 rounded-pill bg-info-600 text-surface text-caption hover:bg-info-700 disabled:opacity-50 focus-ring"
+                  title="Claude API でセマンティック分類し、まとめて保存します"
+                >
+                  {aiPending ? "AI 分析中..." : "🤖 AI で再分析して保存"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setOpen(false)}
                   className="px-3 py-1.5 rounded-pill bg-surface border border-neutral-300 text-caption text-neutral-700 focus-ring"
                 >
@@ -104,6 +131,9 @@ export function VocScanButton({
 
             {err && (
               <p className="text-caption text-danger-700">エラー: {err}</p>
+            )}
+            {aiNotice && (
+              <p className="text-caption text-success-700">{aiNotice}</p>
             )}
 
             {candidates.length === 0 ? (

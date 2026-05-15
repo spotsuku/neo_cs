@@ -21,6 +21,8 @@ import {
   enqueueNotification,
   resolvePrimaryAssignee
 } from "@/lib/notifications/inbox";
+import { extractVocCandidatesWithAIVerbose } from "@/lib/ai/voc-ai";
+import type { VocSourceTextInput } from "@/lib/domain/voc/voc";
 
 // ─────────────────────────────────────────────
 // 一覧取得 (VocBoard.reload 用)
@@ -83,6 +85,49 @@ export async function createVocItemAction(
     }
     revalidatePath("/voc");
     return { ok: true, id: created.id };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : String(e)
+    };
+  }
+}
+
+// ─────────────────────────────────────────────
+// AI による一括スキャン & 保存 (F6)
+// ─────────────────────────────────────────────
+//
+// 入力テキスト群を Claude に流して VoC 候補を抽出し、そのまま
+// vocItemRepo.create() で一括登録する。AI 出力の priority もそのまま反映。
+export async function scanAndSaveVocAIAction(
+  inputs: VocSourceTextInput[]
+): Promise<{ ok: true; created: number; skipped: number } | { ok: false; message: string }> {
+  try {
+    const me = await userRepo.getCurrent();
+    const candidates = await extractVocCandidatesWithAIVerbose(inputs);
+    let created = 0;
+    let skipped = 0;
+    for (const c of candidates) {
+      try {
+        await vocItemRepo.create({
+          organizationId: DEFAULT_ORG_ID,
+          sourceType: c.sourceType,
+          sourceId: c.sourceId,
+          contractId: c.contractId,
+          companyId: c.companyId,
+          excerpt: c.excerpt,
+          tags: c.suggestedTags,
+          status: "open",
+          priority: c.aiMeta.priority,
+          createdBy: me?.id
+        });
+        created++;
+      } catch {
+        skipped++;
+      }
+    }
+    revalidatePath("/voc");
+    return { ok: true, created, skipped };
   } catch (e) {
     return {
       ok: false,
