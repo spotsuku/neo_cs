@@ -98,6 +98,7 @@ import {
 import { computeFromContract, computeHealthScore } from "@/lib/domain/health/health";
 import type { CccBreakdown } from "@/lib/domain/ccc/breakdown";
 import { CccSection } from "@/components/health/CccSection";
+import { InnerRingsSection } from "@/components/community/InnerRingsSection";
 import { HealthExplain } from "@/components/health/HealthExplain";
 import { HealthSparkline } from "@/components/health/HealthSparkline";
 import { ContractChurnSignals } from "@/components/contract/ContractChurnSignals";
@@ -247,7 +248,8 @@ export function CompanyDetail({
   churnSignalsByContract = {},
   vocItemsByCompany = [],
   driveSendLogs = [],
-  cccBreakdown
+  cccBreakdown,
+  innerRingsComputed = {}
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -328,6 +330,14 @@ export function CompanyDetail({
    * Server Component で computeCccBreakdown(...) を呼んで構築し、概要タブで可視化する。
    */
   cccBreakdown?: CccBreakdown;
+  /**
+   * F5: Inner Rings 用 — 各 stakeholder の自動算出 suggestedTier。
+   * Server Component で computeStakeholderEngagement(...) を呼んで構築する。
+   */
+  innerRingsComputed?: Record<
+    string,
+    { suggestedTier: "core" | "active" | "casual" | "at_risk"; reasons: string[] }
+  >;
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -540,6 +550,8 @@ export function CompanyDetail({
           companyVisionLogs={companyVisionLogs}
           latestHealthByContract={latestHealthByContract}
           cccBreakdown={cccBreakdown}
+          stakeholders={stakeholders}
+          innerRingsComputed={innerRingsComputed}
         />
       )}
       {tab === "tasks" && (
@@ -935,7 +947,9 @@ function OverviewTab({
   companyVision,
   companyVisionLogs,
   latestHealthByContract,
-  cccBreakdown
+  cccBreakdown,
+  stakeholders,
+  innerRingsComputed
 }: {
   company: Company;
   companyId: string;
@@ -951,6 +965,11 @@ function OverviewTab({
   companyVisionLogs?: CompanyVisionLog[];
   latestHealthByContract: Record<string, import("@/lib/repository/types").HealthSnapshot>;
   cccBreakdown?: CccBreakdown;
+  stakeholders: Stakeholder[];
+  innerRingsComputed: Record<
+    string,
+    { suggestedTier: "core" | "active" | "casual" | "at_risk"; reasons: string[] }
+  >;
 }) {
   // 直近の動き: 面談ログ + 週次レビューを時系列でマージ
   const recentActivity = buildRecentActivity(logs, weeklyReviews, 6);
@@ -984,6 +1003,13 @@ function OverviewTab({
           />
         )}
       </div>
+
+      {/* 4.5 Inner Rings (F5): コア候補発見動線 — CCC セクションの直下に配置 */}
+      <InnerRingsSection
+        companyId={companyId}
+        stakeholders={stakeholders}
+        computedByStakeholder={innerRingsComputed}
+      />
 
       {/* 5. 過去契約事業 */}
       {lifecycleSnapshots.length > 0 && (

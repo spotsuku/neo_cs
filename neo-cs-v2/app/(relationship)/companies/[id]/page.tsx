@@ -151,6 +151,11 @@ export default async function CompanyDetailPage({
 
   // 顧客側担当者ごとの engagement 指標 (Phase2-#4)
   const engagementByStakeholder: Record<string, StakeholderEngagementMetrics> = {};
+  // F5: Inner Rings 用 — 自動算出 suggestedTier だけ抜いた map
+  const innerRingsComputed: Record<
+    string,
+    { suggestedTier: "core" | "active" | "casual" | "at_risk"; reasons: string[] }
+  > = {};
   for (const s of stakeholders) {
     const r = computeStakeholderEngagement(s, { meetingLogs: meetings });
     engagementByStakeholder[s.id] = {
@@ -160,6 +165,10 @@ export default async function CompanyDetailPage({
       lastTouchAt: r.lastTouchAt,
       touchCount30d: r.touchCount30d,
       touchCount90d: r.touchCount90d
+    };
+    innerRingsComputed[s.id] = {
+      suggestedTier: r.suggestedTier,
+      reasons: []
     };
   }
 
@@ -364,6 +373,7 @@ export default async function CompanyDetailPage({
         vocItemsByCompany={vocItemsByCompany}
         driveSendLogs={driveSendLogs}
         cccBreakdown={cccBreakdown}
+        innerRingsComputed={innerRingsComputed}
       />
     </>
   );
