@@ -110,25 +110,23 @@ import {
 } from "@/components/stakeholder/StakeholderEngagementCard";
 import { useHealthSnapshots } from "@/lib/hooks/useHealthSnapshots";
 import type { ChurnRecord } from "@/lib/mock/churn";
-import { reasonCategoryLabels, reasonCategoryOrder, churnRecords as initialChurnRecords } from "@/lib/mock/churn";
+import { reasonCategoryLabels, reasonCategoryOrder } from "@/lib/mock/churn";
 import type { EmailThreadStatus } from "@/lib/mock/email";
 import type { EmailThread, EmailMessage } from "@/lib/repository/types";
 import {
-  surveys as allSurveys,
-  surveyInsights as allInsights,
-  surveyResponses as allResponses,
   aggregateSurvey,
   targetCountForSurvey,
-  SurveyInsight
+  type Survey,
+  type SurveyResponse
 } from "@/lib/mock/surveys";
+import type { SurveyInsightRecord } from "@/lib/repository/types";
 import {
-  participants as allParticipants,
-  sessions as allSessionsData,
-  attendanceRecords as allAttendance,
   participantEngagement,
   participantSurveyResponseRate,
   participantFieldSchemas,
-  participantTermByProduct
+  participantTermByProduct,
+  type Session,
+  type AttendanceRecord
 } from "@/lib/mock/participants";
 import type { Participant } from "@/lib/mock/participants";
 
@@ -249,7 +247,13 @@ export function CompanyDetail({
   vocItemsByCompany = [],
   driveSendLogs = [],
   cccBreakdown,
-  innerRingsComputed = {}
+  innerRingsComputed = {},
+  surveys: surveysProp = [],
+  surveyResponses: surveyResponsesProp = [],
+  surveyInsights: surveyInsightsProp = [],
+  churnRecords: churnRecordsProp = [],
+  sessions: sessionsProp = [],
+  attendanceEvents: attendanceEventsProp = []
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -338,6 +342,18 @@ export function CompanyDetail({
     string,
     { suggestedTier: "core" | "active" | "casual" | "at_risk"; reasons: string[] }
   >;
+  /** アンケート一覧 (この企業に関連する surveys) */
+  surveys?: Survey[];
+  /** アンケート回答一覧 (上記 surveys に紐づく) */
+  surveyResponses?: SurveyResponse[];
+  /** AI インサイト一覧 (上記 surveys に紐づく) */
+  surveyInsights?: SurveyInsightRecord[];
+  /** 解約レコード一覧 (この企業の契約に紐づく) */
+  churnRecords?: ChurnRecord[];
+  /** セッション一覧 (この企業の契約に紐づく) */
+  sessions?: Session[];
+  /** 出席記録一覧 (上記 sessions に紐づく) */
+  attendanceEvents?: AttendanceRecord[];
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -585,6 +601,7 @@ export function CompanyDetail({
           canManageContracts={canManageContracts}
           churnSignalsByContract={churnSignalsByContract}
           vocItemsByCompany={vocItemsByCompany}
+          initialChurnRecords={churnRecordsProp}
         />
       )}
       {/* 解約モーダルの管理は ContractsTab 内で完結 */}
@@ -596,8 +613,24 @@ export function CompanyDetail({
           members={members ?? []}
         />
       )}
-      {tab === "surveys" && <SurveysTab companyId={company.id} contracts={allCycles} />}
-      {tab === "engagement" && <EngagementTab companyId={company.id} contracts={allCycles} />}
+      {tab === "surveys" && (
+        <SurveysTab
+          companyId={company.id}
+          contracts={allCycles}
+          surveys={surveysProp}
+          surveyResponses={surveyResponsesProp}
+          surveyInsights={surveyInsightsProp}
+        />
+      )}
+      {tab === "engagement" && (
+        <EngagementTab
+          companyId={company.id}
+          contracts={allCycles}
+          initialParticipants={initialParticipants ?? []}
+          sessions={sessionsProp}
+          attendanceEvents={attendanceEventsProp}
+        />
+      )}
       {tab === "mail" && (
         <MailTab
           companyId={company.id}
@@ -615,6 +648,7 @@ export function CompanyDetail({
           allCycles={allCycles}
           onUpdateContact={updateContact}
           initialParticipants={initialParticipants}
+          sessions={sessionsProp}
         />
       )}
         </section>
@@ -1200,13 +1234,15 @@ function OrgChartTab({
   contacts,
   allCycles,
   onUpdateContact,
-  initialParticipants
+  initialParticipants,
+  sessions = []
 }: {
   companyId: string;
   contacts: Contact[];
   allCycles: ActiveContract[];
   onUpdateContact: (next: Contact) => void;
   initialParticipants?: Participant[];
+  sessions?: Session[];
 }) {
   // 担当者ゼロでも参加者の追加導線を残すため早期 return しない
   return (
@@ -1217,6 +1253,7 @@ function OrgChartTab({
         allCycles={allCycles}
         onUpdate={onUpdateContact}
         initialParticipants={initialParticipants}
+        sessions={sessions}
       />
 
       {contacts.length > 0 && (
@@ -2433,7 +2470,8 @@ function ContractsTab({
   companyId,
   canManageContracts = false,
   churnSignalsByContract,
-  vocItemsByCompany
+  vocItemsByCompany,
+  initialChurnRecords: initialChurnRecordsProp = []
 }: {
   allCycles: ActiveContract[];
   successPlans: SuccessPlan[];
@@ -2445,10 +2483,12 @@ function ContractsTab({
   canManageContracts?: boolean;
   churnSignalsByContract: Record<string, ChurnSignalRecord[]>;
   vocItemsByCompany: VocItemRecord[];
+  /** server で fetch 済みの解約レコード一覧 (page.tsx から渡す) */
+  initialChurnRecords?: ChurnRecord[];
 }) {
   const cycleIds = new Set(allCycles.map((c) => c.id));
   const [records, setRecords] = useState<ChurnRecord[]>(
-    initialChurnRecords.filter((r) => cycleIds.has(r.contractId))
+    initialChurnRecordsProp.filter((r) => cycleIds.has(r.contractId))
   );
   const [churnTarget, setChurnTarget] = useState<ActiveContract | null>(null);
   // 契約 CRUD モーダルの開閉状態
@@ -3244,18 +3284,24 @@ function CurrentCyclePanel({
 /* ──────────────── アンケートタブ ──────────────── */
 function SurveysTab({
   companyId,
-  contracts
+  contracts,
+  surveys: surveysProp,
+  surveyResponses: responsesProp,
+  surveyInsights: insightsProp
 }: {
   companyId: string;
   contracts: ActiveContract[];
+  surveys: Survey[];
+  surveyResponses: SurveyResponse[];
+  surveyInsights: SurveyInsightRecord[];
 }) {
   // この企業が回答したSurvey一覧（surveyResponses.companyId経由でフィルタ）
   const respondedSurveyIds = new Set(
-    allResponses.filter((r) => r.companyId === companyId).map((r) => r.surveyId)
+    responsesProp.filter((r) => r.companyId === companyId).map((r) => r.surveyId)
   );
   // 旧モデル互換: 紐づく契約由来のSurveyも一覧に出す
   const contractIds = new Set(contracts.map((c) => c.id));
-  const companySurveys = allSurveys
+  const companySurveys = surveysProp
     .filter(
       (s) => respondedSurveyIds.has(s.id) || (s.contractId !== undefined && contractIds.has(s.contractId))
     )
@@ -3264,7 +3310,7 @@ function SurveysTab({
   if (companySurveys.length === 0) {
     return (
       <section className="liquid-surface p-10 text-center text-sm text-ink-500">
-        この企業のアンケートはまだありません
+        データがまだありません
       </section>
     );
   }
@@ -3278,7 +3324,7 @@ function SurveysTab({
 
   // 直近のインサイト3件
   const insightSurveyIds = new Set(companySurveys.map((s) => s.id));
-  const recentInsights: SurveyInsight[] = allInsights
+  const recentInsights: SurveyInsightRecord[] = insightsProp
     .filter((i) => insightSurveyIds.has(i.surveyId))
     .slice(0, 3);
 
@@ -3341,7 +3387,7 @@ function SurveysTab({
             {companySurveys.map((s) => {
               const agg = aggregateSurvey(s.id);
               const target = targetCountForSurvey(s.id);
-              const responseCount = allResponses.filter((r) => r.surveyId === s.id).length;
+              const responseCount = responsesProp.filter((r) => r.surveyId === s.id).length;
               return (
                 <tr key={s.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50">
                   <td className="px-5 py-3 font-medium">{s.title}</td>
@@ -3375,23 +3421,29 @@ function SurveysTab({
 /* ──────────────── エンゲージメントタブ ──────────────── */
 function EngagementTab({
   companyId,
-  contracts
+  contracts,
+  initialParticipants,
+  sessions,
+  attendanceEvents
 }: {
   companyId: string;
   contracts: ActiveContract[];
+  initialParticipants: Participant[];
+  sessions: Session[];
+  attendanceEvents: AttendanceRecord[];
 }) {
   const contractIds = new Set(contracts.map((c) => c.id));
-  const companyParticipants = allParticipants.filter(
+  const companyParticipants = initialParticipants.filter(
     (p) => p.companyId === companyId && contractIds.has(p.contractId)
   );
-  const companySessions = allSessionsData
+  const companySessions = sessions
     .filter((s) => contractIds.has(s.contractId))
     .sort((a, b) => (a.scheduledAt < b.scheduledAt ? -1 : 1));
 
   if (companyParticipants.length === 0 || companySessions.length === 0) {
     return (
       <section className="liquid-surface p-10 text-center text-sm text-ink-500">
-        この企業の出席データはまだありません
+        データがまだありません
       </section>
     );
   }
@@ -3418,7 +3470,7 @@ function EngagementTab({
     const sess = companySessions.find((s) => s.id === sessionId);
     if (!sess) return "not_expected";
     if (!sess.expectedParticipantIds.includes(participantId)) return "not_expected";
-    const rec = allAttendance.find(
+    const rec = attendanceEvents.find(
       (r) => r.sessionId === sessionId && r.participantId === participantId
     );
     return rec?.status ?? "absent";
@@ -3758,21 +3810,23 @@ function ContactOrgTree({
   contacts,
   allCycles,
   onUpdate,
-  initialParticipants
+  initialParticipants,
+  sessions = []
 }: {
   companyId: string;
   contacts: Contact[];
   allCycles: ActiveContract[];
   onUpdate: (next: Contact) => void;
   initialParticipants?: Participant[];
+  sessions?: Session[];
 }) {
   const [editing, setEditing] = useState<Contact | null>(null);
   // 参加者状態 (組織図タブ内に統合表示)
   // initialParticipants が渡されていれば supabase 由来データを使う、無ければ mock fallback
   const [participantList, setParticipantList] = useState<Participant[]>(() =>
     initialParticipants
-      ? initialParticipants
-      : allParticipants.filter((p) => p.companyId === companyId)
+      ? initialParticipants.filter((p) => p.companyId === companyId)
+      : []
   );
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(
     null
@@ -4168,6 +4222,7 @@ function ContactOrgTree({
                 contactById={contactByIdMap}
                 onEdit={setEditingParticipant}
                 termLabel={termLabel}
+                sessions={sessions}
               />
             )}
           </div>
@@ -4239,13 +4294,15 @@ function ContactOrgTree({
 function ParticipantsTab({
   companyId,
   allCycles,
-  contacts
+  contacts,
+  initialParticipants = []
 }: {
   companyId: string;
   allCycles: ActiveContract[];
   contacts: Contact[];
+  initialParticipants?: Participant[];
 }) {
-  const initial = allParticipants.filter((p) => p.companyId === companyId);
+  const initial = initialParticipants.filter((p) => p.companyId === companyId);
   const [list, setList] = useState<Participant[]>(initial);
   const [editing, setEditing] = useState<Participant | null>(null);
   const contactById = new Map(contacts.map((c) => [c.id, c]));
@@ -4497,7 +4554,8 @@ function ParticipantContractGroup({
   people,
   contactById,
   onEdit,
-  termLabel = "参加者"
+  termLabel = "参加者",
+  sessions = []
 }: {
   contractId: string;
   contract: ActiveContract | undefined;
@@ -4506,6 +4564,8 @@ function ParticipantContractGroup({
   onEdit: (p: Participant) => void;
   /** 商材ごとの呼称 (例: "アカデミア生", "評議員") */
   termLabel?: string;
+  /** server から渡された当該契約周辺のセッション一覧 (callers でフィルタ済みでもよい) */
+  sessions?: Session[];
 }) {
   const productCode = contract?.product;
   const product = productCode ? productByCode[productCode] : undefined;
@@ -4524,7 +4584,7 @@ function ParticipantContractGroup({
   };
 
   // 当該契約のセッション (回ごとの絞り込みに使用)
-  const contractSessions = allSessionsData
+  const contractSessions = sessions
     .filter((s) => s.contractId === contractId)
     .sort((a, b) => a.sessionNumber - b.sessionNumber);
   const [sessionFilter, setSessionFilter] = useState<string>("all");
@@ -4747,7 +4807,8 @@ function ParticipantContractList({
   people,
   contactById,
   onEdit,
-  termLabel = "参加者"
+  termLabel = "参加者",
+  sessions = []
 }: {
   contractId: string;
   contract: ActiveContract | undefined;
@@ -4755,6 +4816,7 @@ function ParticipantContractList({
   contactById: Map<string, Contact>;
   onEdit: (p: Participant) => void;
   termLabel?: string;
+  sessions?: Session[];
 }) {
   const productCode = contract?.product;
   const fieldSchema = productCode
@@ -4770,7 +4832,7 @@ function ParticipantContractList({
   };
 
   // 当該契約のセッション (回フィルタ)
-  const contractSessions = allSessionsData
+  const contractSessions = sessions
     .filter((s) => s.contractId === contractId)
     .sort((a, b) => a.sessionNumber - b.sessionNumber);
   const [sessionFilter, setSessionFilter] = useState<string>("all");

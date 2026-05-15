@@ -32,11 +32,11 @@ import {
   companyRepo,
   userRepo,
   assignmentRepo,
-  onboardingItemRepo
+  onboardingItemRepo,
+  surveyRepo
 } from "@/lib/repository/server";
 import { summarizeProgress } from "@/lib/domain/program/program";
 import { currentWeekMondayISO } from "@/lib/domain/week/week";
-import { surveys as allSurveys, surveyResponses as allSurveyResponses } from "@/lib/mock/surveys";
 
 export const metadata: Metadata = {
   title: "マネージャー | NEO CS",
@@ -78,7 +78,8 @@ export default async function ManagerPage() {
     allTasks,
     allCompanies,
     allUsers,
-    allAssignments
+    allAssignments,
+    allSurveys
   ] = await Promise.all([
     contractRepo.list({ activeOnly: true }),
     churnSignalRepo.list({ unresolvedOnly: true }).catch(() => []),
@@ -87,7 +88,8 @@ export default async function ManagerPage() {
     companyTaskRepo.list({ openOnly: true }).catch(() => []),
     companyRepo.list(),
     userRepo.list({ activeOnly: true }),
-    assignmentRepo.list({ activeOnly: true }).catch(() => [])
+    assignmentRepo.list({ activeOnly: true }).catch(() => []),
+    surveyRepo.list().catch(() => [])
   ]);
 
   const companyById = new Map(allCompanies.map((c) => [c.id, c]));
@@ -129,19 +131,21 @@ export default async function ManagerPage() {
     (s) => s.contractId && myContractIdsArr.includes(s.contractId)
   );
   const openSurveys = mySurveys.filter((s) => s.status === "open");
-  const surveyAggregate = openSurveys.map((s) => {
-    const responses = allSurveyResponses.filter((r) => r.surveyId === s.id);
-    const expected = s.expectedRespondentCount || 1;
-    const pct = Math.min(100, Math.round((responses.length / expected) * 100));
-    return {
-      id: s.id,
-      title: s.title,
-      productSessionLabel: s.productSessionLabel,
-      received: responses.length,
-      expected: s.expectedRespondentCount,
-      pct
-    };
-  });
+  const surveyAggregate = await Promise.all(
+    openSurveys.map(async (s) => {
+      const responses = await surveyRepo.listResponses(s.id).catch(() => []);
+      const expected = s.expectedRespondentCount || 1;
+      const pct = Math.min(100, Math.round((responses.length / expected) * 100));
+      return {
+        id: s.id,
+        title: s.title,
+        productSessionLabel: s.productSessionLabel,
+        received: responses.length,
+        expected: s.expectedRespondentCount,
+        pct
+      };
+    })
+  );
 
   // ───────────────────────────────────────────────
   // 1) 事業別 KPI

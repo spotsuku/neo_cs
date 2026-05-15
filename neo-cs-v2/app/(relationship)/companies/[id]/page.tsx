@@ -33,7 +33,11 @@ import {
   healthSnapshotRepo,
   churnSignalRepo,
   vocItemRepo,
-  driveSendLogRepo
+  driveSendLogRepo,
+  surveyRepo,
+  sessionRepo,
+  attendanceRepo,
+  churnRecordRepo
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { HealthColor } from "@/lib/domain/health/health";
@@ -291,6 +295,46 @@ export default async function CompanyDetailPage({
   );
   const emailMessages = emailMessagesNested.flat();
 
+  // ──────────────────────────────────────────────
+  // アンケート / セッション / 出席 / 解約レコード
+  //   Client (CompanyDetail) で seed array を直接参照する旧経路を廃止し、
+  //   page.tsx (Server) で fetch して props で渡す。
+  //   本番 (REPO_DRIVER=supabase) ではここで Supabase 由来のデータが返り、
+  //   ローカル/開発 (mock) では従来通り seed 由来になる。
+  // ──────────────────────────────────────────────
+  const allSurveys = await surveyRepo.list().catch(() => []);
+  const companyContractIds = new Set(allCycles.map((c) => c.id));
+  const companySurveys = allSurveys.filter(
+    (s) => !s.contractId || companyContractIds.has(s.contractId)
+  );
+  const surveyResponsesNested = await Promise.all(
+    companySurveys.map((s) => surveyRepo.listResponses(s.id).catch(() => []))
+  );
+  const surveyInsightsNested = await Promise.all(
+    companySurveys.map((s) => surveyRepo.listInsights(s.id).catch(() => []))
+  );
+  // この企業に紐づく回答だけに絞る
+  const allSurveyResponses = surveyResponsesNested
+    .flat()
+    .filter((r) => r.companyId === company.id);
+  // companySurveys.id に対応する全 insights をフラット化
+  const allSurveyInsights = surveyInsightsNested.flat().map((i) => ({
+    // SurveyInsightRecord は SurveyInsight 型と互換 (id / surveyId / category / summary / sourceQuoteResponseIds / createdAt)
+    ...i
+  }));
+
+  const sessionsNested = await Promise.all(
+    allCycles.map((c) => sessionRepo.listByContract(c.id).catch(() => []))
+  );
+  const allSessions = sessionsNested.flat();
+  const attendanceNested = await Promise.all(
+    allCycles.map((c) => attendanceRepo.listByContract(c.id).catch(() => []))
+  );
+  const allAttendanceEvents = attendanceNested.flat();
+  const churnRecordsForCompany = await churnRecordRepo
+    .listByCompany(company.id)
+    .catch(() => []);
+
   // ─── CCC 2026 Framework スコアを active 契約の最新 snapshot を集約して算出 ───
   // attendance / weeksSinceLastTouch は契約平均、surveyScore は健全 snapshot 由来。
   // 集計値が無ければ undefined を渡し、computeCccBreakdown 側で safe default (50/low) になる。
@@ -374,6 +418,12 @@ export default async function CompanyDetailPage({
         driveSendLogs={driveSendLogs}
         cccBreakdown={cccBreakdown}
         innerRingsComputed={innerRingsComputed}
+        surveys={companySurveys}
+        surveyResponses={allSurveyResponses}
+        surveyInsights={allSurveyInsights}
+        churnRecords={churnRecordsForCompany}
+        sessions={allSessions}
+        attendanceEvents={allAttendanceEvents}
       />
     </>
   );
