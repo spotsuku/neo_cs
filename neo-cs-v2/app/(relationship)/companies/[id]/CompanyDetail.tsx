@@ -96,6 +96,8 @@ import {
   setBusinessJourneyStageAction
 } from "./journey-actions";
 import { computeFromContract, computeHealthScore } from "@/lib/domain/health/health";
+import type { CccBreakdown } from "@/lib/domain/ccc/breakdown";
+import { CccSection } from "@/components/health/CccSection";
 import { HealthExplain } from "@/components/health/HealthExplain";
 import { HealthSparkline } from "@/components/health/HealthSparkline";
 import { ContractChurnSignals } from "@/components/contract/ContractChurnSignals";
@@ -244,7 +246,8 @@ export function CompanyDetail({
   latestHealthByContract = {},
   churnSignalsByContract = {},
   vocItemsByCompany = [],
-  driveSendLogs = []
+  driveSendLogs = [],
+  cccBreakdown
 }: {
   /** 閲覧者のグローバルロール。external だと進捗系タブを user_company_access ベースで制限 */
   viewerRole?: string;
@@ -320,6 +323,11 @@ export function CompanyDetail({
    * 「送付資料」タブでテーブル表示する。
    */
   driveSendLogs?: DriveSendLog[];
+  /**
+   * CCC (Customer Community Construction) 2026 Framework スコア。
+   * Server Component で computeCccBreakdown(...) を呼んで構築し、概要タブで可視化する。
+   */
+  cccBreakdown?: CccBreakdown;
 }) {
   // 担当事業との重複で進捗系タブを表示するか判定
   // - admin: 常に表示
@@ -531,6 +539,7 @@ export function CompanyDetail({
           companyVision={companyVision}
           companyVisionLogs={companyVisionLogs}
           latestHealthByContract={latestHealthByContract}
+          cccBreakdown={cccBreakdown}
         />
       )}
       {tab === "tasks" && (
@@ -925,7 +934,8 @@ function OverviewTab({
   pastContracts,
   companyVision,
   companyVisionLogs,
-  latestHealthByContract
+  latestHealthByContract,
+  cccBreakdown
 }: {
   company: Company;
   companyId: string;
@@ -940,6 +950,7 @@ function OverviewTab({
   companyVision?: CompanyVision | null;
   companyVisionLogs?: CompanyVisionLog[];
   latestHealthByContract: Record<string, import("@/lib/repository/types").HealthSnapshot>;
+  cccBreakdown?: CccBreakdown;
 }) {
   // 直近の動き: 面談ログ + 週次レビューを時系列でマージ
   const recentActivity = buildRecentActivity(logs, weeklyReviews, 6);
@@ -961,13 +972,17 @@ function OverviewTab({
         suggestion={companySuggestion}
       />
 
-      {/* 3. 直近の動き + 4. 健康スコア (2カラム) */}
+      {/* 3. 直近の動き + 4. CCC スコア (2カラム) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentActivitySection items={recentActivity} />
-        <CompanyHealthSection
-          contracts={contracts}
-          latestHealthByContract={latestHealthByContract}
-        />
+        {cccBreakdown ? (
+          <CccSection breakdown={cccBreakdown} />
+        ) : (
+          <CompanyHealthSection
+            contracts={contracts}
+            latestHealthByContract={latestHealthByContract}
+          />
+        )}
       </div>
 
       {/* 5. 過去契約事業 */}

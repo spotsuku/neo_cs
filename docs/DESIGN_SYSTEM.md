@@ -30,12 +30,15 @@
 
 ---
 
-## 3. デザイントークン (TBD — Phase 0 で確定)
+## 3. デザイントークン
 
 | トークン | 用途 | Tailwind |
 |---|---|---|
 | Brand primary | アクション / ハイライト | TBD |
-| Status: healthy / watch / risk / churn | ヘルススコア状態 | TBD |
+| **Status: healthy** | 健全 | **blue-500** (`#3B82F6`) |
+| **Status: watch** | 進行中 / 要観察 | **yellow-500** (`#EAB308`) |
+| **Status: risk** | 危険 | **red-500** (`#EF4444`) |
+| Status: churn | 解約 | gray-500 |
 | Surface (bg) | カード / パネル | TBD |
 | Border subtle / strong | 境界線 | TBD |
 | Text primary / muted / disabled | 文字色 | TBD |

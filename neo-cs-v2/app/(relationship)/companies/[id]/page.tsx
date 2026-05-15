@@ -37,6 +37,7 @@ import {
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import type { HealthColor } from "@/lib/domain/health/health";
+import { computeCccBreakdown } from "@/lib/domain/ccc/breakdown";
 import {
   suggestBusinessStage,
   suggestCompanyStage,
@@ -280,6 +281,40 @@ export default async function CompanyDetailPage({
   );
   const emailMessages = emailMessagesNested.flat();
 
+  // ─── CCC 2026 Framework スコアを active 契約の最新 snapshot を集約して算出 ───
+  // attendance / weeksSinceLastTouch は契約平均、surveyScore は健全 snapshot 由来。
+  // 集計値が無ければ undefined を渡し、computeCccBreakdown 側で safe default (50/low) になる。
+  const activeSnapshots = Object.values(latestHealthByContract);
+  const avg = (xs: number[]): number | undefined =>
+    xs.length === 0 ? undefined : xs.reduce((a, b) => a + b, 0) / xs.length;
+  const attendanceVals = activeSnapshots
+    .map((s) => s.factors.attendance)
+    .filter((v): v is number => v != null);
+  const weeksVals = activeSnapshots
+    .map((s) => s.factors.weeksSinceLastTouch)
+    .filter((v): v is number => v != null);
+  const churnCount = Object.values(churnSignalsByContract).reduce(
+    (a, list) => a + list.length,
+    0
+  );
+  // weeklyReview 提出率 proxy: 直近12週で何週ぶん提出されたか
+  const recentWeekly = weeklyReviews.slice(0, 12).length;
+  const weeklyRate = recentWeekly > 0 ? Math.min(1, recentWeekly / 12) : undefined;
+  // 健康 snapshot から surveyScore を集約 (Phase1: snapshot 側に未保持なので undefined)
+  const cccBreakdown = computeCccBreakdown({
+    companyId: company.id,
+    attendance: avg(attendanceVals) ?? null,
+    weeksSinceLastTouch: avg(weeksVals) ?? null,
+    churnSignalCount: churnCount,
+    meetingLogCount: meetings.length,
+    weeklyReviewSubmissionRate: weeklyRate ?? null,
+    vocItemCount: vocItemsByCompany.length,
+    surveyScore: null,
+    newParticipantCount: participantList.length,
+    referralCount: null,
+    engagementTier: null
+  });
+
   return (
     <>
       <TopNavServer current="/companies" />
@@ -327,6 +362,7 @@ export default async function CompanyDetailPage({
         churnSignalsByContract={churnSignalsByContract}
         vocItemsByCompany={vocItemsByCompany}
         driveSendLogs={driveSendLogs}
+        cccBreakdown={cccBreakdown}
       />
     </>
   );
