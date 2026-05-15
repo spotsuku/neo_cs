@@ -27,3 +27,7 @@ secrets.yml
 
 # 大容量 / 機密の資料 (docs/assets/ 内の PDF はリポに含めない)
 docs/assets/*.pdf
+
+# 個人メモ (ローカル参照のみ)
+個人メモ
+個人メモ.md
