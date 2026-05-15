@@ -12,16 +12,14 @@ import {
   hasMultipleCourses,
   courseShortName
 } from "@/lib/mock/data";
-import {
-  productOnboardingTemplates,
-  filterTemplateByCourses,
-  type ActiveContract
-} from "@/lib/mock/onboarding";
+import { type ActiveContract } from "@/lib/mock/onboarding";
 import type {
   ContractOnboardingItem,
   ContractStatus,
-  OnboardingItemEditableStatus
+  OnboardingItemEditableStatus,
+  OnboardingTemplateCategoryRecord
 } from "@/lib/repository/types";
+import { filterTemplateRecordsByCourses } from "@/lib/domain/onboarding/onboarding-template";
 import {
   setOnboardingItemAssignee,
   setOnboardingItemDueDate,
@@ -59,7 +57,8 @@ export function MatrixView({
   itemsByContract,
   companyMap,
   users,
-  today
+  today,
+  template: templateProp
 }: {
   product: ProductCode;
   contracts: ActiveContract[];
@@ -67,15 +66,16 @@ export function MatrixView({
   companyMap: Record<string, string>;
   users: { id: string; name: string }[];
   today: string;
+  template: OnboardingTemplateCategoryRecord[];
 }) {
   const p = productByCode[product];
   // 表示中契約の courseKey 集合に該当する項目（＋全コース共通）だけ列として残す
-  const template = filterTemplateByCourses(
-    productOnboardingTemplates[product],
+  const template = filterTemplateRecordsByCourses(
+    templateProp,
     contracts.map((c) => c.courseKey)
   )
     .slice()
-    .sort((a, b) => a.order - b.order);
+    .sort((a, b) => a.displayOrder - b.displayOrder);
 
   // ローカル state (optimistic update 用)
   const [localItems, setLocalItems] = useState<
@@ -271,7 +271,7 @@ export function MatrixView({
     const m = new Map<string, { done: number; total: number }>();
     for (const cat of template) {
       for (const it of cat.items) {
-        m.set(colKey(cat.key, it.key), { done: 0, total: 0 });
+        m.set(colKey(cat.categoryKey, it.itemKey), { done: 0, total: 0 });
       }
     }
     for (const c of contracts) {
@@ -288,8 +288,18 @@ export function MatrixView({
     return m;
   }, [contracts, localItems, template]);
 
+  // 列ヘッダ描画用に flatten (catKey/key は OnboardingCategory 時代の旧名を維持)
   const allItems = template.flatMap((cat) =>
-    cat.items.map((it) => ({ catKey: cat.key, catLabel: cat.label, ...it }))
+    cat.items.map((it) => ({
+      catKey: cat.categoryKey,
+      catLabel: cat.label,
+      key: it.itemKey,
+      name: it.name,
+      required: it.required,
+      dueOffsetDays: it.dueOffsetDays,
+      courseKey: it.courseKey ?? null,
+      defaultAssigneeRole: it.defaultAssigneeRole ?? null
+    }))
   );
 
   function findItem(
@@ -299,6 +309,22 @@ export function MatrixView({
   ): ContractOnboardingItem | undefined {
     return (localItems[contractId] ?? []).find(
       (x) => x.categoryKey === catKey && x.itemKey === itemKey
+    );
+  }
+
+  // テンプレが 1 件も無い場合は列が引けないのでプレースホルダ表示
+  if (template.length === 0 || allItems.length === 0) {
+    return (
+      <div className="liquid-surface p-10 text-center text-sm text-ink-500">
+        テンプレが未登録です。
+        <Link
+          href={`/settings/products/${product}`}
+          className="ml-1 underline hover:text-ink-700"
+        >
+          /settings/products/{product}
+        </Link>
+        {" "}から登録してください
+      </div>
     );
   }
 
@@ -323,7 +349,7 @@ export function MatrixView({
             </th>
             {template.map((cat) => (
               <th
-                key={cat.key}
+                key={cat.categoryKey}
                 colSpan={cat.items.length}
                 className="sticky top-0 bg-white z-20 px-2 py-2 font-semibold text-center border-l border-b border-ink-100 text-ink-700"
               >

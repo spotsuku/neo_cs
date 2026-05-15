@@ -9,9 +9,14 @@ import {
   onboardingItemRepo,
   userRepo,
   companyRepo,
-  contractRepo
+  contractRepo,
+  onboardingTemplateRepo
 } from "@/lib/repository/server";
+import type { ProductCode } from "@/lib/mock/data";
+import type { OnboardingTemplateCategoryRecord } from "@/lib/repository/types";
 import { OnboardingView } from "./OnboardingView";
+
+const PRODUCT_CODES: ProductCode[] = ["academia", "hyogikai", "aiken", "commu"];
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +25,21 @@ export default async function OnboardingPage() {
 
   // 全契約を repo から取得 (過去サイクル含む — 完了済セクションで参照する)
   const allContractsFromRepo = await contractRepo.list();
-  const [items, users, companies] = await Promise.all([
+  const [items, users, companies, templateLists] = await Promise.all([
     onboardingItemRepo.listByContractIds(allContractsFromRepo.map((c) => c.id)),
     userRepo.list({ activeOnly: true }),
-    companyRepo.list()
+    companyRepo.list(),
+    Promise.all(PRODUCT_CODES.map((p) => onboardingTemplateRepo.listByProduct(p)))
   ]);
+
+  // ProductCode → DB テンプレ (列ヘッダーの source)
+  const templatesByProduct = PRODUCT_CODES.reduce(
+    (acc, code, idx) => {
+      acc[code] = templateLists[idx];
+      return acc;
+    },
+    {} as Record<ProductCode, OnboardingTemplateCategoryRecord[]>
+  );
 
   // contractId → items
   const itemsByContract: Record<string, typeof items> = {};
@@ -48,6 +63,7 @@ export default async function OnboardingPage() {
         karuteNoMap={karuteNoMap}
         users={users.map((u) => ({ id: u.id, name: u.name }))}
         today={today}
+        templatesByProduct={templatesByProduct}
       />
     </>
   );

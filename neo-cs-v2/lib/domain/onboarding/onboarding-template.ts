@@ -10,6 +10,23 @@ import type {
 } from "@/lib/repository/types";
 import type { OnboardingCategory, OnboardingTemplateItem } from "@/lib/mock/onboarding";
 
+// 表示中契約群の courseKey 集合に該当する項目（＋全コース共通）だけを残す。
+// DB の OnboardingTemplateCategoryRecord を受けて同じ shape を返す。
+// item.courseKey が null/undefined のものは常に残す。
+export function filterTemplateRecordsByCourses(
+  template: OnboardingTemplateCategoryRecord[],
+  courseKeys: ReadonlyArray<string | null | undefined>
+): OnboardingTemplateCategoryRecord[] {
+  const set = new Set<string>();
+  for (const k of courseKeys) if (k != null) set.add(k);
+  return template
+    .map((cat) => ({
+      ...cat,
+      items: cat.items.filter((it) => it.courseKey == null || set.has(it.courseKey))
+    }))
+    .filter((cat) => cat.items.length > 0);
+}
+
 export function categoryRecordsToOnboardingCategories(
   cats: OnboardingTemplateCategoryRecord[]
 ): OnboardingCategory[] {

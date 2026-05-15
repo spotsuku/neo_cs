@@ -15,7 +15,10 @@ import {
   daysUntilStart,
   type ActiveContract
 } from "@/lib/mock/onboarding";
-import type { ContractOnboardingItem } from "@/lib/repository/types";
+import type {
+  ContractOnboardingItem,
+  OnboardingTemplateCategoryRecord
+} from "@/lib/repository/types";
 import { MatrixView } from "./MatrixView";
 
 // 事業ごとに「期」「回」など単位語が異なる
@@ -56,7 +59,8 @@ export function OnboardingView({
   companyMap,
   karuteNoMap,
   users,
-  today
+  today,
+  templatesByProduct
 }: {
   activeContracts: ActiveContract[];
   itemsByContract: Record<string, ContractOnboardingItem[]>;
@@ -64,6 +68,7 @@ export function OnboardingView({
   karuteNoMap?: Record<string, number>;
   users: { id: string; name: string }[];
   today: string;
+  templatesByProduct: Record<ProductCode, OnboardingTemplateCategoryRecord[]>;
 }) {
   const [product, setProduct] = useState<ProductCode>("academia");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
@@ -310,6 +315,7 @@ export function OnboardingView({
             companyMap={companyMap}
             users={users}
             today={today}
+            template={templatesByProduct[product] ?? []}
           />
         )}
       </section>
@@ -345,6 +351,7 @@ export function OnboardingView({
                 companyMap={companyMap}
                 users={users}
                 today={today}
+                template={templatesByProduct[product] ?? []}
               />
             )}
           </div>
