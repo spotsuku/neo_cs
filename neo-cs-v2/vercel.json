@@ -37,6 +37,10 @@
     {
       "path": "/api/cron/gmail-sync",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/onboarding-overdue-notify",
+      "schedule": "0 1 * * *"
     }
   ]
 }
