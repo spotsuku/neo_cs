@@ -654,6 +654,11 @@ export type MeetingLogCreateInput = Omit<MeetingLog, "id" | "organizationId"> & 
 
 export interface MeetingLogRepo {
   listByCompany(companyId: string, opts?: MeetingLogListOpts): Promise<MeetingLog[]>;
+  /** 複数企業の meeting_log を IN 句で一括取得 (N+1 回避用) */
+  listByCompanyIds(
+    companyIds: string[],
+    opts?: MeetingLogListOpts
+  ): Promise<MeetingLog[]>;
   create(input: MeetingLogCreateInput): Promise<MeetingLog>;
 }
 

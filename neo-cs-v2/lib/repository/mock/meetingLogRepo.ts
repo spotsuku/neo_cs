@@ -35,6 +35,14 @@ export const mockMeetingLogRepo: MeetingLogRepo = {
     const sliced = opts?.limit ? sorted.slice(0, opts.limit) : sorted;
     return sliced.map((m) => ({ ...m }));
   },
+  async listByCompanyIds(companyIds, opts?: MeetingLogListOpts) {
+    if (companyIds.length === 0) return [];
+    const idSet = new Set(companyIds);
+    const filtered = store.filter((m) => idSet.has(m.companyId));
+    const sorted = applySort(filtered, opts?.sort);
+    const sliced = opts?.limit ? sorted.slice(0, opts.limit) : sorted;
+    return sliced.map((m) => ({ ...m }));
+  },
   async create(input: MeetingLogCreateInput) {
     const log: MeetingLog = {
       ...input,

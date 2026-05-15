@@ -45,15 +45,18 @@ export default async function Page() {
   ]);
 
   // 全社 Inner Rings 総覧用: 企業ごとの meeting logs を集約して
-  // computeStakeholderEngagement に渡す (meetingLogRepo に list() が無いため
-  // 企業単位の listByCompany を並列実行)
-  const meetingsByCompany = await Promise.all(
-    companies.map((c) =>
-      meetingLogRepo.listByCompany(c.id, { sort: "date desc", limit: 200 })
-    )
+  // computeStakeholderEngagement に渡す (N+1 回避: 全社の meeting_log を
+  // IN 句で 1 回取得し、companyId で詰め直す)
+  const allMeetings = await meetingLogRepo.listByCompanyIds(
+    companies.map((c) => c.id),
+    { sort: "date desc" }
   );
-  const meetingsByCompanyId = new Map<string, (typeof meetingsByCompany)[number]>();
-  companies.forEach((c, i) => meetingsByCompanyId.set(c.id, meetingsByCompany[i]));
+  const meetingsByCompanyId = new Map<string, typeof allMeetings>();
+  for (const m of allMeetings) {
+    const arr = meetingsByCompanyId.get(m.companyId) ?? [];
+    arr.push(m);
+    meetingsByCompanyId.set(m.companyId, arr);
+  }
 
   const stakeholderEngagementMap: Record<
     string,

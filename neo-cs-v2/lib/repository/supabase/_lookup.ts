@@ -153,6 +153,24 @@ type MeetingLogRow = {
   ai_generated: boolean;
 };
 
+function mapMeetingLog(r: MeetingLogRow): MeetingLog {
+  return {
+    id: r.id,
+    organizationId: r.organization_id,
+    companyId: r.company_id,
+    date: r.occurred_at.slice(0, 10),
+    product: (r.is_cross ? "cross" : r.product_code) as MeetingLog["product"],
+    type: r.log_type,
+    title: r.title,
+    summary: r.summary ?? "",
+    good: r.good ?? undefined,
+    more: r.more ?? undefined,
+    next: r.next_action ?? undefined,
+    authorName: r.author_user_id ?? "",
+    aiGenerated: r.ai_generated
+  };
+}
+
 export const supabaseMeetingLogRepo: MeetingLogRepo = {
   async listByCompany(companyId, opts?: MeetingLogListOpts) {
     const sb = getServiceClient();
@@ -178,21 +196,30 @@ export const supabaseMeetingLogRepo: MeetingLogRepo = {
     if (opts?.limit) q = q.limit(opts.limit);
     const { data, error } = await q;
     if (error) throw new Error(`meeting_logs.listByCompany: ${error.message}`);
-    return (data ?? []).map((r: MeetingLogRow) => ({
-      id: r.id,
-      organizationId: r.organization_id,
-      companyId: r.company_id,
-      date: r.occurred_at.slice(0, 10),
-      product: (r.is_cross ? "cross" : r.product_code) as MeetingLog["product"],
-      type: r.log_type,
-      title: r.title,
-      summary: r.summary ?? "",
-      good: r.good ?? undefined,
-      more: r.more ?? undefined,
-      next: r.next_action ?? undefined,
-      authorName: r.author_user_id ?? "",
-      aiGenerated: r.ai_generated
-    }));
+    return (data ?? []).map((r: MeetingLogRow) => mapMeetingLog(r));
+  },
+
+  async listByCompanyIds(companyIds, opts?: MeetingLogListOpts) {
+    if (companyIds.length === 0) return [];
+    const sb = getServiceClient();
+    let q = sb.from("meeting_logs").select("*").in("company_id", companyIds);
+    if (opts?.sort) {
+      const m = opts.sort.match(/^(\w+)\s*(asc|desc)?$/i);
+      if (m) {
+        const [, field, dir] = m;
+        const allowed: Record<string, string> = {
+          date: "occurred_at",
+          occurredAt: "occurred_at",
+          createdAt: "occurred_at"
+        };
+        const col = allowed[field] ?? field;
+        q = q.order(col, { ascending: (dir ?? "asc").toLowerCase() !== "desc" });
+      }
+    }
+    if (opts?.limit) q = q.limit(opts.limit);
+    const { data, error } = await q;
+    if (error) throw new Error(`meeting_logs.listByCompanyIds: ${error.message}`);
+    return (data ?? []).map((r: MeetingLogRow) => mapMeetingLog(r));
   },
 
   async create(input) {
