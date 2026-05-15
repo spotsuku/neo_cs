@@ -1,6 +1,7 @@
 import { TopNavServer } from "@/components/nav/TopNavServer";
 import { MyTasksWidget } from "@/components/tasks/MyTasksWidget";
 import { ExecutiveDashboard } from "./ExecutiveDashboard";
+import { CommunityOverviewSection } from "@/components/community/CommunityOverviewSection";
 import {
   computeContinuousKpis,
   computeOneShotKpis,
@@ -14,22 +15,68 @@ import {
   companyJourneyRepo,
   journeyStageDefinitionRepo,
   companyRepo,
-  contractRepo
+  contractRepo,
+  stakeholderRepo,
+  meetingLogRepo
 } from "@/lib/repository/server";
+import { DEFAULT_ORG_ID } from "@/lib/repository/types";
+import { computeStakeholderEngagement } from "@/lib/domain/community/engagement-builder";
+import { buildCommunityOverview } from "@/lib/domain/community/overview";
 
 const ASOF = "2026-04-24";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const [vocItems, companyJourneys, journeyStages, companies, allContracts] =
-    await Promise.all([
-      vocItemRepo.list(),
-      companyJourneyRepo.list(),
-      journeyStageDefinitionRepo.list({ journeyType: "company" }),
-      companyRepo.list(),
-      contractRepo.list()
-    ]);
+  const [
+    vocItems,
+    companyJourneys,
+    journeyStages,
+    companies,
+    allContracts,
+    stakeholders
+  ] = await Promise.all([
+    vocItemRepo.list(),
+    companyJourneyRepo.list(),
+    journeyStageDefinitionRepo.list({ journeyType: "company" }),
+    companyRepo.list(),
+    contractRepo.list(),
+    stakeholderRepo.list({ organizationId: DEFAULT_ORG_ID })
+  ]);
+
+  // 全社 Inner Rings 総覧用: 企業ごとの meeting logs を集約して
+  // computeStakeholderEngagement に渡す (meetingLogRepo に list() が無いため
+  // 企業単位の listByCompany を並列実行)
+  const meetingsByCompany = await Promise.all(
+    companies.map((c) =>
+      meetingLogRepo.listByCompany(c.id, { sort: "date desc", limit: 200 })
+    )
+  );
+  const meetingsByCompanyId = new Map<string, (typeof meetingsByCompany)[number]>();
+  companies.forEach((c, i) => meetingsByCompanyId.set(c.id, meetingsByCompany[i]));
+
+  const stakeholderEngagementMap: Record<
+    string,
+    { suggestedTier: "core" | "active" | "casual" | "at_risk"; reasons: string[] }
+  > = {};
+  for (const s of stakeholders) {
+    const meetings = meetingsByCompanyId.get(s.companyId) ?? [];
+    const r = computeStakeholderEngagement(s, { meetingLogs: meetings });
+    stakeholderEngagementMap[s.id] = {
+      suggestedTier: r.suggestedTier,
+      reasons: r.reasons
+    };
+  }
+
+  const communityOverview = buildCommunityOverview({
+    companies: companies.map((c) => ({
+      id: c.id,
+      name: c.name,
+      ownerName: c.ownerName
+    })),
+    stakeholders,
+    stakeholderEngagement: stakeholderEngagementMap
+  });
 
   const continuous = computeContinuousKpis(allContracts, ASOF);
   const oneShot = computeOneShotKpis(allContracts, ASOF, 90);
@@ -90,6 +137,8 @@ export default async function Page() {
           strategicAssetCount={strategicAssetCount}
           totalActiveCompanies={activeCompanyIds.size}
         />
+
+        <CommunityOverviewSection overview={communityOverview} />
 
         {/* 現場担当用: 自分のToDo */}
         <section>
