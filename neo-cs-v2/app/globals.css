@@ -1,69 +1,181 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-:root {
-  --bg: #ffffff;
-  --ink: #0e0f12;
-}
+@theme {
+  --color-brand-pink: #ff3d8a;
+  --color-brand-orange: #ff9838;
+  --color-brand-yellow: #ffd93d;
+  --color-brand-green: #4cd97b;
+  --color-brand-blue: #3d9eff;
+  --color-brand-purple: #8b5cf6;
 
-html,
-body {
-  background: var(--bg);
-  color: var(--ink);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-product-academia: #3d9eff;
+  --color-product-hyogikai: #8b5cf6;
+  --color-product-aiken: #4cd97b;
+  --color-product-commu: #ff9838;
+
+  --color-ink-50: #f7f8fa;
+  --color-ink-100: #eef0f3;
+  --color-ink-300: #c4c7cd;
+  --color-ink-500: #6b7079;
+  --color-ink-700: #2b2d33;
+  --color-ink-900: #0e0f12;
+
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+
+  --color-neutral-50: #f7f8fa;
+  --color-neutral-100: #eef0f3;
+  --color-neutral-300: #c4c7cd;
+  --color-neutral-500: #6b7079;
+  --color-neutral-700: #2b2d33;
+  --color-neutral-900: #0e0f12;
+
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f8fa;
+  --color-surface-inverse: #0e0f12;
+
+  --color-borderc: #eef0f3;
+  --color-borderc-strong: #c4c7cd;
+
+  --color-focusring: #3d9eff;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP',
+    sans-serif;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 1.5;
+  --text-body: 14px;
+  --text-body--line-height: 1.6;
+  --text-bodyLg: 15px;
+  --text-bodyLg--line-height: 1.6;
+  --text-h4: 16px;
+  --text-h4--line-height: 1.4;
+  --text-h4--letter-spacing: -0.005em;
+  --text-h3: 18px;
+  --text-h3--line-height: 1.4;
+  --text-h3--letter-spacing: -0.01em;
+  --text-h2: 20px;
+  --text-h2--line-height: 1.3;
+  --text-h2--letter-spacing: -0.01em;
+  --text-h1: 24px;
+  --text-h1--line-height: 1.25;
+  --text-h1--letter-spacing: -0.015em;
+  --text-metric: 28px;
+  --text-metric--line-height: 1.1;
+  --text-metric--letter-spacing: -0.02em;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-surface: 20px;
+  --radius-pill: 9999px;
+  --radius-liquid: 1.25rem;
+
+  --shadow-card:
+    0 1px 2px rgba(14, 15, 18, 0.04), 0 8px 24px rgba(14, 15, 18, 0.06);
+  --shadow-cardHover:
+    0 2px 4px rgba(14, 15, 18, 0.04), 0 16px 40px rgba(14, 15, 18, 0.08);
+  --shadow-liquid:
+    0 1px 2px rgba(14, 15, 18, 0.04), 0 8px 24px rgba(14, 15, 18, 0.06);
+  --shadow-liquid-lg:
+    0 2px 4px rgba(14, 15, 18, 0.04), 0 16px 40px rgba(14, 15, 18, 0.08);
+
+  --background-image-brand-gradient: linear-gradient(
+    135deg,
+    #4cd97b 0%,
+    #3d9eff 25%,
+    #8b5cf6 50%,
+    #ff3d8a 75%,
+    #ff9838 100%
+  );
 }
 
 /*
- * Liquid Design: すりガラス＆柔らかな層
- *
- * 命名遷移:
- *   - 新規コードは .surface / .surface-muted を使う
- *   - .liquid-card / .liquid-surface は互換のため残置（新規利用は非推奨）
- *   - .brand-text-gradient はトップページh1など「象徴的見出し」のみ
- *   - .liquid-blob は限定画面のみ。layout.tsx での全画面常駐はやめる
- */
-@layer components {
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility surface {
   /* 推奨: surface = 業務用カード */
-  .surface {
-    @apply relative rounded-surface bg-white border border-ink-100 shadow-card;
-  }
-  .surface-muted {
-    @apply rounded-surface bg-ink-50 border border-ink-100;
-  }
-
+  @apply relative rounded-surface bg-white border border-ink-100 shadow-card;
+}
+@utility surface-muted {
+  @apply rounded-surface bg-ink-50 border border-ink-100;
+}
+@utility liquid-card {
   /* 互換エイリアス（既存コード向け、新規利用は非推奨） */
-  .liquid-card {
-    @apply relative rounded-liquid bg-white/70 backdrop-blur-xl border border-white shadow-liquid;
-    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
-  }
-  .liquid-surface {
-    @apply rounded-liquid bg-white border border-ink-100 shadow-liquid;
-  }
-
-  .liquid-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-ink-50 text-ink-700 border border-ink-100;
-  }
-
+  @apply relative rounded-liquid bg-white/70 backdrop-blur-xl border border-white shadow-liquid;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+}
+@utility liquid-surface {
+  @apply rounded-liquid bg-white border border-ink-100 shadow-liquid;
+}
+@utility liquid-chip {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-ink-50 text-ink-700 border border-ink-100;
+}
+@utility brand-text-gradient {
   /* 利用ガイドライン: 象徴的見出しのみ。各画面のh1全部に乗せない */
-  .brand-text-gradient {
-    background: linear-gradient(135deg, #4cd97b 0%, #3d9eff 25%, #8b5cf6 50%, #ff3d8a 75%, #ff9838 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-  }
-
+  background: linear-gradient(
+    135deg,
+    #4cd97b 0%,
+    #3d9eff 25%,
+    #8b5cf6 50%,
+    #ff3d8a 75%,
+    #ff9838 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+@utility liquid-blob {
   /* 利用ガイドライン: layout.tsx で全画面に置かない。
      特定画面（オンボーディング/ランディング等）のみで <BrandBlobs/> 経由で限定使用 */
-  .liquid-blob {
-    position: absolute;
-    border-radius: 9999px;
-    filter: blur(64px);
-    opacity: 0.35;
-    pointer-events: none;
-  }
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 /*
@@ -73,13 +185,36 @@ body {
  * focus:outline-none 単独利用は禁止（ESLintで段階的に検出予定）。
  * focus-visible: を使うのでマウスクリック時には出ない。
  */
+@utility focus-ring {
+  @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focusring focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+}
+@utility focus-ring-inset {
+  @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focusring;
+}
+
 @layer utilities {
-  .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focusring focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+  :root {
+    --bg: #ffffff;
+    --ink: #0e0f12;
   }
-  .focus-ring-inset {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focusring;
+
+  html,
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  /*
+ * Liquid Design: すりガラス＆柔らかな層
+ *
+ * 命名遷移:
+ *   - 新規コードは .surface / .surface-muted を使う
+ *   - .liquid-card / .liquid-surface は互換のため残置（新規利用は非推奨）
+ *   - .brand-text-gradient はトップページh1など「象徴的見出し」のみ
+ *   - .liquid-blob は限定画面のみ。layout.tsx での全画面常駐はやめる
+ */
 }
 
 /* インタラクティブ要素の既定フォーカススタイル

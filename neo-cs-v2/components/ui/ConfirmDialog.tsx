@@ -76,7 +76,7 @@ export function ConfirmDialog({
         type="button"
         aria-label="ダイアログを閉じる"
         onClick={onCancel}
-        className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm cursor-default"
+        className="absolute inset-0 bg-ink-900/40 backdrop-blur-xs cursor-default"
       />
       <div
         ref={dialogRef}

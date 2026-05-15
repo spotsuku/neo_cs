@@ -79,7 +79,7 @@ export function KaruteNoBadge({
           }}
           autoFocus
           disabled={pending}
-          className="w-20 rounded border border-ink-200 px-1.5 py-0.5 text-[12px] focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-20 rounded border border-ink-200 px-1.5 py-0.5 text-[12px] focus:outline-hidden focus:ring-2 focus:ring-blue-200"
         />
         <button
           type="button"

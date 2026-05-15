@@ -45,7 +45,7 @@ export function LoginButton({ redirect }: { redirect: string }) {
         type="button"
         onClick={signIn}
         disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-800 shadow-xs hover:bg-neutral-50 disabled:opacity-60"
       >
         <GoogleMark />
         {pending ? "サインイン中…" : "Google でサインイン"}

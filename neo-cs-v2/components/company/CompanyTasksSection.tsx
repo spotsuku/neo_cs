@@ -308,7 +308,7 @@ function AddTaskModal({
         type="button"
         aria-label="閉じる"
         onClick={onClose}
-        className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm cursor-default"
+        className="absolute inset-0 bg-ink-900/40 backdrop-blur-xs cursor-default"
       />
       <form
         onSubmit={handleSubmit}

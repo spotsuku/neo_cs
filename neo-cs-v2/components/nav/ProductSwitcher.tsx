@@ -25,7 +25,7 @@ export function ProductSwitcher({ currentCode }: { currentCode: ProductCode }) {
             className={[
               "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition",
               active
-                ? "bg-white shadow-sm font-semibold text-ink-900"
+                ? "bg-white shadow-xs font-semibold text-ink-900"
                 : "text-ink-500 hover:text-ink-700"
             ].join(" ")}
           >

@@ -32,7 +32,7 @@ export function SyncNowButton() {
         {pending ? "同期中…" : "今すぐ同期"}
       </button>
       {result && (
-        <span className="text-xs text-ink-600 break-words">{result}</span>
+        <span className="text-xs text-ink-600 wrap-break-word">{result}</span>
       )}
     </div>
   );

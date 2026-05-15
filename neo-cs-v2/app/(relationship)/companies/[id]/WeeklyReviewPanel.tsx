@@ -643,7 +643,7 @@ function ActionsList({
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder="実施したことを追加..."
-            className="flex-1 text-sm rounded-full border border-ink-100 px-4 py-2 bg-white focus:outline-none focus:border-ink-300"
+            className="flex-1 text-sm rounded-full border border-ink-100 px-4 py-2 bg-white focus:outline-hidden focus:border-ink-300"
             onKeyDown={(e) => {
               if (e.key === "Enter" && newText.trim()) {
                 onAddNew(newText.trim());
@@ -696,7 +696,7 @@ function GoodMoreArea({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={tone === "good" ? "うまくいったこと、顧客の前向きな反応、など" : "課題、ブロッカー、次に改善したいこと、など"}
-      className={`w-full rounded-2xl border ${bg} px-4 py-3 text-sm text-ink-700 min-h-[80px] focus:outline-none focus:ring-1 focus:ring-ink-300`}
+      className={`w-full rounded-2xl border ${bg} px-4 py-3 text-sm text-ink-700 min-h-[80px] focus:outline-hidden focus:ring-1 focus:ring-ink-300`}
     />
   );
 }
@@ -760,7 +760,7 @@ function NextActionsList({
                   type="text"
                   value={a.text}
                   onChange={(e) => update(a.id, { text: e.target.value })}
-                  className="w-full text-sm rounded-md px-2 py-1 bg-white border border-transparent hover:border-ink-100 focus:border-ink-300 focus:outline-none"
+                  className="w-full text-sm rounded-md px-2 py-1 bg-white border border-transparent hover:border-ink-100 focus:border-ink-300 focus:outline-hidden"
                 />
               ) : (
                 <div className="text-sm text-ink-900 px-2">{a.text}</div>
@@ -823,7 +823,7 @@ function NextActionsList({
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder="来週やることを追加..."
-            className="flex-1 text-sm rounded-full border border-ink-100 px-4 py-2 bg-white focus:outline-none focus:border-ink-300"
+            className="flex-1 text-sm rounded-full border border-ink-100 px-4 py-2 bg-white focus:outline-hidden focus:border-ink-300"
             onKeyDown={(e) => e.key === "Enter" && add()}
           />
           <select

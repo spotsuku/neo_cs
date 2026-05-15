@@ -195,7 +195,7 @@ function Field({
 }
 
 const inputCls =
-  "w-full px-3 py-2 rounded-xl bg-white border border-ink-100 text-sm text-ink-900 focus:outline-none focus:border-ink-300";
+  "w-full px-3 py-2 rounded-xl bg-white border border-ink-100 text-sm text-ink-900 focus:outline-hidden focus:border-ink-300";
 
 function BasicTab({ product, code }: { product: Product; code: ProductCode }) {
   const courseCount = productCourses[code].length;
@@ -449,7 +449,7 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
                 {catIdx + 1}
               </span>
               <input
-                className={`${inputCls} !py-1.5 max-w-xs font-semibold`}
+                className={`${inputCls} py-1.5! max-w-xs font-semibold`}
                 value={cat.label}
                 onChange={(e) => updateCategory(catIdx, { label: e.target.value })}
               />
@@ -500,7 +500,7 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
                     <tr key={itemIdx} className="border-b border-ink-50 last:border-0">
                       <td className="px-3 py-2">
                         <textarea
-                          className={`${inputCls} !py-1.5 h-9 resize-none`}
+                          className={`${inputCls} py-1.5! h-9 resize-none`}
                           value={it.name}
                           onChange={(e) => updateItem(catIdx, itemIdx, { name: e.target.value })}
                         />
@@ -508,7 +508,7 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
                       <td className="px-3 py-2">
                         <input
                           type="number"
-                          className={`${inputCls} !py-1.5`}
+                          className={`${inputCls} py-1.5!`}
                           value={it.dueOffsetDays}
                           onChange={(e) =>
                             updateItem(catIdx, itemIdx, { dueOffsetDays: Number(e.target.value) })
@@ -527,7 +527,7 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
                       </td>
                       <td className="px-3 py-2">
                         <select
-                          className={`${inputCls} !py-1.5`}
+                          className={`${inputCls} py-1.5!`}
                           value={it.defaultAssigneeRole ?? "cs"}
                           onChange={(e) =>
                             updateItem(catIdx, itemIdx, {
@@ -545,7 +545,7 @@ function OnboardingTab({ accent, code }: { accent: string; code: ProductCode }) 
                       {showCourseSelector && (
                         <td className="px-3 py-2">
                           <select
-                            className={`${inputCls} !py-1.5`}
+                            className={`${inputCls} py-1.5!`}
                             value={it.courseKey ?? ""}
                             onChange={(e) =>
                               updateItem(catIdx, itemIdx, {

@@ -163,7 +163,7 @@ const STEP_TITLES = [
 // 共通スタイル
 // ─────────────────────────────────────────────
 const inputCls =
-  "w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300";
+  "w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300";
 const labelCls = "block text-xs text-ink-500 font-medium mb-1";
 
 // ─────────────────────────────────────────────

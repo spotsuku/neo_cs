@@ -395,7 +395,7 @@ export function WeeklyView({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="企業名を検索..."
-            className="text-sm rounded-full border border-ink-100 px-4 py-1.5 bg-white focus:outline-none focus:border-ink-300 min-w-[200px]"
+            className="text-sm rounded-full border border-ink-100 px-4 py-1.5 bg-white focus:outline-hidden focus:border-ink-300 min-w-[200px]"
           />
           <div className="flex items-center gap-2">
             <span className="text-xs text-ink-500 font-medium">
@@ -576,7 +576,7 @@ export function WeeklyView({
                         </div>
                       </div>
 
-                      <div className="hidden md:block flex-[2] min-w-0 text-xs text-ink-500 space-y-0.5">
+                      <div className="hidden md:block flex-2 min-w-0 text-xs text-ink-500 space-y-0.5">
                         <div className="truncate">
                           <span className="text-emerald-700 font-medium">
                             Good:

@@ -935,7 +935,7 @@ function JourneyPhaseSection({
                 {inPhase.length}
                 <span className="ml-1 text-xs text-ink-500 font-normal">社</span>
               </div>
-              <div className="mt-3 space-y-1 min-h-[3.5rem]">
+              <div className="mt-3 space-y-1 min-h-14">
                 {sampleNames.length === 0 && (
                   <div className="text-[11px] text-ink-500">—</div>
                 )}

@@ -497,7 +497,7 @@ export default function CompaniesView({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="企業名・業種で検索"
-              className="flex-1 min-w-[200px] px-3 py-1.5 rounded-full border border-ink-100 bg-white text-xs focus:outline-none focus:border-ink-300"
+              className="flex-1 min-w-[200px] px-3 py-1.5 rounded-full border border-ink-100 bg-white text-xs focus:outline-hidden focus:border-ink-300"
             />
 
             {sortColumn && (
@@ -646,7 +646,7 @@ export default function CompaniesView({
         {/* テーブル — flex-1 で残り高さを占有、内部スクロール + ヘッダ sticky */}
         <section className="liquid-surface flex-1 min-h-0 overflow-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur shadow-[0_1px_0_0_rgba(0,0,0,0.06)]">
+            <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm shadow-[0_1px_0_0_rgba(0,0,0,0.06)]">
               <tr className="text-left text-[11px] text-ink-500">
                 <SortableTh col="no" sortColumn={sortColumn} sortDir={sortDir} onSort={cycleSort} className="px-3 py-2 whitespace-nowrap">No.</SortableTh>
                 <SortableTh col="name" sortColumn={sortColumn} sortDir={sortDir} onSort={cycleSort} className="px-5 py-2">企業名</SortableTh>
@@ -689,7 +689,7 @@ export default function CompaniesView({
                               </div>
                             )}
                             {weather && (
-                              <span className="absolute -top-1.5 -right-1.5 leading-none drop-shadow-sm">
+                              <span className="absolute -top-1.5 -right-1.5 leading-none drop-shadow-xs">
                                 <WeatherIcon weather={weather} size="sm" />
                               </span>
                             )}

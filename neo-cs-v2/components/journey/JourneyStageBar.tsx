@@ -270,7 +270,7 @@ function StageStepWithPopover({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex flex-col items-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded p-0.5 w-full min-w-0"
+        className="flex flex-col items-center cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300 rounded p-0.5 w-full min-w-0"
         title={`${stage.name} — クリックで詳細`}
       >
         <CircleNode
@@ -454,8 +454,8 @@ function StageCard({
           {label}
         </span>
       </div>
-      <div className="text-sm font-semibold text-ink-900 break-words">{stage.name}</div>
-      <div className="mt-1 text-[12px] text-ink-700 leading-snug break-words">
+      <div className="text-sm font-semibold text-ink-900 wrap-break-word">{stage.name}</div>
+      <div className="mt-1 text-[12px] text-ink-700 leading-snug wrap-break-word">
         {stage.description}
       </div>
       {stage.keyActions && (
@@ -463,7 +463,7 @@ function StageCard({
           <div className="text-[10px] text-ink-500 font-semibold mb-0.5">
             この時期の支援
           </div>
-          <div className="text-[11px] text-ink-700 leading-snug break-words">
+          <div className="text-[11px] text-ink-700 leading-snug wrap-break-word">
             {stage.keyActions}
           </div>
         </div>
@@ -625,7 +625,7 @@ function StageHoverPopover({
                 placeholder={
                   isRegression ? "変更理由 (必須推奨)" : "メモ (任意)"
                 }
-                className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-[11px] focus:outline-hidden focus:ring-2 focus:ring-blue-200"
                 rows={2}
               />
             )}

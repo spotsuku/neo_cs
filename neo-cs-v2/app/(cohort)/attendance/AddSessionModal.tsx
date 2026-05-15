@@ -179,7 +179,7 @@ export function AddSessionModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-ink-900/30 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-ink-900/30 backdrop-blur-xs flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
@@ -270,7 +270,7 @@ export function AddSessionModal({
                 onClick={() => setScopeMode("all")}
                 className={`px-3 py-1 rounded-full text-xs ${
                   scopeMode === "all"
-                    ? "bg-white shadow text-ink-900 font-medium"
+                    ? "bg-white shadow-sm text-ink-900 font-medium"
                     : "text-ink-500 hover:text-ink-700"
                 }`}
               >
@@ -281,7 +281,7 @@ export function AddSessionModal({
                 onClick={() => setScopeMode("by_role")}
                 className={`px-3 py-1 rounded-full text-xs ${
                   scopeMode === "by_role"
-                    ? "bg-white shadow text-ink-900 font-medium"
+                    ? "bg-white shadow-sm text-ink-900 font-medium"
                     : "text-ink-500 hover:text-ink-700"
                 }`}
               >

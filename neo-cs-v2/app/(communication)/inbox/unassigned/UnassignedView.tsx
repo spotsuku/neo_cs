@@ -164,7 +164,7 @@ function ThreadRow({
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
             placeholder="企業名で検索…"
-            className="flex-1 rounded-md border border-ink-200 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-brand-blue"
+            className="flex-1 rounded-md border border-ink-200 px-2 py-1 text-sm focus:outline-hidden focus:ring-1 focus:ring-brand-blue"
             disabled={pending}
           />
           <datalist id={listId}>

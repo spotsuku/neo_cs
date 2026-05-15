@@ -92,7 +92,7 @@ export function BusinessLifecyclePanel({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={[
-          "inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-md border font-semibold hover:opacity-80 shadow-sm",
+          "inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-md border font-semibold hover:opacity-80 shadow-xs",
           STATE_TONE[currentState]
         ].join(" ")}
         title="契約状態を変更"
@@ -161,7 +161,7 @@ export function BusinessLifecyclePanel({
                     ? "解約検討に至った背景 (必須)"
                     : "理由 (任意)"
                 }
-                className="w-full text-[11px] rounded border border-ink-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="w-full text-[11px] rounded border border-ink-200 px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-300"
                 rows={3}
               />
               {error && (

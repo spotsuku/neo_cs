@@ -46,7 +46,7 @@ export default function ProfilePage() {
         <section className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
           {/* 左カラム */}
           <div className="liquid-surface p-6 flex flex-col items-center text-center">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white text-5xl font-bold flex items-center justify-center shadow-liquid">
+            <div className="w-32 h-32 rounded-full bg-linear-to-br from-blue-400 to-purple-500 text-white text-5xl font-bold flex items-center justify-center shadow-liquid">
               古
             </div>
             <div className="mt-4 text-lg font-semibold">古野 健太</div>

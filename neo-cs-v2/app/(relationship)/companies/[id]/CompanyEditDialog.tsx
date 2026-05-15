@@ -84,11 +84,11 @@ export function CompanyEditDialog({
   };
 
   const inputCls =
-    "mt-0.5 w-full rounded-lg border border-ink-200 px-2 py-1 text-sm focus:outline-none focus:border-ink-400";
+    "mt-0.5 w-full rounded-lg border border-ink-200 px-2 py-1 text-sm focus:outline-hidden focus:border-ink-400";
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] bg-ink-900/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-100 bg-ink-900/40 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <form

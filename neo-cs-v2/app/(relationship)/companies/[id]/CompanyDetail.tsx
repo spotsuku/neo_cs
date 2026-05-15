@@ -191,7 +191,7 @@ function ProductTabs({
             className={[
               "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs transition",
               active
-                ? "bg-white shadow-sm font-semibold text-ink-900"
+                ? "bg-white shadow-xs font-semibold text-ink-900"
                 : "text-ink-500 hover:text-ink-700"
             ].join(" ")}
           >
@@ -399,7 +399,7 @@ export function CompanyDetail({
   return (
     <main className="mx-auto max-w-[1720px] px-6 pt-0 pb-8">
       {/* 上部固定領域 (パンくず + ヘッダーバー)。グローバル TopNav (h-14) の直下に固定 */}
-      <div className="sticky top-14 z-30 -mx-6 px-6 bg-white/85 backdrop-blur border-b border-ink-100">
+      <div className="sticky top-14 z-30 -mx-6 px-6 bg-white/85 backdrop-blur-sm border-b border-ink-100">
         <div className="text-xs text-ink-500 pt-3 pb-1">
           <Link href="/companies" className="hover:text-ink-700">
             企業
@@ -529,7 +529,7 @@ export function CompanyDetail({
 
         <section className="flex-1 min-w-0 space-y-6">
           {/* タブ (上部固定: ヘッダー(56px)直下) */}
-          <nav className="sticky top-[146px] z-20 -mx-2 px-2 bg-white/90 backdrop-blur flex items-center gap-1 border-b border-ink-100 overflow-x-auto">
+          <nav className="sticky top-[146px] z-20 -mx-2 px-2 bg-white/90 backdrop-blur-sm flex items-center gap-1 border-b border-ink-100 overflow-x-auto">
             {visibleTabs.map((t) => {
               const active = tab === t.key;
               return (
@@ -921,7 +921,7 @@ function SidebarField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2">
       <dt className="text-ink-400 w-16 shrink-0">{label}</dt>
-      <dd className="text-ink-800 break-words flex-1">{value}</dd>
+      <dd className="text-ink-800 wrap-break-word flex-1">{value}</dd>
     </div>
   );
 }
@@ -1438,12 +1438,12 @@ function LogsTab({
                   day: "numeric"
                 })}
               </span>
-              <span className="liquid-chip text-[10px] !px-2 !py-0.5">
+              <span className="liquid-chip text-[10px] px-2! py-0.5!">
                 {typeLabel[l.type]}
               </span>
               {l.product === "cross" ? (
                 <span className="inline-flex items-center gap-1 rounded-full font-medium border text-[10px] px-1.5 py-0.5 text-ink-700 border-ink-300 bg-ink-50">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-brand-blue to-brand-pink" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-linear-to-r from-brand-blue to-brand-pink" />
                   横断
                 </span>
               ) : (
@@ -1580,7 +1580,7 @@ function TodoTab({
   return (
     <section className="space-y-4">
       {/* ヘッダ: サブカテゴリタブ + 事業切替 (上部のメインタブ直下に固定) */}
-      <div className="sticky top-[190px] z-10 -mx-2 px-2 py-2 bg-white/90 backdrop-blur flex items-center justify-between flex-wrap gap-3 border-b border-ink-100">
+      <div className="sticky top-[190px] z-10 -mx-2 px-2 py-2 bg-white/90 backdrop-blur-sm flex items-center justify-between flex-wrap gap-3 border-b border-ink-100">
         <div className="inline-flex items-center gap-1 p-1 rounded-md bg-ink-100/70 border border-ink-100">
           {([
             { key: "onboarding", label: "オンボ" },
@@ -1596,7 +1596,7 @@ function TodoTab({
                 className={[
                   "px-3 py-1 rounded text-xs transition",
                   active
-                    ? "bg-white shadow-sm font-semibold text-ink-900"
+                    ? "bg-white shadow-xs font-semibold text-ink-900"
                     : "text-ink-500 hover:text-ink-700"
                 ].join(" ")}
               >
@@ -1614,7 +1614,7 @@ function TodoTab({
               className={[
                 "px-3 py-1 rounded-full text-xs transition",
                 selectedCode === "all"
-                  ? "bg-white shadow-sm font-semibold text-ink-900"
+                  ? "bg-white shadow-xs font-semibold text-ink-900"
                   : "text-ink-500 hover:text-ink-700"
               ].join(" ")}
             >
@@ -1631,7 +1631,7 @@ function TodoTab({
                   className={[
                     "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs transition",
                     active
-                      ? "bg-white shadow-sm font-semibold text-ink-900"
+                      ? "bg-white shadow-xs font-semibold text-ink-900"
                       : "text-ink-500 hover:text-ink-700"
                   ].join(" ")}
                 >
@@ -2829,7 +2829,7 @@ function ChurnModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 backdrop-blur-xs p-4"
       onClick={onClose}
     >
       <div
@@ -4423,7 +4423,7 @@ function ParticipantsTab({
                   className={[
                     "px-2.5 py-0.5 rounded-full text-[11px] transition",
                     viewMode === m
-                      ? "bg-white shadow-sm font-semibold text-ink-900"
+                      ? "bg-white shadow-xs font-semibold text-ink-900"
                       : "text-ink-500 hover:text-ink-700"
                   ].join(" ")}
                 >
@@ -4755,7 +4755,7 @@ function ParticipantContractGroup({
                           return (
                             <div key={key} className="flex items-baseline gap-1.5">
                               <dt className="text-ink-400 shrink-0">{label}</dt>
-                              <dd className="text-ink-700 break-words">
+                              <dd className="text-ink-700 wrap-break-word">
                                 {fieldOptionLabel(key, value)}
                               </dd>
                             </div>
@@ -5101,7 +5101,7 @@ function ParticipantEditDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] bg-ink-900/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-100 bg-ink-900/40 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
@@ -5468,7 +5468,7 @@ function ParticipantAddDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] bg-ink-900/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-100 bg-ink-900/40 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
@@ -5900,7 +5900,7 @@ function ContactEditDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] bg-ink-900/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-100 bg-ink-900/40 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
@@ -6194,7 +6194,7 @@ function ContactEditDialog({
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             placeholder="例: 野球好き / 元 営業出身で現場経験豊富 / 家族の話題に乗ってくれる"
-            className="w-full resize-y rounded-lg border border-ink-200 px-2 py-1.5 text-sm focus:outline-none focus:border-brand-blue"
+            className="w-full resize-y rounded-lg border border-ink-200 px-2 py-1.5 text-sm focus:outline-hidden focus:border-brand-blue"
           />
         </div>
 

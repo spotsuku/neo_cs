@@ -679,7 +679,7 @@ function NoteModal({
           onChange={(e) => onChange(e.target.value)}
           rows={6}
           autoFocus
-          className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ink-300"
+          className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-hidden focus:ring-1 focus:ring-ink-300"
         />
         <div className="flex justify-end gap-2">
           <button

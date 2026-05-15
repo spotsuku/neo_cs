@@ -245,7 +245,7 @@ export function ChatDock() {
                           </div>
                           <div
                             className={[
-                              "inline-block px-3 py-1.5 rounded-2xl text-sm whitespace-pre-wrap break-words",
+                              "inline-block px-3 py-1.5 rounded-2xl text-sm whitespace-pre-wrap wrap-break-word",
                               mine
                                 ? "bg-brand-blue text-white rounded-tr-sm"
                                 : "bg-white border border-ink-100 text-ink-800 rounded-tl-sm"
@@ -273,7 +273,7 @@ export function ChatDock() {
                     }}
                     rows={2}
                     placeholder="メッセージ（⌘ + Enter で送信）"
-                    className="flex-1 resize-none rounded-lg border border-ink-200 px-2 py-1.5 text-sm focus:outline-none focus:border-brand-blue"
+                    className="flex-1 resize-none rounded-lg border border-ink-200 px-2 py-1.5 text-sm focus:outline-hidden focus:border-brand-blue"
                   />
                   <button
                     onClick={send}

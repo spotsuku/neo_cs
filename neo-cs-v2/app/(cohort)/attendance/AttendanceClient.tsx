@@ -454,7 +454,7 @@ export function AttendanceClient({
               key={v}
               onClick={() => setView(v)}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition focus-ring ${
-                view === v ? "bg-white shadow text-ink-900" : "text-ink-500"
+                view === v ? "bg-white shadow-sm text-ink-900" : "text-ink-500"
               }`}
             >
               {v === "person" ? "人 × 日程" : "企業 × 日程"}
@@ -720,9 +720,9 @@ function PersonByDateTable({
     <div className="liquid-surface">
       <div className="overflow-auto rounded-liquid max-h-[calc(100vh-300px)]">
         <table className="border-collapse text-sm">
-          <thead className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-ink-100 shadow-[0_2px_8px_rgba(14,15,18,0.04)]">
+          <thead className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-ink-100 shadow-[0_2px_8px_rgba(14,15,18,0.04)]">
             <tr className="text-[11px] text-ink-500">
-              <th className="sticky left-0 z-30 bg-white/95 backdrop-blur text-left px-3 py-2.5 min-w-[220px] border-r border-ink-100">
+              <th className="sticky left-0 z-30 bg-white/95 backdrop-blur-sm text-left px-3 py-2.5 min-w-[220px] border-r border-ink-100">
                 企業 / 氏名
               </th>
               {columns.map((col) => {
@@ -787,7 +787,7 @@ function CompanyGroupRows({
     <>
       <tr className="bg-ink-50/60 border-b border-ink-100">
         <td
-          className="sticky left-0 z-10 bg-ink-50/95 backdrop-blur px-3 py-2 border-r border-ink-100 text-[11px] font-semibold text-ink-700"
+          className="sticky left-0 z-10 bg-ink-50/95 backdrop-blur-sm px-3 py-2 border-r border-ink-100 text-[11px] font-semibold text-ink-700"
           colSpan={1}
         >
           {grp.company?.name ?? grp.companyId}
@@ -917,9 +917,9 @@ function CompanyByDateTable({
     <div className="liquid-surface">
       <div className="overflow-auto rounded-liquid max-h-[calc(100vh-300px)]">
         <table className="border-collapse text-sm">
-          <thead className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-ink-100 shadow-[0_2px_8px_rgba(14,15,18,0.04)]">
+          <thead className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-ink-100 shadow-[0_2px_8px_rgba(14,15,18,0.04)]">
             <tr className="text-[11px] text-ink-500">
-              <th className="sticky left-0 z-30 bg-white/95 backdrop-blur text-left px-3 py-2.5 min-w-[220px] border-r border-ink-100">
+              <th className="sticky left-0 z-30 bg-white/95 backdrop-blur-sm text-left px-3 py-2.5 min-w-[220px] border-r border-ink-100">
                 企業
               </th>
               <th className="px-3 py-2.5 text-center font-medium min-w-[80px] border-r border-ink-50">

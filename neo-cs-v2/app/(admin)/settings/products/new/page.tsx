@@ -117,7 +117,7 @@ export default function NewProductPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="例: NEO_LEAD"
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
               />
             </div>
             <div className="md:col-span-2">
@@ -129,7 +129,7 @@ export default function NewProductPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例: NEOリーダーシップ研修"
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
               />
             </div>
 
@@ -142,7 +142,7 @@ export default function NewProductPage() {
                 value={shortName}
                 onChange={(e) => setShortName(e.target.value)}
                 placeholder="例: NEO-L"
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
               />
             </div>
 
@@ -161,7 +161,7 @@ export default function NewProductPage() {
                   type="text"
                   value={accent}
                   onChange={(e) => setAccent(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300 font-mono"
+                  className="flex-1 px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300 font-mono"
                 />
               </div>
             </div>
@@ -217,7 +217,7 @@ export default function NewProductPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="研修の対象・ゴール・特徴などを記載"
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300 resize-none"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300 resize-none"
               />
             </div>
           </div>
@@ -239,7 +239,7 @@ export default function NewProductPage() {
                 type="number"
                 value={contractMonths}
                 onChange={(e) => setContractMonths(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
               />
             </div>
             <div>
@@ -250,7 +250,7 @@ export default function NewProductPage() {
                 type="number"
                 value={monthlyPrice}
                 onChange={(e) => setMonthlyPrice(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
               />
             </div>
             <div>
@@ -261,7 +261,7 @@ export default function NewProductPage() {
                 type="number"
                 value={lumpSum}
                 onChange={(e) => setLumpSum(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
               />
             </div>
             <div>
@@ -272,7 +272,7 @@ export default function NewProductPage() {
                 type="number"
                 value={sessions}
                 onChange={(e) => setSessions(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
               />
             </div>
             <div>
@@ -283,7 +283,7 @@ export default function NewProductPage() {
                 type="number"
                 value={seatsPerCompany}
                 onChange={(e) => setSeatsPerCompany(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                className="w-full px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
               />
             </div>
           </div>
@@ -325,7 +325,7 @@ export default function NewProductPage() {
                   type="text"
                   value={item}
                   onChange={(e) => updateOnboarding(i, e.target.value)}
-                  className="flex-1 px-2 py-1 rounded border border-transparent text-sm focus:outline-none focus:border-ink-200 bg-transparent"
+                  className="flex-1 px-2 py-1 rounded border border-transparent text-sm focus:outline-hidden focus:border-ink-200 bg-transparent"
                 />
                 <button
                   onClick={() =>
@@ -364,7 +364,7 @@ export default function NewProductPage() {
                   type="number"
                   value={reminderDays}
                   onChange={(e) => setReminderDays(Number(e.target.value))}
-                  className="w-24 px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-none focus:border-ink-300"
+                  className="w-24 px-3 py-2 rounded-lg border border-ink-100 text-sm focus:outline-hidden focus:border-ink-300"
                 />
                 <span className="text-sm text-ink-500">日前</span>
               </div>

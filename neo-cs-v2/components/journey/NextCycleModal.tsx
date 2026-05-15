@@ -150,7 +150,7 @@ export function NextCycleModal({
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-300"
               />
             </Field>
             <Field label="終了日 *">
@@ -158,7 +158,7 @@ export function NextCycleModal({
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-300"
               />
             </Field>
           </div>
@@ -171,7 +171,7 @@ export function NextCycleModal({
                 onChange={(e) => setMrr(e.target.value)}
                 min={0}
                 step={10000}
-                className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-300"
               />
             </Field>
             <Field label="参加人数">
@@ -180,7 +180,7 @@ export function NextCycleModal({
                 value={participants}
                 onChange={(e) => setParticipants(e.target.value)}
                 min={0}
-                className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-300"
               />
             </Field>
           </div>
@@ -191,7 +191,7 @@ export function NextCycleModal({
               value={ownerName}
               onChange={(e) => setOwnerName(e.target.value)}
               placeholder="現担当を引き継ぐ場合は空でOK"
-              className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+              className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-300"
             />
           </Field>
 
@@ -199,7 +199,7 @@ export function NextCycleModal({
             <select
               value={courseKey}
               onChange={(e) => setCourseKey(e.target.value)}
-              className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+              className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-300 bg-white"
             >
               {(productCourses[defaults.productCode] ?? []).map((c) => (
                 <option key={c.key} value={c.key}>
@@ -215,7 +215,7 @@ export function NextCycleModal({
               onChange={(e) => setConsentNote(e.target.value)}
               rows={2}
               placeholder="決裁の経緯・補足情報"
-              className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+              className="w-full text-sm rounded border border-ink-200 px-2 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-blue-300"
             />
           </Field>
 

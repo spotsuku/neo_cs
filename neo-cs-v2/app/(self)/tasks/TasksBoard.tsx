@@ -618,7 +618,7 @@ function CellSelect({
       onChange={(e) => onChange(e.target.value)}
       className={[
         "text-[11px] px-2 py-1 rounded-full border appearance-none cursor-pointer",
-        "focus:outline-none focus:ring-1 focus:ring-ink-300",
+        "focus:outline-hidden focus:ring-1 focus:ring-ink-300",
         badgeClass
       ].join(" ")}
     >

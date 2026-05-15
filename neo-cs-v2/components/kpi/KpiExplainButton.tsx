@@ -63,7 +63,7 @@ export function KpiExplainButton({
             type="button"
             aria-label="閉じる"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm cursor-default"
+            className="absolute inset-0 bg-neutral-900/40 backdrop-blur-xs cursor-default"
           />
           <div className="relative bg-surface rounded-xl shadow-cardHover border border-neutral-100 w-[min(560px,92vw)] max-h-[80vh] overflow-auto">
             <div className="px-5 py-4 border-b border-neutral-100 flex items-baseline justify-between gap-3">

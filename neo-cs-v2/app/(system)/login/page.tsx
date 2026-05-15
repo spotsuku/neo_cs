@@ -34,7 +34,7 @@ export default async function LoginPage({
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-neutral-50 p-6">
-      <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-8 shadow-sm">
+      <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-8 shadow-xs">
         <h1 className="text-xl font-semibold text-neutral-900">NEO CSポータル</h1>
         <p className="mt-1 text-sm text-neutral-500">
           サインインしてダッシュボードを開きます

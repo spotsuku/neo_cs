@@ -133,10 +133,10 @@ export function WeeklyTable({
     <div className="liquid-surface">
       <div className="overflow-auto rounded-liquid max-h-[calc(100vh-220px)]">
         <table className="w-full min-w-[1500px] border-collapse">
-          <thead className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-ink-100 shadow-[0_2px_8px_rgba(14,15,18,0.04)]">
+          <thead className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-ink-100 shadow-[0_2px_8px_rgba(14,15,18,0.04)]">
             <tr className="text-[11px] text-ink-500 font-medium uppercase tracking-wider">
               <th
-                className="sticky left-0 z-30 bg-white/95 backdrop-blur text-left p-3 min-w-[240px] w-[240px] border-r border-ink-100"
+                className="sticky left-0 z-30 bg-white/95 backdrop-blur-sm text-left p-3 min-w-[240px] w-[240px] border-r border-ink-100"
               >
                 企業
               </th>
@@ -448,7 +448,7 @@ function ActionsCell({
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder="+ 実施したことを追加"
-            className="flex-1 text-[11px] rounded-lg border border-ink-100 bg-white px-2 py-1 focus:outline-none focus:border-ink-300"
+            className="flex-1 text-[11px] rounded-lg border border-ink-100 bg-white px-2 py-1 focus:outline-hidden focus:border-ink-300"
             onKeyDown={(e) => {
               if (e.key === "Enter" && newText.trim()) {
                 onAddNew(newText.trim());
@@ -494,7 +494,7 @@ function TextareaCell({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={`w-full rounded-lg border ${toneBg} bg-white px-2 py-1.5 text-[12px] text-ink-700 min-h-[80px] max-h-[220px] leading-snug resize-y focus:outline-none`}
+      className={`w-full rounded-lg border ${toneBg} bg-white px-2 py-1.5 text-[12px] text-ink-700 min-h-[80px] max-h-[220px] leading-snug resize-y focus:outline-hidden`}
     />
   );
 }
@@ -551,7 +551,7 @@ function NextActionsCell({
                   type="text"
                   value={a.text}
                   onChange={(e) => update(a.id, { text: e.target.value })}
-                  className="flex-1 text-[12px] rounded border border-transparent hover:border-ink-100 focus:border-ink-300 focus:outline-none px-1 py-0.5 bg-white"
+                  className="flex-1 text-[12px] rounded border border-transparent hover:border-ink-100 focus:border-ink-300 focus:outline-hidden px-1 py-0.5 bg-white"
                 />
               ) : (
                 <div className="flex-1 text-[12px] text-ink-900 px-1">
@@ -614,7 +614,7 @@ function NextActionsCell({
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder="+ 来週やることを追加"
-            className="flex-1 text-[11px] rounded-lg border border-ink-100 bg-white px-2 py-1 focus:outline-none focus:border-ink-300"
+            className="flex-1 text-[11px] rounded-lg border border-ink-100 bg-white px-2 py-1 focus:outline-hidden focus:border-ink-300"
             onKeyDown={(e) => e.key === "Enter" && add()}
           />
         </div>

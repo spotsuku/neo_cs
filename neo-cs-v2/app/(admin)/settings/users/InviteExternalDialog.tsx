@@ -274,7 +274,7 @@ function ModeTab({
       onClick={onClick}
       className={[
         "px-3 py-1 rounded-full text-xs transition",
-        active ? "bg-white shadow-sm font-medium text-ink-900" : "text-ink-500 hover:text-ink-700"
+        active ? "bg-white shadow-xs font-medium text-ink-900" : "text-ink-500 hover:text-ink-700"
       ].join(" ")}
     >
       {label}

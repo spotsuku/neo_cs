@@ -332,7 +332,7 @@ export function ProgramMatrix({
             const name = companyMap[companyId] ?? companyId;
             return (
               <tr key={companyId} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/40 group">
-                <td className="sticky left-0 bg-white/95 backdrop-blur z-10 px-4 py-2 font-medium">
+                <td className="sticky left-0 bg-white/95 backdrop-blur-sm z-10 px-4 py-2 font-medium">
                   <Link
                     href={`/companies/${companyId}`}
                     className="block group-hover:underline"
@@ -996,7 +996,7 @@ function NoteModal({
           rows={6}
           autoFocus
           placeholder="先方とのやり取り、注意点、状況メモなど…"
-          className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ink-300"
+          className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-hidden focus:ring-1 focus:ring-ink-300"
         />
         <div className="flex justify-end gap-2">
           <button

@@ -184,7 +184,7 @@ export function ReplyEditor({
                   }
                 }}
                 placeholder={ccList.length === 0 ? "Cc を追加（候補から選択 / 直接入力）" : ""}
-                className="flex-1 min-w-[140px] outline-none text-xs py-0.5"
+                className="flex-1 min-w-[140px] outline-hidden text-xs py-0.5"
               />
             </div>
             {/* 候補ドロップダウン: 入力中 or フォーカス中、かつ候補が残っている間表示 */}
@@ -257,7 +257,7 @@ export function ReplyEditor({
         contentEditable
         suppressContentEditableWarning
         onInput={onInput}
-        className="min-h-[180px] mx-3 mt-2 p-2 rounded-md border border-ink-100 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+        className="min-h-[180px] mx-3 mt-2 p-2 rounded-md border border-ink-100 text-sm leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-brand-blue/30"
       />
 
       {/* 添付ファイル一覧 */}

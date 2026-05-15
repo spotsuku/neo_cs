@@ -225,7 +225,7 @@ export function OneShotProductView({
                       onChange={(e) => setPrice(col.key, Number(e.target.value) || 0)}
                       min={0}
                       step={10000}
-                      className="w-24 text-[11px] tabular-nums px-1 py-0.5 rounded border border-ink-200 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                      className="w-24 text-[11px] tabular-nums px-1 py-0.5 rounded border border-ink-200 focus:outline-hidden focus:ring-1 focus:ring-blue-300"
                       title={`${cycleLabelFormat.replace("{n}", String(col.cycle))} ${courseShortName(productCode, col.courseKey)} の単価`}
                     />
                   </div>

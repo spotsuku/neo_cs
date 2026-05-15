@@ -407,7 +407,7 @@ export function MatrixView({
               <tr key={c.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/40">
                 <td
                   style={{ minWidth: 240, width: 240 }}
-                  className="sticky left-0 bg-white/95 backdrop-blur z-10 px-4 py-2 font-medium align-top"
+                  className="sticky left-0 bg-white/95 backdrop-blur-sm z-10 px-4 py-2 font-medium align-top"
                 >
                   <Link
                     href={`/onboarding/${c.id}`}
@@ -1196,7 +1196,7 @@ function NoteModal({
           onChange={(e) => onChange(e.target.value)}
           rows={6}
           autoFocus
-          className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ink-300"
+          className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-hidden focus:ring-1 focus:ring-ink-300"
         />
         <div className="flex justify-end gap-2">
           <button
