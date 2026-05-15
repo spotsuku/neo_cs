@@ -14,24 +14,27 @@ import {
   onboardingItemRepo,
   companyTaskRepo,
   companyWeatherRepo,
-  healthSnapshotRepo
+  healthSnapshotRepo,
+  stakeholderRepo
 } from "@/lib/repository/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
-import type { ProductCode } from "@/lib/repository/types";
+import type { ProductCode, EngagementTierValue } from "@/lib/repository/types";
+import { aggregateEngagementTier } from "@/lib/domain/community/engagement-aggregation";
 import CompaniesView from "./CompaniesView";
 
 export const dynamic = "force-dynamic";
 
 export default async function CompaniesPage() {
   // ─── 第1段: 親キー単独で取れるリソースを並列取得 ───────────
-  const [companies, allContracts, journeys, weatherOverrides, openTasks, latestHealthSnapshots] =
+  const [companies, allContracts, journeys, weatherOverrides, openTasks, latestHealthSnapshots, stakeholders] =
     await Promise.all([
       companyRepo.list(),
       contractRepo.list(),
       companyJourneyRepo.list(),
       companyWeatherRepo.getAll(),
       companyTaskRepo.list({ openOnly: true }),
-      healthSnapshotRepo.latestAll({ organizationId: DEFAULT_ORG_ID })
+      healthSnapshotRepo.latestAll({ organizationId: DEFAULT_ORG_ID }),
+      stakeholderRepo.list({ organizationId: DEFAULT_ORG_ID })
     ]);
 
   // active 集合 (UI デフォルト) を派生 — companies/[id]/page.tsx と同じ式
@@ -102,6 +105,20 @@ export default async function CompaniesPage() {
       (totalRevenueByCompany[ct.companyId] ?? 0) + ct.revenue;
   }
 
+  // 5) 企業ごとの関与度 (stakeholder の engagementTier を集約)
+  const stakeholdersByCompany = new Map<string, typeof stakeholders>();
+  for (const s of stakeholders) {
+    const arr = stakeholdersByCompany.get(s.companyId) ?? [];
+    arr.push(s);
+    stakeholdersByCompany.set(s.companyId, arr);
+  }
+  const engagementByCompany: Record<string, EngagementTierValue | null> = {};
+  for (const c of companies) {
+    engagementByCompany[c.id] = aggregateEngagementTier(
+      stakeholdersByCompany.get(c.id) ?? []
+    );
+  }
+
   return (
     <CompaniesView
       initialCompanies={companiesWithContracts}
@@ -109,6 +126,7 @@ export default async function CompaniesPage() {
       initialJourneys={journeys}
       initialOnboardingItems={onboardingItems}
       healthByCompany={healthByCompany}
+      engagementByCompany={engagementByCompany}
       openTaskCountByCompany={openTaskCountByCompany}
       totalRevenueByCompany={totalRevenueByCompany}
       weatherOverrides={weatherOverrides.map((o) => ({

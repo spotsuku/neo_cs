@@ -7,6 +7,7 @@ import { checkCompanyCompleteness } from "@/lib/domain/completeness/completeness
 import type { CompanyWeather } from "@/lib/domain/weather/weather";
 import { WeatherIcon } from "@/components/health/WeatherIcon";
 import { DEFAULT_COMPANY_STAGES } from "@/lib/mock/journeys";
+import { ENGAGEMENT_TIER_LABEL } from "@/lib/domain/community/engagement-aggregation";
 // コース表示に対応
 import { ProductCode, products, yen, hasMultipleCourses, courseShortName, productByCode } from "@/lib/mock/data";
 import type {
@@ -33,6 +34,24 @@ type SortColumn =
 type SortDir = "asc" | "desc";
 
 type HealthFilter = "all" | "green" | "yellow" | "red";
+
+// 関与度フィルタ
+type EngagementFilter = "all" | "core" | "active" | "casual" | "at_risk" | "unmeasured";
+const engagementOptions: { value: EngagementFilter; label: string; dot: string; ring?: boolean }[] = [
+  { value: "all", label: "関与度: すべて", dot: "" },
+  { value: "core", label: "関与度: コア", dot: "#2563EB" },
+  { value: "active", label: "関与度: アクティブ", dot: "#93C5FD" },
+  { value: "casual", label: "関与度: カジュアル", dot: "#9CA3AF" },
+  { value: "at_risk", label: "関与度: 離脱危機", dot: "#EF4444" },
+  { value: "unmeasured", label: "関与度: 未測定", dot: "", ring: true }
+];
+
+const ENGAGEMENT_COLOR: Record<"core" | "active" | "casual" | "at_risk", string> = {
+  core: "#2563EB",
+  active: "#93C5FD",
+  casual: "#9CA3AF",
+  at_risk: "#EF4444"
+};
 
 // 更新までフィルタ
 type RenewalFilter = "all" | "30" | "60" | "90" | "overdue";
@@ -122,6 +141,8 @@ type CompaniesViewProps = {
   initialOnboardingItems: ContractOnboardingItem[];
   /** 企業ごとの health 色 (active 契約の最悪値で集約済み) */
   healthByCompany: Record<string, "green" | "yellow" | "red">;
+  /** 企業ごとの 関与度 tier (stakeholder の engagementTier を集約済み) */
+  engagementByCompany: Record<string, "core" | "active" | "casual" | "at_risk" | null>;
   /** 企業ごとの 未対応タスク件数 (companyTaskRepo openOnly) */
   openTaskCountByCompany: Record<string, number>;
   /** 企業ごとの 累計売上 (全期 active + renewed + churned 合算) */
@@ -136,6 +157,7 @@ export default function CompaniesView({
   initialJourneys,
   initialOnboardingItems,
   healthByCompany,
+  engagementByCompany,
   openTaskCountByCompany: openTaskCountByCompanyEntries,
   totalRevenueByCompany: totalRevenueByCompanyProp,
   weatherOverrides: weatherOverrideEntries
@@ -151,6 +173,7 @@ export default function CompaniesView({
     healthByCompany[companyId] ?? "green";
   const [q, setQ] = useState("");
   const [health, setHealth] = useState<HealthFilter>("all");
+  const [engagementFilter, setEngagementFilter] = useState<EngagementFilter>("all");
   const [productFilter, setProductFilter] = useState<ProductCode[]>([]);
   const [owner, setOwner] = useState<string>("all");
   const [renewalFilter, setRenewalFilter] = useState<RenewalFilter>("all");
@@ -285,6 +308,14 @@ export default function CompaniesView({
         if (!hit) return false;
       }
       if (health !== "all" && companyHealthColor(c.id) !== health) return false;
+      if (engagementFilter !== "all") {
+        const tier = engagementByCompany[c.id] ?? null;
+        if (engagementFilter === "unmeasured") {
+          if (tier !== null) return false;
+        } else {
+          if (tier !== engagementFilter) return false;
+        }
+      }
       if (productFilter.length > 0) {
         // アカデミア契約には評議会参加権が暗黙に付帯するため、
         // 「評議会」フィルタはアカデミア契約企業もヒットさせる
@@ -329,6 +360,8 @@ export default function CompaniesView({
   }, [
     companies,
     healthByCompany,
+    engagementByCompany,
+    engagementFilter,
     q,
     health,
     productFilter,
@@ -568,6 +601,19 @@ export default function CompaniesView({
                 ))}
               </select>
 
+              {/* 関与度 */}
+              <select
+                value={engagementFilter}
+                onChange={(e) => setEngagementFilter(e.target.value as EngagementFilter)}
+                className="px-2.5 py-1.5 rounded-full border border-ink-100 bg-white text-xs text-ink-700"
+              >
+                {engagementOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+
               {/* アラート (Health) */}
               <div className="flex items-center gap-1 rounded-full border border-ink-100 bg-white p-0.5">
                 {healthOptions.map((h) => {
@@ -799,6 +845,37 @@ export default function CompaniesView({
                       <span className="text-ink-500 text-xs">
                         {c.lastTouchDays != null ? `${c.lastTouchDays}日前` : "—"}
                       </span>
+                      {(() => {
+                        const tier = engagementByCompany[c.id] ?? null;
+                        if (tier === null) {
+                          return (
+                            <span
+                              className="text-[10px] text-ink-300"
+                              title="関与度: 未測定"
+                            >
+                              —
+                            </span>
+                          );
+                        }
+                        const color = ENGAGEMENT_COLOR[tier];
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border"
+                            style={{
+                              color,
+                              background: `${color}14`,
+                              borderColor: `${color}55`
+                            }}
+                            title={`関与度: ${ENGAGEMENT_TIER_LABEL[tier]}`}
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ background: color }}
+                            />
+                            {ENGAGEMENT_TIER_LABEL[tier]}
+                          </span>
+                        );
+                      })()}
                       {(() => {
                         const h = companyHealthColor(c.id);
                         if (h === "green") return null;
