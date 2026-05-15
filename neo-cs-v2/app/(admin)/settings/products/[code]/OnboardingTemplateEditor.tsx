@@ -9,7 +9,9 @@ import {
   deleteOnboardingCategoryAction,
   upsertOnboardingItemAction,
   deleteOnboardingItemAction,
-  applyTemplateToActiveContractsAction
+  applyTemplateToActiveContractsAction,
+  reorderOnboardingCategoriesAction,
+  reorderOnboardingItemsAction
 } from "./onboarding-actions";
 import type {
   OnboardingTemplateCategoryRecord,
@@ -161,6 +163,11 @@ export function OnboardingTemplateEditor({
       refreshAfter(() =>
         template.map((c) => {
           if (c.id !== cat.id) return c;
+          const existingDisplayOrder = c.items.find((i) => i.id === r.id)?.displayOrder;
+          const maxOrder = c.items.reduce(
+            (m, i) => Math.max(m, i.displayOrder ?? 0),
+            0
+          );
           const next: OnboardingTemplateItemRecord = {
             id: r.id,
             categoryId: cat.id,
@@ -169,7 +176,9 @@ export function OnboardingTemplateEditor({
             dueOffsetDays: item.dueOffsetDays,
             required: item.required,
             defaultAssigneeRole: item.defaultAssigneeRole ?? null,
-            courseKey: item.courseKey ?? null
+            courseKey: item.courseKey ?? null,
+            displayOrder:
+              item.displayOrder ?? existingDisplayOrder ?? maxOrder + 10
           };
           const idx = c.items.findIndex((i) => i.id === r.id);
           if (idx < 0) return { ...c, items: [...c.items, next] };
@@ -179,6 +188,60 @@ export function OnboardingTemplateEditor({
           };
         })
       );
+    });
+  };
+
+  const onReorderCategories = (orderedIds: string[]) => {
+    setError(null);
+    const prev = template;
+    const indexInOrder = new Map(orderedIds.map((id, i) => [id, i]));
+    const next = [...template].sort(
+      (a, b) =>
+        (indexInOrder.get(a.id) ?? 1e9) - (indexInOrder.get(b.id) ?? 1e9)
+    );
+    setTemplate(next);
+    start(async () => {
+      const r = await reorderOnboardingCategoriesAction({
+        productCode,
+        orderedIds
+      });
+      if (!r.ok) {
+        setError(r.message);
+        setTemplate(prev);
+      }
+    });
+  };
+
+  const onReorderItems = (
+    cat: OnboardingTemplateCategoryRecord,
+    orderedIds: string[]
+  ) => {
+    setError(null);
+    const prev = template;
+    const indexInOrder = new Map(orderedIds.map((id, i) => [id, i]));
+    const next = template.map((c) =>
+      c.id === cat.id
+        ? {
+            ...c,
+            items: [...c.items].sort(
+              (a, b) =>
+                (indexInOrder.get(a.id) ?? 1e9) -
+                (indexInOrder.get(b.id) ?? 1e9)
+            )
+          }
+        : c
+    );
+    setTemplate(next);
+    start(async () => {
+      const r = await reorderOnboardingItemsAction({
+        productCode,
+        categoryId: cat.id,
+        orderedIds
+      });
+      if (!r.ok) {
+        setError(r.message);
+        setTemplate(prev);
+      }
     });
   };
 
@@ -255,19 +318,122 @@ export function OnboardingTemplateEditor({
         <div className="text-xs text-ink-500">テンプレが未登録です</div>
       )}
 
-      {template.map((cat) => (
-        <CategoryBlock
-          key={cat.id}
-          cat={cat}
-          canManage={canManage}
-          productCourses={productCourses}
-          onUpdate={(label) => onUpdateCategory(cat, label)}
-          onDelete={() => onDeleteCategory(cat)}
-          onUpsertItem={(item) => onUpsertItem(cat, item)}
-          onDeleteItem={(item) => onDeleteItem(cat, item)}
-        />
-      ))}
+      <DragList
+        items={template}
+        getId={(c) => c.id}
+        canDrag={canManage}
+        onReorder={onReorderCategories}
+        render={(cat, dragHandle) => (
+          <CategoryBlock
+            cat={cat}
+            canManage={canManage}
+            productCourses={productCourses}
+            dragHandle={dragHandle}
+            onUpdate={(label) => onUpdateCategory(cat, label)}
+            onDelete={() => onDeleteCategory(cat)}
+            onUpsertItem={(item) => onUpsertItem(cat, item)}
+            onDeleteItem={(item) => onDeleteItem(cat, item)}
+            onReorderItems={(orderedIds) => onReorderItems(cat, orderedIds)}
+          />
+        )}
+      />
     </section>
+  );
+}
+
+// ─────────────────────────────────────────────
+// HTML5 native D&D 用 汎用リスト
+// 軽量実装。外部依存なし。
+// ─────────────────────────────────────────────
+function DragList<T>({
+  items,
+  getId,
+  canDrag,
+  onReorder,
+  render
+}: {
+  items: T[];
+  getId: (item: T) => string;
+  canDrag: boolean;
+  onReorder: (orderedIds: string[]) => void;
+  render: (item: T, dragHandle: React.ReactNode) => React.ReactNode;
+}) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
+  const handleDrop = (targetId: string) => {
+    if (!dragId || dragId === targetId) {
+      setDragId(null);
+      setOverId(null);
+      return;
+    }
+    const ids = items.map(getId);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    const next = [...ids];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setDragId(null);
+    setOverId(null);
+    onReorder(next);
+  };
+
+  return (
+    <div className="space-y-3">
+      {items.map((item) => {
+        const id = getId(item);
+        const isDragging = dragId === id;
+        const isOver = overId === id && dragId && dragId !== id;
+        const handle = canDrag ? (
+          <span
+            draggable
+            onDragStart={(e) => {
+              setDragId(id);
+              e.dataTransfer.effectAllowed = "move";
+              // Safari は dragStart 内で何かしらをセットする必要がある
+              e.dataTransfer.setData("text/plain", id);
+            }}
+            onDragEnd={() => {
+              setDragId(null);
+              setOverId(null);
+            }}
+            className="cursor-grab active:cursor-grabbing select-none text-ink-400 hover:text-ink-700 px-1"
+            title="ドラッグして並び替え"
+            aria-label="ドラッグして並び替え"
+          >
+            ⋮⋮
+          </span>
+        ) : null;
+        return (
+          <div
+            key={id}
+            onDragOver={(e) => {
+              if (!dragId) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (overId !== id) setOverId(id);
+            }}
+            onDragLeave={() => {
+              if (overId === id) setOverId(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleDrop(id);
+            }}
+            className={[
+              "transition-opacity",
+              isDragging ? "opacity-40" : "",
+              isOver ? "ring-2 ring-blue-300 rounded" : ""
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {render(item, handle)}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -322,14 +488,17 @@ function CategoryBlock({
   cat,
   canManage,
   productCourses,
+  dragHandle,
   onUpdate,
   onDelete,
   onUpsertItem,
-  onDeleteItem
+  onDeleteItem,
+  onReorderItems
 }: {
   cat: OnboardingTemplateCategoryRecord;
   canManage: boolean;
   productCourses: { key: string; shortName: string }[];
+  dragHandle?: React.ReactNode;
   onUpdate: (label: string) => void;
   onDelete: () => void;
   onUpsertItem: (
@@ -341,14 +510,36 @@ function CategoryBlock({
     }
   ) => void;
   onDeleteItem: (item: OnboardingTemplateItemRecord) => void;
+  onReorderItems: (orderedIds: string[]) => void;
 }) {
   const [label, setLabel] = useState(cat.label);
   const [adding, setAdding] = useState(false);
+  const [dragItemId, setDragItemId] = useState<string | null>(null);
+  const [overItemId, setOverItemId] = useState<string | null>(null);
+
+  const dropItemOn = (targetId: string) => {
+    if (!dragItemId || dragItemId === targetId) {
+      setDragItemId(null);
+      setOverItemId(null);
+      return;
+    }
+    const ids = cat.items.map((i) => i.id);
+    const from = ids.indexOf(dragItemId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    const next = [...ids];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setDragItemId(null);
+    setOverItemId(null);
+    onReorderItems(next);
+  };
 
   return (
     <div className="rounded border border-ink-100 bg-white">
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-ink-100 bg-ink-50/30">
         <div className="flex items-center gap-2">
+          {dragHandle}
           <code className="text-[10px] text-ink-500 bg-white border border-ink-100 px-1.5 py-0.5 rounded">
             {cat.categoryKey}
           </code>
@@ -386,6 +577,7 @@ function CategoryBlock({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[10px] text-ink-500 border-b border-ink-100">
+              <th className="px-1 py-1.5 w-6"></th>
               <th className="px-2 py-1.5 w-32">item_key</th>
               <th className="px-2 py-1.5">項目名</th>
               <th className="px-2 py-1.5 w-20">期日(日)</th>
@@ -396,21 +588,38 @@ function CategoryBlock({
             </tr>
           </thead>
           <tbody>
-            {cat.items.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                canManage={canManage}
-                productCourses={productCourses}
-                onSave={(patch) =>
-                  onUpsertItem({
-                    ...item,
-                    ...patch
-                  })
-                }
-                onDelete={() => onDeleteItem(item)}
-              />
-            ))}
+            {cat.items.map((item) => {
+              const isDragging = dragItemId === item.id;
+              const isOver =
+                overItemId === item.id && dragItemId && dragItemId !== item.id;
+              return (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  canManage={canManage}
+                  productCourses={productCourses}
+                  isDragging={!!isDragging}
+                  isOver={!!isOver}
+                  onDragStart={() => setDragItemId(item.id)}
+                  onDragEnd={() => {
+                    setDragItemId(null);
+                    setOverItemId(null);
+                  }}
+                  onDragOver={() => {
+                    if (!dragItemId) return;
+                    if (overItemId !== item.id) setOverItemId(item.id);
+                  }}
+                  onDrop={() => dropItemOn(item.id)}
+                  onSave={(patch) =>
+                    onUpsertItem({
+                      ...item,
+                      ...patch
+                    })
+                  }
+                  onDelete={() => onDeleteItem(item)}
+                />
+              );
+            })}
             {adding && (
               <ItemAddRow
                 productCourses={productCourses}
@@ -423,7 +632,7 @@ function CategoryBlock({
             )}
             {cat.items.length === 0 && !adding && (
               <tr>
-                <td colSpan={7} className="px-2 py-3 text-center text-[11px] text-ink-500">
+                <td colSpan={8} className="px-2 py-3 text-center text-[11px] text-ink-500">
                   項目がまだありません
                 </td>
               </tr>
@@ -439,12 +648,24 @@ function ItemRow({
   item,
   canManage,
   productCourses,
+  isDragging,
+  isOver,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
   onSave,
   onDelete
 }: {
   item: OnboardingTemplateItemRecord;
   canManage: boolean;
   productCourses: { key: string; shortName: string }[];
+  isDragging?: boolean;
+  isOver?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onDragOver?: () => void;
+  onDrop?: () => void;
   onSave: (patch: Partial<OnboardingTemplateItemRecord>) => void;
   onDelete: () => void;
 }) {
@@ -467,7 +688,44 @@ function ItemRow({
   };
 
   return (
-    <tr className="border-b border-ink-50 last:border-0">
+    <tr
+      onDragOver={(e) => {
+        if (!onDragOver) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        onDragOver();
+      }}
+      onDrop={(e) => {
+        if (!onDrop) return;
+        e.preventDefault();
+        onDrop();
+      }}
+      className={[
+        "border-b border-ink-50 last:border-0 transition-opacity",
+        isDragging ? "opacity-40" : "",
+        isOver ? "bg-blue-50" : ""
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <td className="px-1 py-1 text-center align-middle">
+        {canManage && (
+          <span
+            draggable
+            onDragStart={(e) => {
+              onDragStart?.();
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", item.id);
+            }}
+            onDragEnd={() => onDragEnd?.()}
+            className="cursor-grab active:cursor-grabbing select-none text-ink-400 hover:text-ink-700"
+            title="ドラッグして並び替え"
+            aria-label="ドラッグして並び替え"
+          >
+            ⋮⋮
+          </span>
+        )}
+      </td>
       <td className="px-2 py-1">
         <code className="text-[10px] text-ink-500">{item.itemKey}</code>
       </td>
@@ -585,6 +843,7 @@ function ItemAddRow({
 
   return (
     <tr className="bg-amber-50/30">
+      <td className="px-1 py-1"></td>
       <td className="px-2 py-1">
         <input
           value={itemKey}

@@ -27,7 +27,7 @@ function seed(): OnboardingTemplateCategoryRecord[] {
         categoryKey: cat.key,
         label: cat.label,
         displayOrder: cat.order,
-        items: cat.items.map((it) => ({
+        items: cat.items.map((it, idx) => ({
           id: `it_${code}_${cat.key}_${it.key}`,
           categoryId: catId,
           itemKey: it.key,
@@ -35,7 +35,8 @@ function seed(): OnboardingTemplateCategoryRecord[] {
           dueOffsetDays: it.dueOffsetDays,
           required: it.required,
           defaultAssigneeRole: it.defaultAssigneeRole ?? null,
-          courseKey: it.courseKey ?? null
+          courseKey: it.courseKey ?? null,
+          displayOrder: (idx + 1) * 10
         }))
       });
     }
@@ -68,7 +69,11 @@ export const mockOnboardingTemplateRepo: OnboardingTemplateRepo = {
     return store
       .filter((c) => c.productCode === productCode)
       .sort((a, b) => a.displayOrder - b.displayOrder)
-      .map(clone);
+      .map((c) => {
+        const cloned = clone(c);
+        cloned.items.sort((a, b) => a.displayOrder - b.displayOrder);
+        return cloned;
+      });
   },
 
   async upsertCategory(input) {
@@ -136,6 +141,10 @@ export const mockOnboardingTemplateRepo: OnboardingTemplateRepo = {
       ? cat.items.findIndex((i) => i.id === input.id)
       : cat.items.findIndex((i) => i.itemKey === input.itemKey);
     if (existing < 0) {
+      const maxOrder = cat.items.reduce(
+        (m, i) => Math.max(m, i.displayOrder ?? 0),
+        0
+      );
       const created: OnboardingTemplateItemRecord = {
         id: input.id ?? genId("it"),
         categoryId: cat.id,
@@ -144,7 +153,8 @@ export const mockOnboardingTemplateRepo: OnboardingTemplateRepo = {
         dueOffsetDays: input.dueOffsetDays,
         required: input.required,
         defaultAssigneeRole: input.defaultAssigneeRole ?? null,
-        courseKey: input.courseKey ?? null
+        courseKey: input.courseKey ?? null,
+        displayOrder: input.displayOrder ?? maxOrder + 10
       };
       cat.items.push(created);
       await mockMutate({
@@ -164,7 +174,8 @@ export const mockOnboardingTemplateRepo: OnboardingTemplateRepo = {
       dueOffsetDays: input.dueOffsetDays,
       required: input.required,
       defaultAssigneeRole: input.defaultAssigneeRole ?? null,
-      courseKey: input.courseKey ?? null
+      courseKey: input.courseKey ?? null,
+      displayOrder: input.displayOrder ?? cat.items[existing].displayOrder
     };
     await mockMutate({
       entityType: "onboarding_template_items",
@@ -175,6 +186,31 @@ export const mockOnboardingTemplateRepo: OnboardingTemplateRepo = {
       organizationId: null
     });
     return { ...cat.items[existing] };
+  },
+
+  async reorderCategories(input) {
+    const indexInOrder = new Map(input.orderedIds.map((id, i) => [id, i]));
+    let i = 0;
+    for (const cat of store) {
+      if (cat.productCode !== input.productCode) continue;
+      const pos = indexInOrder.get(cat.id);
+      if (pos === undefined) continue;
+      cat.displayOrder = (pos + 1) * 10;
+      i++;
+    }
+    void i;
+  },
+
+  async reorderItems(input) {
+    const cat = store.find((c) => c.id === input.categoryId);
+    if (!cat) return;
+    const indexInOrder = new Map(input.orderedIds.map((id, i) => [id, i]));
+    for (const it of cat.items) {
+      const pos = indexInOrder.get(it.id);
+      if (pos === undefined) continue;
+      it.displayOrder = (pos + 1) * 10;
+    }
+    cat.items.sort((a, b) => a.displayOrder - b.displayOrder);
   },
 
   async deleteItem(id) {

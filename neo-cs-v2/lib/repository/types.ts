@@ -1610,6 +1610,7 @@ export type OnboardingTemplateItemRecord = {
   defaultAssigneeRole?: "cs" | "pr" | "ops" | "finance" | null;
   /** null = 全コース共通、文字列 = 特定 courseKey のみ */
   courseKey?: string | null;
+  displayOrder: number;
 };
 
 export type OnboardingTemplateCategoryRecord = {
@@ -1643,8 +1644,19 @@ export interface OnboardingTemplateRepo {
     required: boolean;
     defaultAssigneeRole?: "cs" | "pr" | "ops" | "finance" | null;
     courseKey?: string | null;
+    displayOrder?: number;
   }): Promise<OnboardingTemplateItemRecord>;
   deleteItem(id: string): Promise<void>;
+  /** カテゴリ並び替え (product 配下のカテゴリを id 配列順に並べ替える) */
+  reorderCategories(input: {
+    productCode: string;
+    orderedIds: string[];
+  }): Promise<void>;
+  /** 項目並び替え (category 配下の項目を id 配列順に並べ替える) */
+  reorderItems(input: {
+    categoryId: string;
+    orderedIds: string[];
+  }): Promise<void>;
 }
 
 // ─────────────────────────────────────────────

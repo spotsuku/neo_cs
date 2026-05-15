@@ -101,6 +101,43 @@ export async function upsertOnboardingItemAction(input: {
   }
 }
 
+export async function reorderOnboardingCategoriesAction(input: {
+  productCode: string;
+  orderedIds: string[];
+}): Promise<Result> {
+  const g = await gate();
+  if (!g.ok) return g;
+  try {
+    await onboardingTemplateRepo.reorderCategories({
+      productCode: input.productCode,
+      orderedIds: input.orderedIds
+    });
+    revalidatePath(`/settings/products/${input.productCode}`);
+    return { ok: true };
+  } catch (e) {
+    return fail((e as Error).message);
+  }
+}
+
+export async function reorderOnboardingItemsAction(input: {
+  productCode: string;
+  categoryId: string;
+  orderedIds: string[];
+}): Promise<Result> {
+  const g = await gate();
+  if (!g.ok) return g;
+  try {
+    await onboardingTemplateRepo.reorderItems({
+      categoryId: input.categoryId,
+      orderedIds: input.orderedIds
+    });
+    revalidatePath(`/settings/products/${input.productCode}`);
+    return { ok: true };
+  } catch (e) {
+    return fail((e as Error).message);
+  }
+}
+
 export async function deleteOnboardingItemAction(input: {
   productCode: string;
   id: string;
