@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { Company } from "@/lib/mock/entities";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
 import { updateCompanyBasicInfoAction } from "./edit-actions";
+import { DomainChipInput } from "./DomainChipInput";
 
 const LOGO_MAX_BYTES = 1_000_000; // 1MB
 
@@ -24,8 +25,8 @@ export function CompanyEditDialog({
   const [driveFolderUrl, setDriveFolderUrl] = useState(company.driveFolderUrl ?? "");
   const [logoUrl, setLogoUrl] = useState(company.logoUrl ?? "");
   const [memo, setMemo] = useState(company.memo ?? "");
-  // Gmail 連携用ドメイン: フォーム上はカンマ/空白区切り文字列で扱う
-  const [domainsText, setDomainsText] = useState((company.domains ?? []).join(", "));
+  // Gmail 連携用ドメイン: chip 入力で配列管理 (重複・形式不正は DomainChipInput 側で即時拒否)
+  const [domains, setDomains] = useState<string[]>(company.domains ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
@@ -56,10 +57,6 @@ export function CompanyEditDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const domains = domainsText
-      .split(/[,\s、]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
     startTransition(async () => {
       const result = await updateCompanyBasicInfoAction({
         companyId: company.id,
@@ -182,20 +179,18 @@ export function CompanyEditDialog({
         <div className="space-y-2">
           <div className="text-xs font-semibold text-ink-700">連携リソース</div>
           <div className="space-y-2">
-            <label className="block text-[11px] text-ink-500">
+            <div className="block text-[11px] text-ink-500">
               対応メールドメイン
-              <input
-                type="text"
-                value={domainsText}
-                onChange={(e) => setDomainsText(e.target.value)}
-                placeholder="例: example.co.jp, example-inc.com"
-                className={inputCls}
+              <DomainChipInput
+                value={domains}
+                onChange={setDomains}
+                placeholder="例: example.co.jp"
               />
               <span className="block mt-0.5 text-[10px] text-ink-400">
-                Gmail 連携の自動企業マッピングに使用します。複数指定可（カンマ・空白区切り）。
+                Gmail 連携の自動企業マッピングに使用します。Enter / カンマ / 空白で確定。
                 登録されていない送信元でも、ここに登録のあるドメインから来た場合は同社の担当者として追加提案します。
               </span>
-            </label>
+            </div>
             <label className="block text-[11px] text-ink-500">
               共有Drive URL
               <input

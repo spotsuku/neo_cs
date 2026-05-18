@@ -807,12 +807,30 @@ function CompanySidebarPanel({
             label="最終接点"
             value={company.lastTouchDays != null ? `${company.lastTouchDays}日前` : "—"}
           />
-          {company.domains && company.domains.length > 0 && (
-            <SidebarField
-              label="ドメイン"
-              value={company.domains.join(", ")}
-            />
-          )}
+          <div className="flex items-baseline gap-2">
+            <dt
+              className="text-ink-400 w-16 shrink-0"
+              title="Gmail 連携の自動企業マッピングに使用"
+            >
+              ドメイン
+            </dt>
+            <dd className="flex-1 min-w-0">
+              {company.domains && company.domains.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {company.domains.map((d) => (
+                    <span
+                      key={d}
+                      className="inline-block rounded-full bg-ink-50 border border-ink-100 px-2 py-0.5 text-[11px] text-ink-700"
+                    >
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-ink-400 text-[11px]">未設定</span>
+              )}
+            </dd>
+          </div>
         </dl>
       </div>
 

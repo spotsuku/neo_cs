@@ -138,6 +138,8 @@ type Row = {
   karute_no?: number | null;
   created_at?: string | null;
   logo_url?: string | null;
+  /** Gmail 連携: 自動企業マッピング用ドメイン (0044_companies_email_domains.sql) */
+  email_domains?: string[] | null;
 };
 
 function toCompany(
@@ -167,7 +169,8 @@ function toCompany(
     isDemo: row.is_demo ?? true,
     karuteNo: row.karute_no ?? undefined,
     createdAt: row.created_at ?? undefined,
-    logoUrl: row.logo_url ?? undefined
+    logoUrl: row.logo_url ?? undefined,
+    domains: row.email_domains ?? undefined
   };
 }
 
@@ -184,6 +187,9 @@ function toRow(input: Partial<Company>): Partial<Row> {
   if (input.isDemo !== undefined) out.is_demo = input.isDemo;
   if (input.logoUrl !== undefined) out.logo_url = input.logoUrl ?? null;
   if (input.driveFolderUrl !== undefined) out.drive_folder_url = input.driveFolderUrl ?? null;
+  // text[] NOT NULL DEFAULT '{}' なので、未指定の場合は null を入れず欠落させる。
+  // 明示的に空配列を渡されたら "全削除" として扱う。
+  if (input.domains !== undefined) out.email_domains = input.domains ?? [];
   return out;
 }
 
