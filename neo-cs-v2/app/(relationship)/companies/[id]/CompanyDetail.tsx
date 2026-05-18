@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ProductBadge } from "@/components/contract/ProductBadge";
@@ -109,6 +109,12 @@ import type { ChurnRecord } from "@/lib/master/churn";
 import { reasonCategoryLabels, reasonCategoryOrder } from "@/lib/master/churn";
 import type { EmailThreadStatus } from "@/lib/mock/email";
 import type { EmailThread, EmailMessage } from "@/lib/repository/types";
+import {
+  computeResponseRecords,
+  summarizeMetrics,
+  humanizeMinutes,
+  type EmailEventForMetrics
+} from "@/lib/domain/email/email-metrics";
 import type { Survey, SurveyResponse } from "@/lib/master/surveys";
 import { aggregateSurvey, targetCountForSurvey } from "@/lib/master/surveys";
 import type { SurveyInsightRecord } from "@/lib/repository/types";
@@ -3664,9 +3670,63 @@ function MailTab({
   emailMessages: EmailMessage[];
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const threads = emailThreads
-    .filter((t) => t.companyId === companyId)
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  const threads = useMemo(
+    () =>
+      emailThreads
+        .filter((t) => t.companyId === companyId)
+        .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
+    [emailThreads, companyId]
+  );
+
+  // スレッド配下メッセージのみを抽出して応答時間レコードを計算
+  const threadIds = useMemo(() => new Set(threads.map((t) => t.id)), [threads]);
+  const scopedMessages = useMemo(
+    () => emailMessages.filter((m) => threadIds.has(m.threadId)),
+    [emailMessages, threadIds]
+  );
+
+  const responseRecords = useMemo(() => {
+    const events: EmailEventForMetrics[] = scopedMessages.map((m) => ({
+      id: m.id,
+      threadId: m.threadId,
+      direction: m.direction,
+      sentAt: m.sentAt
+    }));
+    return computeResponseRecords(events);
+  }, [scopedMessages]);
+
+  const summary = useMemo(() => summarizeMetrics(responseRecords), [responseRecords]);
+
+  // スレッドごとの集計 (中央値 + 未応答件数)
+  const perThread = useMemo(() => {
+    const map = new Map<
+      string,
+      { median: number | null; unresponded: number; total: number }
+    >();
+    for (const t of threads) {
+      const recs = responseRecords.filter((r) => r.threadId === t.id);
+      const responded = recs
+        .map((r) => r.responseMinutes)
+        .filter((v): v is number => v !== null)
+        .sort((a, b) => a - b);
+      const median =
+        responded.length === 0
+          ? null
+          : responded[Math.floor(responded.length / 2)];
+      const unresponded = recs.filter((r) => r.responseMinutes === null).length;
+      map.set(t.id, { median, unresponded, total: recs.length });
+    }
+    return map;
+  }, [threads, responseRecords]);
+
+  // メッセージ ID → 応答時間 / 未応答 のマップ (inbound のみ持つ)
+  const responseByMessage = useMemo(() => {
+    const map = new Map<string, { minutes: number | null }>();
+    for (const r of responseRecords) {
+      map.set(r.inboundId, { minutes: r.responseMinutes });
+    }
+    return map;
+  }, [responseRecords]);
 
   if (threads.length === 0) {
     return (
@@ -3676,8 +3736,44 @@ function MailTab({
     );
   }
 
+  const within24hPct =
+    summary.within24hRate === null
+      ? null
+      : Math.round(summary.within24hRate * 100);
+  const within24hTone =
+    within24hPct === null
+      ? "text-ink-500"
+      : within24hPct >= 90
+      ? "text-emerald-600"
+      : within24hPct >= 70
+      ? "text-amber-600"
+      : "text-rose-600";
+
   return (
     <section className="space-y-3">
+      {/* メトリクスサマリ */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <MetricCard label="受信" value={`${summary.totalInbound}件`} />
+        <MetricCard
+          label="中央値"
+          value={humanizeMinutes(summary.medianMinutes)}
+        />
+        <MetricCard
+          label="p95"
+          value={humanizeMinutes(summary.p95Minutes)}
+        />
+        <MetricCard
+          label="24h以内応答率"
+          value={within24hPct === null ? "—" : `${within24hPct}%`}
+          tone={within24hTone}
+        />
+        <MetricCard
+          label="未応答"
+          value={`${summary.unresponded}件`}
+          tone={summary.unresponded > 0 ? "text-rose-600" : "text-ink-700"}
+        />
+      </div>
+
       <div className="text-xs text-ink-500">
         全 {threads.length} スレッド ・{" "}
         <Link href="/inbox" className="hover:text-ink-700 underline">
@@ -3687,9 +3783,8 @@ function MailTab({
       <ul className="space-y-2">
         {threads.map((t) => {
           const open = openId === t.id;
-          // 旧 mock 由来の slaDeadline は repo モデルに無いため SLA 警告は当面無効
-          const overdue = false;
-          const tMsgs = emailMessages
+          const stat = perThread.get(t.id);
+          const tMsgs = scopedMessages
             .filter((m) => m.threadId === t.id)
             .sort((a, b) => (a.sentAt < b.sentAt ? -1 : 1));
           return (
@@ -3707,9 +3802,9 @@ function MailTab({
                 >
                   {MAIL_STATUS_LABEL[t.status]}
                 </span>
-                {overdue && (
+                {stat && stat.unresponded > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 text-[10px] mt-0.5 shrink-0">
-                    SLA超過
+                    未応答 {stat.unresponded}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
@@ -3718,6 +3813,11 @@ function MailTab({
                   </div>
                   <div className="text-[11px] text-ink-500 mt-0.5">
                     担当: {t.assigneeUserId ?? "未割当"} ・ 最終更新: {t.updatedAt}
+                    {stat && stat.median !== null && (
+                      <>
+                        {" ・ "}平均応答 {humanizeMinutes(stat.median)}
+                      </>
+                    )}
                   </div>
                 </div>
                 <Link
@@ -3731,25 +3831,45 @@ function MailTab({
               </button>
               {open && (
                 <div className="border-t border-ink-100 p-4 bg-ink-50/30 space-y-2">
-                  {tMsgs.map((m) => (
-                    <div
-                      key={m.id}
-                      className={[
-                        "rounded-lg border p-3 text-xs",
-                        m.direction === "inbound"
-                          ? "bg-white border-ink-100"
-                          : "bg-sky-50 border-sky-100 ml-6"
-                      ].join(" ")}
-                    >
-                      <div className="flex items-center justify-between text-[11px] text-ink-500">
-                        <span className="font-medium text-ink-700">{m.senderEmail}</span>
-                        <span>{new Date(m.sentAt).toLocaleString("ja-JP")}</span>
+                  {tMsgs.map((m) => {
+                    const resp =
+                      m.direction === "inbound"
+                        ? responseByMessage.get(m.id)
+                        : undefined;
+                    return (
+                      <div
+                        key={m.id}
+                        className={[
+                          "rounded-lg border p-3 text-xs",
+                          m.direction === "inbound"
+                            ? "bg-white border-ink-100"
+                            : "bg-sky-50 border-sky-100 ml-6"
+                        ].join(" ")}
+                      >
+                        <div className="flex items-center justify-between text-[11px] text-ink-500">
+                          <span className="font-medium text-ink-700">{m.senderEmail}</span>
+                          <span>{new Date(m.sentAt).toLocaleString("ja-JP")}</span>
+                        </div>
+                        <pre className="mt-1 text-xs text-ink-900 whitespace-pre-wrap font-sans leading-relaxed">
+                          {m.body}
+                        </pre>
+                        {resp && (
+                          <div className="mt-2 text-[11px]">
+                            {resp.minutes === null ? (
+                              <span className="text-rose-600">→ 未応答</span>
+                            ) : (
+                              <span className="text-ink-500">
+                                → 返信まで{" "}
+                                <span className="text-ink-900 font-medium">
+                                  {humanizeMinutes(resp.minutes)}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <pre className="mt-1 text-xs text-ink-900 whitespace-pre-wrap font-sans leading-relaxed">
-                        {m.body}
-                      </pre>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </li>
@@ -3757,6 +3877,25 @@ function MailTab({
         })}
       </ul>
     </section>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  tone
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <div className="liquid-surface p-3">
+      <div className="text-[10px] text-ink-500">{label}</div>
+      <div className={`mt-1 text-sm font-semibold ${tone ?? "text-ink-900"}`}>
+        {value}
+      </div>
+    </div>
   );
 }
 
