@@ -91,6 +91,29 @@ export const mockAiExtractionRepo: AiExtractionRepo = {
     );
   },
 
+  async listLatestSuggestionsByThreads(threadIds, opts) {
+    if (threadIds.length === 0) return [];
+    const set = new Set(threadIds);
+    const filtered = store
+      .filter(
+        (r) =>
+          r.sourceType === "email" &&
+          r.extractionType === "company_suggestion" &&
+          set.has(r.sourceId)
+      )
+      .filter((r) => (opts?.unreviewedOnly ? !r.reviewed : true))
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    // sourceId ごとに最初 (=最新) のものだけ採用
+    const seen = new Set<string>();
+    const out: AiExtraction[] = [];
+    for (const r of filtered) {
+      if (seen.has(r.sourceId)) continue;
+      seen.add(r.sourceId);
+      out.push({ ...r });
+    }
+    return out;
+  },
+
   async getById(id) {
     const found = store.find((r) => r.id === id);
     return found ? { ...found } : null;

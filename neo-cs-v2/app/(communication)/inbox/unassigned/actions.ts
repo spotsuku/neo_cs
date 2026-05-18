@@ -7,9 +7,14 @@
 // emailRepo.setCompany() をラップし、audit_logs に流れる。
 
 import { revalidatePath } from "next/cache";
-import { emailRepo, companyRepo } from "@/lib/repository/server";
+import {
+  emailRepo,
+  companyRepo,
+  aiExtractionRepo
+} from "@/lib/repository/server";
 import { getPermissionContext } from "@/lib/auth/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
+import type { AiExtractionReviewDecision } from "@/lib/repository/types";
 import { suggestCompanyForThread } from "@/lib/integrations/email-ai";
 
 export type AssignThreadCompanyResult =
@@ -30,6 +35,73 @@ export async function assignThreadCompanyAction(
     revalidatePath("/inbox/unassigned");
     revalidatePath("/inbox");
     return { ok: true };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
+
+// ─────────────────────────────────────────────
+// 事前計算済み company_suggestion の採用/却下
+// ─────────────────────────────────────────────
+// cron (dispatchUnassignedAiSuggestions) が事前に作った
+// ai_extractions (extractionType='company_suggestion') を、
+// 未割当キュー UI から人間が採用/却下する。
+// 採用時のみ emailRepo.setCompany でスレッドにアサインする。
+// 候補企業がアーカイブされている場合は弾く。
+
+export type ReviewCompanySuggestionResult =
+  | { ok: true; decision: AiExtractionReviewDecision; assignedCompanyId?: string }
+  | { ok: false; message: string };
+
+export async function reviewCompanySuggestionAction(
+  extractionId: string,
+  decision: AiExtractionReviewDecision
+): Promise<ReviewCompanySuggestionResult> {
+  if (decision !== "approved" && decision !== "rejected") {
+    return { ok: false, message: "decision が不正です" };
+  }
+  const id = extractionId.trim();
+  if (!id) return { ok: false, message: "extractionId が空です" };
+
+  try {
+    const ctx = await getPermissionContext();
+    if (!ctx.actor) return { ok: false, message: "ログインが必要です" };
+
+    const extraction = await aiExtractionRepo.getById(id);
+    if (!extraction) return { ok: false, message: "候補が見つかりません" };
+    if (extraction.extractionType !== "company_suggestion") {
+      return { ok: false, message: "company_suggestion ではありません" };
+    }
+    if (extraction.reviewed) {
+      return { ok: false, message: "この候補は既にレビュー済みです" };
+    }
+
+    if (decision === "approved") {
+      const companyId = extraction.companyId;
+      if (!companyId) {
+        return { ok: false, message: "候補企業が記録されていません" };
+      }
+      // 候補企業がアーカイブ/削除されていないか確認 (FK 違反防止 + 誤マッピング防止)
+      const company = await companyRepo.getById(companyId);
+      if (!company) {
+        return {
+          ok: false,
+          message: "候補企業が見つかりません (アーカイブされた可能性があります)"
+        };
+      }
+      const threadId = extraction.sourceId;
+      await emailRepo.setCompany(threadId, companyId);
+      await aiExtractionRepo.markReviewed(id, ctx.actor.id, "approved");
+      revalidatePath("/inbox/unassigned");
+      revalidatePath("/inbox");
+      revalidatePath(`/companies/${companyId}`);
+      return { ok: true, decision: "approved", assignedCompanyId: companyId };
+    }
+
+    // rejected: 副作用なし
+    await aiExtractionRepo.markReviewed(id, ctx.actor.id, "rejected");
+    revalidatePath("/inbox/unassigned");
+    return { ok: true, decision: "rejected" };
   } catch (e) {
     return { ok: false, message: (e as Error).message };
   }

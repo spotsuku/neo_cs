@@ -6,7 +6,11 @@
 
 import Link from "next/link";
 import { TopNavServer } from "@/components/nav/TopNavServer";
-import { emailRepo, companyRepo } from "@/lib/repository/server";
+import {
+  emailRepo,
+  companyRepo,
+  aiExtractionRepo
+} from "@/lib/repository/server";
 import { getPermissionContext } from "@/lib/auth/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 import { UnassignedView } from "./UnassignedView";
@@ -20,6 +24,15 @@ export default async function UnassignedInboxPage() {
     emailRepo.listUnassigned({ organizationId: orgId, limit: 50 }),
     companyRepo.list()
   ]);
+
+  // 事前計算済み company_suggestion (cron 由来) を 1 クエリで束ねて取得
+  const threadIds = threads.map((t) => t.id);
+  const suggestions = await aiExtractionRepo.listLatestSuggestionsByThreads(
+    threadIds,
+    { unreviewedOnly: true }
+  );
+  const companyById = new Map(companies.map((c) => [c.id, c]));
+  const suggestionByThread = new Map(suggestions.map((s) => [s.sourceId, s]));
 
   // 各スレッドの最初の message を直列で取って direction / 相手アドレスを抽出
   // (50件 × 1クエリなので許容範囲)
@@ -35,12 +48,28 @@ export default async function UnassignedInboxPage() {
             ? latest.senderEmail
             : latest.recipientEmails[0];
       }
+      // 事前計算 AI 候補 (候補企業がアーカイブ済みなら表示しない)
+      const sg = suggestionByThread.get(t.id);
+      const sgCompany =
+        sg?.companyId !== undefined ? companyById.get(sg.companyId) : undefined;
+      const precomputedSuggestion =
+        sg && sg.companyId && sgCompany
+          ? {
+              extractionId: sg.id,
+              companyId: sg.companyId,
+              companyName: sgCompany.name,
+              confidence: sg.confidence ?? 0,
+              reasoning: sg.excerpt,
+              createdAt: sg.createdAt
+            }
+          : undefined;
       return {
         id: t.id,
         subject: t.subject,
         lastMessageAt: t.lastInboundAt ?? t.lastOutboundAt ?? t.updatedAt,
         direction: latest?.direction,
-        counterpart
+        counterpart,
+        precomputedSuggestion
       };
     })
   );

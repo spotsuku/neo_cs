@@ -109,6 +109,33 @@ export const supabaseAiExtractionRepo: AiExtractionRepo = {
     return (data ?? []).map((r) => toDomain(r as Row));
   },
 
+  async listLatestSuggestionsByThreads(threadIds, opts) {
+    if (threadIds.length === 0) return [];
+    const sb = getServiceClient();
+    let q = sb
+      .from("ai_extractions")
+      .select("*")
+      .eq("source_type", "email")
+      .eq("extraction_type", "company_suggestion")
+      .in("source_id", threadIds)
+      .order("source_id", { ascending: true })
+      .order("created_at", { ascending: false });
+    if (opts?.unreviewedOnly) q = q.eq("reviewed", false);
+    const { data, error } = await q;
+    if (error) {
+      throw new Error(`ai_extractions.latestSuggestionsByThreads: ${error.message}`);
+    }
+    // (source_id, created_at desc) で並んでいる → source_id ごとの先頭を採用
+    const seen = new Set<string>();
+    const out: AiExtraction[] = [];
+    for (const row of (data ?? []) as Row[]) {
+      if (seen.has(row.source_id)) continue;
+      seen.add(row.source_id);
+      out.push(toDomain(row));
+    }
+    return out;
+  },
+
   async getById(id) {
     const sb = getServiceClient();
     const { data, error } = await sb

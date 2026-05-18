@@ -11,8 +11,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   assignThreadCompanyAction,
-  suggestCompanyForThreadAction
+  suggestCompanyForThreadAction,
+  reviewCompanySuggestionAction
 } from "./actions";
+
+export type PrecomputedSuggestion = {
+  extractionId: string;
+  companyId: string;
+  companyName: string;
+  confidence: number;
+  reasoning: string;
+  createdAt: string;
+};
 
 export type UnassignedThreadRow = {
   id: string;
@@ -20,7 +30,24 @@ export type UnassignedThreadRow = {
   lastMessageAt?: string;
   direction?: "inbound" | "outbound";
   counterpart?: string; // 直近 message の from (inbound) or to[0] (outbound)
+  /** cron が事前計算した AI 企業候補 (候補企業がアーカイブ済みなら undefined) */
+  precomputedSuggestion?: PrecomputedSuggestion;
 };
+
+// 「2時間前」「3日前」表記の軽い relative time
+function relativeTime(iso: string, nowMs: number = Date.now()): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return iso;
+  const diffMin = Math.max(0, Math.floor((nowMs - t) / 60000));
+  if (diffMin < 1) return "たった今";
+  if (diffMin < 60) return `${diffMin}分前`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}時間前`;
+  const diffD = Math.floor(diffH / 24);
+  return `${diffD}日前`;
+}
+
+const STALE_HOURS = 72; // これ以上経過した事前候補は「古い」として再提案を推す
 
 export function UnassignedView({
   threads,
@@ -80,12 +107,42 @@ function ThreadRow({
       }
   >(null);
   const [suggestError, setSuggestError] = useState<string | null>(null);
+  // 事前計算済み候補の処理状態
+  const [precomputed, setPrecomputed] = useState<PrecomputedSuggestion | undefined>(
+    thread.precomputedSuggestion
+  );
+  const [precomputedPending, startPrecomputedTransition] = useTransition();
+  const [precomputedError, setPrecomputedError] = useState<string | null>(null);
 
   const listId = `company-list-${thread.id}`;
+
+  const onReviewPrecomputed = (decision: "approved" | "rejected") => {
+    if (!precomputed) return;
+    setPrecomputedError(null);
+    startPrecomputedTransition(async () => {
+      const res = await reviewCompanySuggestionAction(
+        precomputed.extractionId,
+        decision
+      );
+      if (!res.ok) {
+        setPrecomputedError(res.message);
+        return;
+      }
+      if (res.decision === "approved") {
+        // 採用 → スレッドが unassigned 一覧から消える
+        router.refresh();
+      } else {
+        // 却下 → バナーだけ非表示にして on-demand などの他経路で進められる状態に
+        setPrecomputed(undefined);
+      }
+    });
+  };
 
   const onSuggest = () => {
     setSuggestError(null);
     setSuggestion(null);
+    // on-demand 候補を出すときは事前候補を隠して重複表示を避ける
+    setPrecomputed(undefined);
     startSuggestTransition(async () => {
       const res = await suggestCompanyForThreadAction(thread.id);
       if (res.ok) {
@@ -187,9 +244,22 @@ function ThreadRow({
             className="rounded-md border border-ink-300 px-2 py-1 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-40 whitespace-nowrap"
             title="件名・本文から AI が企業を推定します"
           >
-            {suggestPending ? "推定中…" : "AI で候補を提案"}
+            {suggestPending
+              ? "推定中…"
+              : precomputed
+              ? "別候補を提案"
+              : "AI で候補を提案"}
           </button>
         </div>
+        {precomputed && (
+          <PrecomputedSuggestionBanner
+            sg={precomputed}
+            pending={precomputedPending || pending}
+            error={precomputedError}
+            onApprove={() => onReviewPrecomputed("approved")}
+            onReject={() => onReviewPrecomputed("rejected")}
+          />
+        )}
         {error && (
           <p className="mt-1 text-xs text-rose-600">{error}</p>
         )}
@@ -230,5 +300,63 @@ function ThreadRow({
         )}
       </td>
     </tr>
+  );
+}
+
+function PrecomputedSuggestionBanner({
+  sg,
+  pending,
+  error,
+  onApprove,
+  onReject
+}: {
+  sg: PrecomputedSuggestion;
+  pending: boolean;
+  error: string | null;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const ageHours = Math.floor(
+    (Date.now() - new Date(sg.createdAt).getTime()) / 3600000
+  );
+  const stale = ageHours >= STALE_HOURS;
+  return (
+    <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50/50 px-2.5 py-1.5 text-xs">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-amber-700">🤖 AI 事前候補:</span>
+        <span className="font-medium text-ink-900">{sg.companyName}</span>
+        <span className="text-ink-500">
+          (信頼度 {sg.confidence.toFixed(2)} ・ {relativeTime(sg.createdAt)})
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={pending}
+            className="rounded-md bg-emerald-600 px-2 py-0.5 text-xs text-white hover:opacity-90 disabled:opacity-40"
+          >
+            {pending ? "処理中…" : "採用"}
+          </button>
+          <button
+            type="button"
+            onClick={onReject}
+            disabled={pending}
+            className="rounded-md border border-ink-200 px-2 py-0.5 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-40"
+          >
+            却下
+          </button>
+        </div>
+      </div>
+      {sg.reasoning && (
+        <div className="mt-1 text-[11px] text-ink-600">— {sg.reasoning}</div>
+      )}
+      {stale && (
+        <div className="mt-1 text-[11px] text-amber-700">
+          生成から {ageHours} 時間経過しています。最新の状態と異なる可能性があるため
+          「別候補を提案」も検討してください。
+        </div>
+      )}
+      {error && <div className="mt-1 text-[11px] text-rose-600">{error}</div>}
+    </div>
   );
 }

@@ -1598,6 +1598,16 @@ export interface AiExtractionRepo {
   listByCompany(companyId: string, opts?: AiExtractionListOpts): Promise<AiExtraction[]>;
   /** 担当する email_threads (assignee_user_id) 経由の email source 抽出を集める */
   listByMe(userId: string, opts?: AiExtractionListOpts): Promise<AiExtraction[]>;
+  /**
+   * 指定スレッドに対する最新の company_suggestion を 1 件ずつ返す。
+   * sourceType='email' && extractionType='company_suggestion' で、
+   * source_id がスレッド ID として使われている前提 (email-ai.suggestCompanyForThread)。
+   * 未割当キュー画面で事前計算済み AI 候補を表示するための専用クエリ。
+   */
+  listLatestSuggestionsByThreads(
+    threadIds: string[],
+    opts?: { unreviewedOnly?: boolean }
+  ): Promise<AiExtraction[]>;
   getById(id: string): Promise<AiExtraction | null>;
   markReviewed(
     id: string,
