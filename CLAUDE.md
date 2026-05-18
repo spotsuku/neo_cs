@@ -144,3 +144,39 @@ SKIP_BUILD_ASSERT=1 npm run build   # ローカルビルド
 
 複数の Claude 会話を同時に走らせる場合は [docs/PARALLEL_WORK.md](docs/PARALLEL_WORK.md) を読むこと。
 原則: **触る Route Group をブランチ名に含めて競合を避ける**。
+
+---
+
+## 7. メール統合パイプライン (2026-05-14 実装)
+
+`/inbox` 周辺は Gmail × Claude による CS の中核機能。実装済みの構成:
+
+| レイヤ | ファイル | 役割 |
+|---|---|---|
+| OAuth | [lib/integrations/gmail-oauth.ts](neo-cs-v2/lib/integrations/gmail-oauth.ts) | scope: `gmail.readonly + gmail.send + userinfo.email`。internal 公開 |
+| 接続管理 | [lib/repository/.../gmailConnectionRepo.ts](neo-cs-v2/lib/repository/supabase/gmailConnectionRepo.ts) | ユーザ毎の refresh_token を `user_gmail_connections` に保存 (RLS で本人のみ可視) |
+| 受信同期 | [lib/integrations/gmail-sync.ts](neo-cs-v2/lib/integrations/gmail-sync.ts) | 30 分毎 cron + 初回は 2026-03-01 以降を遡及取得 |
+| ノイズ排除 | 同上 | `noreply@` / `notifications@` / 自社ドメイン (sportsnation.jp, neoa.jp, neoacademia.jp) 同士は skip |
+| 会社マッピング | [lib/repository/.../emailRepo.ts](neo-cs-v2/lib/repository/supabase/emailRepo.ts) | `company_contacts.email` 完全一致 → `companies.email_domains` (text[]) のドメインマッチ fallback |
+| AI 抽出 | [lib/integrations/email-ai.ts](neo-cs-v2/lib/integrations/email-ai.ts) | inbound メールを Claude (`claude-sonnet-4-6`) に投げ、progress/risk/churn/expansion/meeting_request を `ai_extractions` に未承認で保存 |
+| 返信送信 | [lib/integrations/gmail-send.ts](neo-cs-v2/lib/integrations/gmail-send.ts) | ⚠ 多重ガード: ① `userRepo.getCurrent()` で session 必須 (cron/AI からの呼び出しを弾く) / ② `senderUserId` と session.id 一致 / ③ `NEO_CS_DISABLE_GMAIL_SEND=true` kill switch / ④ `confirmed: true` フラグ必須 / ⑤ UI 側で確認ダイアログ |
+| UI | [app/inbox/InboxView.tsx](neo-cs-v2/app/inbox/InboxView.tsx) | 「送信」 → モーダル「本当に送信しますか？」 (宛先・件名・本文プレビュー) → OK で `sendReplyAction` |
+| メトリクス | [lib/domain/email-metrics.ts](neo-cs-v2/lib/domain/email-metrics.ts) | inbound→outbound の response time、中央値/p95/24h以内応答率 (純関数) |
+
+### 触る前に知っておくべき不変条件
+- **メール返信を AI / cron / バックグラウンドから絶対に送らない**。`sendReply` は HTTP セッション必須で防御済みだが、新規コードでも sendReply を import するのは UI 由来の server action だけにすること
+- **`gmail.readonly` は restricted scope だが Internal モードで運用中**。アプリの「対象」を external + 本番公開に切り替えると CASA security assessment が必要になる ($4-15k / 年)。社内利用が前提
+- **`companies.email_domains` は配列で複数ドメイン対応**。子会社・別ブランドのドメインを追加するときは GIN index でクエリされる
+- **同期 cron は 1 run = 200 件上限**。30 分毎なので 1 日 9,600 件まで取り込める
+
+### 通知ディスパッチャ
+- [lib/notifications/dispatchers.ts](neo-cs-v2/lib/notifications/dispatchers.ts): 日次 cron (`*/30 → 23:00 UTC`) で review/renewal/onboarding を `user_notifications` に enqueue
+- VOC 作成時 / 解約予兆 Slack 通知時は即時に enqueue ([lib/notifications/inbox.ts](neo-cs-v2/lib/notifications/inbox.ts) + 各 actions.ts から)
+- dedup: `(userId, sourceType, sourceId)` の partial unique index で重複生成防止
+
+### 未完成タスク (引き継ぎ用)
+- `/inbox/extractions` の承認 UI を実 DB と接続 (`aiExtractionRepo.markReviewed` 呼出 + ジャーニー/todo 反映)
+- 企業詳細ページにメールタイムライン + 応答時間メトリクス UI 組み込み (backend は完成)
+- マネージャー画面に CS ごとの応答時間ダッシュボード
+- 企業カルテに `email_domains` を編集する UI
+- `voc.test.ts` の 3 件失敗 (pre-existing、本パイプラインと無関係だが CI red の原因)

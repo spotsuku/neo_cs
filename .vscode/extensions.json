@@ -1,0 +1,21 @@
+{
+  // 開発者にインストールを推奨する VS Code 拡張機能。
+  // 初回 clone 後の VS Code 起動時に「推奨拡張機能をインストールしますか？」と聞かれる。
+  "recommendations": [
+    // Next.js / TypeScript
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+
+    // Tailwind CSS IntelliSense
+    "bradlc.vscode-tailwindcss",
+
+    // Supabase 開発支援 (SQL 補完など)
+    "supabase.vscode-supabase-extension",
+
+    // Vitest 連携 (テスト UI)
+    "vitest.explorer",
+
+    // Markdown / docs
+    "yzhang.markdown-all-in-one"
+  ]
+}

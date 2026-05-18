@@ -1,0 +1,58 @@
+{
+  // ── ファイル/フォルダ非表示 (VS Code エクスプローラ) ──────────────
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    ".claude": true,
+    "**/dist": true,
+    "**/.turbo": true
+  },
+
+  // ── 検索対象から除外 (Cmd+Shift+F を高速化) ─────────────────────
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/.claude": true,
+    "**/_legacy": true,
+    "**/package-lock.json": true
+  },
+
+  // ── ファイルウォッチャー除外 (CPU/メモリ削減) ──────────────────
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/.claude/**": true
+  },
+
+  // ── TypeScript ─────────────────────────────────────────────
+  "typescript.tsdk": "neo-cs-v2/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+
+  // ── エディタ ──────────────────────────────────────────────
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "never",
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.tabSize": 2,
+
+  // ── ESLint (neo-cs-v2 配下のみ) ─────────────────────────────
+  "eslint.workingDirectories": [{ "directory": "neo-cs-v2", "changeProcessCWD": true }],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+
+  // ── Tailwind CSS IntelliSense ──────────────────────────────
+  "tailwindCSS.experimental.classRegex": [
+    ["(?:className|class)\\s*[:=]\\s*[\"'`]([^\"'`]*)[\"'`]", "([^\"'`\\s]+)"],
+    ["clsx\\(([^)]*)\\)", "[\"'`]([^\"'`]*)[\"'`]"],
+    ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*)[\"'`]"]
+  ],
+
+  // ── Markdown ──────────────────────────────────────────────
+  "markdown.preview.fontSize": 14
+}
