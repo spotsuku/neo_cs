@@ -91,14 +91,20 @@ export const mockAiExtractionRepo: AiExtractionRepo = {
     );
   },
 
-  async markReviewed(id, userId) {
+  async getById(id) {
+    const found = store.find((r) => r.id === id);
+    return found ? { ...found } : null;
+  },
+
+  async markReviewed(id, userId, decision) {
     const idx = store.findIndex((r) => r.id === id);
     if (idx < 0) return;
     store[idx] = {
       ...store[idx],
       reviewed: true,
       reviewedAt: new Date().toISOString(),
-      reviewedBy: userId
+      reviewedBy: userId,
+      reviewDecision: decision
     };
   },
 

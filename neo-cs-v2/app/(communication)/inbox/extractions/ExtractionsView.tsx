@@ -1,11 +1,14 @@
 "use client";
 
 // page.tsx (Server Component) で repo データを adapter 変換 → 本コンポーネントへ props で渡す。
-// 本番 supabase が空 DB なら一覧は空となり「承認待ちなし」が表示される。
-import { useMemo, useState } from "react";
+// 承認/却下ボタンは reviewExtractionAction を呼び ai_extractions.reviewed を true に更新する。
+// 現フェーズでは承認と却下を区別しない (両方とも reviewed フラグを立てるだけ)。
+// 区別とジャーニー/Todo 反映は次フェーズで `review_decision` カラム追加とともに実装。
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import type { AiExtractionType } from "@/lib/repository/types";
 import type { Company } from "@/lib/mock/entities";
+import { reviewExtractionAction } from "./actions";
 
 // adapter 後の shape
 export type AdaptedExtraction = {
@@ -58,8 +61,6 @@ const TYPE_COLOR: Record<AiExtractionType, string> = {
 
 type TypeFilter = "all" | AiExtractionType;
 
-// 注: 承認時の挙動はモック（status更新のみ）。
-// 実装時はここで OnboardingTask / Stakeholder / 企業ヘルス等への反映を行う。
 export function ExtractionsView({
   extractions: initial,
   threads,
@@ -73,6 +74,10 @@ export function ExtractionsView({
 }) {
   const [extractions, setExtractions] = useState(initial);
   const [filter, setFilter] = useState<TypeFilter>("all");
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   const threadById = useMemo(
     () => new Map(threads.map((t) => [t.id, t])),
@@ -92,15 +97,50 @@ export function ExtractionsView({
     return pending.filter((e) => filter === "all" || e.type === filter);
   }, [pending, filter]);
 
+  // 承認: markReviewed + 企業カルテ ToDo 作成 (companyId あり時)
+  // 却下: markReviewed のみ。副作用なし
   const handle = (id: string, status: "approved" | "rejected") => {
-    // モック: status更新のみ。
-    // 実装時: OnboardingTask等の関連エンティティを更新する
+    if (pendingIds.has(id)) return;
+    setErrorMsg(null);
+    setInfoMsg(null);
+    const prevSnapshot = extractions;
+    // optimistic: 即座にカードのステータスを更新 → pending から外れて一覧から消える
     setExtractions((prev) =>
       prev.map((e) => (e.id === id ? { ...e, status } : e))
     );
+    setPendingIds((s) => new Set(s).add(id));
+    startTransition(async () => {
+      const res = await reviewExtractionAction(id, status);
+      setPendingIds((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
+      if (!res.ok) {
+        setExtractions(prevSnapshot);
+        setErrorMsg(res.message);
+        return;
+      }
+      if (res.decision === "approved") {
+        setInfoMsg(
+          res.taskCreated
+            ? "承認しました。企業カルテに ToDo を 1 件作成しました"
+            : "承認しました (対象企業未確定のため ToDo は作成されません)"
+        );
+      } else {
+        setInfoMsg("却下しました");
+      }
+    });
   };
 
   const bulkApproveHigh = () => {
+    const targets = extractions.filter(
+      (e) => e.status === "pending" && e.confidence >= 0.9
+    );
+    if (targets.length === 0) return;
+    setErrorMsg(null);
+    setInfoMsg(null);
+    const prevSnapshot = extractions;
     setExtractions((prev) =>
       prev.map((e) =>
         e.status === "pending" && e.confidence >= 0.9
@@ -108,6 +148,31 @@ export function ExtractionsView({
           : e
       )
     );
+    setPendingIds((s) => {
+      const next = new Set(s);
+      targets.forEach((t) => next.add(t.id));
+      return next;
+    });
+    startTransition(async () => {
+      const results = await Promise.all(
+        targets.map((t) => reviewExtractionAction(t.id, "approved"))
+      );
+      setPendingIds((s) => {
+        const next = new Set(s);
+        targets.forEach((t) => next.delete(t.id));
+        return next;
+      });
+      const firstError = results.find((r) => !r.ok);
+      if (firstError && !firstError.ok) {
+        setExtractions(prevSnapshot);
+        setErrorMsg(firstError.message);
+        return;
+      }
+      const taskCount = results.filter((r) => r.ok && r.taskCreated).length;
+      setInfoMsg(
+        `${targets.length} 件を承認しました (ToDo 作成: ${taskCount} 件)`
+      );
+    });
   };
 
   const counts: Record<AiExtractionType, number> = {
@@ -179,6 +244,17 @@ export function ExtractionsView({
           );
         })}
       </div>
+
+      {errorMsg && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-700">
+          {errorMsg}
+        </div>
+      )}
+      {infoMsg && !errorMsg && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-700">
+          {infoMsg}
+        </div>
+      )}
 
       {filtered.length === 0 && (
         <div className="liquid-surface p-12 text-center text-sm text-ink-500">
@@ -252,13 +328,15 @@ export function ExtractionsView({
                     </span>
                     <button
                       onClick={() => handle(ex.id, "approved")}
-                      className="ml-auto px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs hover:opacity-90"
+                      disabled={pendingIds.has(ex.id)}
+                      className="ml-auto px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       承認
                     </button>
                     <button
                       onClick={() => handle(ex.id, "rejected")}
-                      className="px-3 py-1.5 rounded-full bg-white border border-ink-100 text-xs text-ink-700 hover:bg-ink-50"
+                      disabled={pendingIds.has(ex.id)}
+                      className="px-3 py-1.5 rounded-full bg-white border border-ink-100 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       却下
                     </button>

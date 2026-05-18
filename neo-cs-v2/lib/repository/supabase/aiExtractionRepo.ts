@@ -14,7 +14,8 @@ import type {
   AiExtraction,
   AiExtractionListOpts,
   AiExtractionType,
-  AiExtractionSourceType
+  AiExtractionSourceType,
+  AiExtractionReviewDecision
 } from "../types";
 
 type Row = {
@@ -30,6 +31,7 @@ type Row = {
   reviewed: boolean;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  review_decision: AiExtractionReviewDecision | null;
   created_at: string;
 };
 
@@ -53,6 +55,7 @@ function toDomain(r: Row): AiExtraction {
     reviewed: r.reviewed,
     reviewedAt: r.reviewed_at ?? undefined,
     reviewedBy: r.reviewed_by ?? undefined,
+    reviewDecision: r.review_decision ?? undefined,
     createdAt: r.created_at
   };
 }
@@ -106,7 +109,18 @@ export const supabaseAiExtractionRepo: AiExtractionRepo = {
     return (data ?? []).map((r) => toDomain(r as Row));
   },
 
-  async markReviewed(id, userId) {
+  async getById(id) {
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("ai_extractions")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(`ai_extractions.getById: ${error.message}`);
+    return data ? toDomain(data as Row) : null;
+  },
+
+  async markReviewed(id, userId, decision) {
     const sb = getServiceClient();
     const ctx = getActorContext();
     const { data: before } = await sb
@@ -119,7 +133,8 @@ export const supabaseAiExtractionRepo: AiExtractionRepo = {
       .update({
         reviewed: true,
         reviewed_at: new Date().toISOString(),
-        reviewed_by: userId
+        reviewed_by: userId,
+        review_decision: decision
       })
       .eq("id", id)
       .select("*")

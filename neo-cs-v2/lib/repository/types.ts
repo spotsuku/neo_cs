@@ -1509,6 +1509,8 @@ export type AiExtractionType =
   | "meeting_request"
   | "company_suggestion";
 
+export type AiExtractionReviewDecision = "approved" | "rejected";
+
 export type AiExtraction = {
   id: string;
   organizationId: string;
@@ -1522,6 +1524,11 @@ export type AiExtraction = {
   reviewed: boolean;
   reviewedAt?: string;
   reviewedBy?: string;
+  /**
+   * 承認/却下の区別。0052 migration で追加。
+   * 既存の reviewed=true 行は NULL (区別不明) のまま残る。
+   */
+  reviewDecision?: AiExtractionReviewDecision;
   createdAt: string;
 };
 
@@ -1591,7 +1598,12 @@ export interface AiExtractionRepo {
   listByCompany(companyId: string, opts?: AiExtractionListOpts): Promise<AiExtraction[]>;
   /** 担当する email_threads (assignee_user_id) 経由の email source 抽出を集める */
   listByMe(userId: string, opts?: AiExtractionListOpts): Promise<AiExtraction[]>;
-  markReviewed(id: string, userId: string): Promise<void>;
+  getById(id: string): Promise<AiExtraction | null>;
+  markReviewed(
+    id: string,
+    userId: string,
+    decision: AiExtractionReviewDecision
+  ): Promise<void>;
   /** AI 抽出の保存 (Phase 2 で email-ai から呼ぶ) */
   create(input: AiExtractionCreateInput): Promise<AiExtraction>;
 }

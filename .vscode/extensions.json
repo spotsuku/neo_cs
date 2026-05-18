@@ -5,15 +5,34 @@
     // Next.js / TypeScript
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
+    "yoavbls.pretty-ts-errors",
+    "mikestead.dotenv",
+    "christian-kohler.path-intellisense",
 
-    // Tailwind CSS IntelliSense
+    // Tailwind CSS
     "bradlc.vscode-tailwindcss",
+    "heybourn.headwind",
 
-    // Supabase 開発支援 (SQL 補完など)
+    // Supabase / SQL (supabase/migrations 編集用)
     "supabase.vscode-supabase-extension",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+    "qufiwefefwoyn.inline-sql-syntax",
 
     // Vitest 連携 (テスト UI)
     "vitest.explorer",
+
+    // Git / PR レビュー
+    "github.vscode-pull-request-github",
+    "eamodio.gitlens",
+    "clutchsecurity.clutch-gitleaks-secrets-scanner",
+
+    // メール統合 / API debug (Gmail / Anthropic)
+    "humao.rest-client",
+
+    // コード品質
+    "wix.vscode-import-cost",
+    "streetsidesoftware.code-spell-checker",
 
     // Markdown / docs
     "yzhang.markdown-all-in-one"

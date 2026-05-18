@@ -8,26 +8,29 @@ import {
 import { getPermissionContext } from "@/lib/auth/server";
 import { DEFAULT_ORG_ID } from "@/lib/repository/types";
 
-// 本番 supabase が空 DB なら全部空配列。adapter で旧 mock 互換 shape へ変換し
-// 「データ無し」表示で正しく描画される。
+// 現ログインユーザー担当の未レビュー抽出のみを取得する。
+// thread / message は抽出に紐づくものだけに絞って fetch (N+1 抑制)。
 export default async function ExtractionsPage() {
   const ctx = await getPermissionContext();
   const orgId = ctx.actor?.organizationId ?? DEFAULT_ORG_ID;
 
-  const [companies, threadsRaw] = await Promise.all([
-    companyRepo.list(),
-    emailRepo.listThreads({ organizationId: orgId })
-  ]);
+  const extractionsRaw = ctx.actor
+    ? await aiExtractionRepo.listByMe(ctx.actor.id, { unreviewedOnly: true })
+    : [];
+
+  // email source の sourceId = email_messages.id。担当スレッドだけを引き当てる。
+  const threadsRaw = ctx.actor
+    ? (await emailRepo.listThreads({ organizationId: orgId })).filter(
+        (t) => t.assigneeUserId === ctx.actor!.id
+      )
+    : [];
 
   const messagesNested = await Promise.all(
     threadsRaw.map((t) => emailRepo.listMessages(t.id))
   );
   const messagesRaw = messagesNested.flat();
 
-  const extractionsNested = await Promise.all(
-    companies.map((c) => aiExtractionRepo.listByCompany(c.id))
-  );
-  const extractionsRaw = extractionsNested.flat();
+  const companies = await companyRepo.list();
 
   const adaptedThreads = threadsRaw.map((t) => ({
     id: t.id,
@@ -49,19 +52,26 @@ export default async function ExtractionsPage() {
     direction: m.direction
   }));
 
-  const adaptedExtractions = extractionsRaw.map((x) => ({
-    id: x.id,
-    threadId: x.sourceType === "email" ? x.sourceId : "",
-    messageId: x.sourceType === "email" ? x.sourceId : "",
-    type: x.extractionType,
-    suggestion: x.suggestedAction ?? x.excerpt ?? "",
-    confidence: x.confidence ?? 0,
-    status: (x.reviewed ? "approved" : "pending") as
-      | "pending"
-      | "approved"
-      | "rejected",
-    createdAt: x.createdAt
-  }));
+  // sourceId(=message id) → threadId を逆引きするマップ
+  const messageThreadMap = new Map(messagesRaw.map((m) => [m.id, m.threadId]));
+
+  const adaptedExtractions = extractionsRaw.map((x) => {
+    const messageId = x.sourceType === "email" ? x.sourceId : "";
+    const threadId = messageId ? messageThreadMap.get(messageId) ?? "" : "";
+    return {
+      id: x.id,
+      threadId,
+      messageId,
+      type: x.extractionType,
+      suggestion: x.suggestedAction ?? x.excerpt ?? "",
+      confidence: x.confidence ?? 0,
+      status: (x.reviewed ? "approved" : "pending") as
+        | "pending"
+        | "approved"
+        | "rejected",
+      createdAt: x.createdAt
+    };
+  });
 
   return (
     <>
