@@ -4,11 +4,20 @@
 // 旧 app/weekly/page.tsx の "use client" 全体を切り出した。
 // データ (companies / contracts / weeklyReviews) は Server Component (page.tsx) から
 // props で受け取る。本番 (REPO_DRIVER=supabase) でも実 DB の値が表示される。
+//
+// 共同編集対応 (2026-05-24):
+//   - weeklyReviews は内部 state にして、Supabase Realtime で他ユーザーの編集を即時反映
+//   - presence で同じ週 × 事業を見ているユーザーをアバター表示
+//   - 自分のドラフト (drafts Map) は最優先で維持される (last-write-wins)
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/nav/TopNav";
 import { KpiCard } from "@/components/kpi/KpiCard";
+import { PresenceAvatars } from "@/components/presence/PresenceAvatars";
+import { useRealtimeChannel } from "@/lib/realtime/useRealtimeTable";
+import { usePresence } from "@/lib/realtime/usePresence";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import {
   products,
   ProductCode,
@@ -29,6 +38,7 @@ import {
 import type { Company, Contract } from "@/lib/repository/server";
 import { CompanyWeeklyEditor, WeeklyDraft } from "./CompanyWeeklyEditor";
 import { WeeklyTable } from "./WeeklyTable";
+import { refreshWeeklyReviewByIdAction } from "./actions";
 
 type StatusFilter = "all" | "filled" | "empty" | "stuck";
 type SortMode = "default" | "empty_first" | "name";
@@ -53,12 +63,21 @@ function truncate(s: string, n: number) {
 export function WeeklyView({
   companies,
   contracts,
-  weeklyReviews
+  weeklyReviews: initialWeeklyReviews
 }: {
   companies: Company[];
   contracts: Contract[];
   weeklyReviews: WeeklyReview[];
 }) {
+  // weeklyReviews は内部 state。Realtime からの差分を反映する
+  const [weeklyReviews, setWeeklyReviews] =
+    useState<WeeklyReview[]>(initialWeeklyReviews);
+
+  // props が変わった (server-side revalidate された) ら state を同期
+  useEffect(() => {
+    setWeeklyReviews(initialWeeklyReviews);
+  }, [initialWeeklyReviews]);
+
   const [selectedProduct, setSelectedProduct] =
     useState<ProductCode>("academia");
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>(
@@ -74,6 +93,97 @@ export function WeeklyView({
   const [drafts, setDrafts] = useState<Map<string, WeeklyDraft>>(new Map());
   const [bulkMode, setBulkMode] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+
+  // ─── Realtime: 他ユーザーの編集を即時反映 ─────────────────
+  // weekly_reviews / weekly_actions / weekly_next_actions の変更通知を受け、
+  // 影響を受けた review を 1 件だけ refetch して state を差し替える。
+  // 連発を防ぐため、同じ review id に対する refetch は 250ms デバウンス。
+  const refreshTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+
+  const scheduleRefresh = useCallback((reviewId: string) => {
+    const existing = refreshTimers.current.get(reviewId);
+    if (existing) clearTimeout(existing);
+    const t = setTimeout(async () => {
+      refreshTimers.current.delete(reviewId);
+      const fresh = await refreshWeeklyReviewByIdAction(reviewId);
+      setWeeklyReviews((prev) => {
+        const idx = prev.findIndex((r) => r.id === reviewId);
+        if (fresh === null) {
+          // DELETE: 該当 review が消えた
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next.splice(idx, 1);
+          return next;
+        }
+        if (idx === -1) return [...prev, fresh];
+        const next = [...prev];
+        next[idx] = fresh;
+        return next;
+      });
+    }, 250);
+    refreshTimers.current.set(reviewId, t);
+  }, []);
+
+  useEffect(() => {
+    // cleanup
+    return () => {
+      refreshTimers.current.forEach((t) => clearTimeout(t));
+      refreshTimers.current.clear();
+    };
+  }, []);
+
+  useRealtimeChannel({
+    channelName: "weekly-data",
+    subscriptions: [
+      {
+        table: "weekly_reviews",
+        onChange: (e) => {
+          const id =
+            (e.new?.id as string | undefined) ??
+            (e.old?.id as string | undefined);
+          if (id) scheduleRefresh(id);
+        }
+      },
+      {
+        table: "weekly_actions",
+        onChange: (e) => {
+          const reviewId =
+            (e.new?.weekly_review_id as string | undefined) ??
+            (e.old?.weekly_review_id as string | undefined);
+          if (reviewId) scheduleRefresh(reviewId);
+        }
+      },
+      {
+        table: "weekly_next_actions",
+        onChange: (e) => {
+          const reviewId =
+            (e.new?.weekly_review_id as string | undefined) ??
+            (e.old?.weekly_review_id as string | undefined);
+          if (reviewId) scheduleRefresh(reviewId);
+        }
+      }
+    ]
+  });
+
+  // ─── Presence: 同じ週 × 事業を見ているユーザーをアバター表示 ─────────
+  const { user: currentUser } = useCurrentUser();
+  const presenceMe = useMemo(
+    () =>
+      currentUser
+        ? {
+            userId: currentUser.id,
+            name: currentUser.name ?? "ゲスト",
+            avatarUrl: currentUser.pictureUrl
+          }
+        : null,
+    [currentUser]
+  );
+  const presenceMembers = usePresence({
+    channelName: `weekly:${selectedProduct}:${selectedWeekStart}`,
+    me: presenceMe
+  });
 
   const weekSlots = useMemo(() => last5Weeks(), []);
   const selectedRange = getWeekRange(selectedWeekStart);
@@ -444,7 +554,11 @@ export function WeeklyView({
             </select>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-3">
+            <PresenceAvatars
+              members={presenceMembers}
+              myUserId={presenceMe?.userId ?? null}
+            />
             <span className="text-xs text-ink-500">
               {filteredRows.length} / {rows.length} 社
             </span>

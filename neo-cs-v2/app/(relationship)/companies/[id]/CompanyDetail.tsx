@@ -9,6 +9,8 @@ import { AddLogModal } from "./AddLogModal";
 import { ContractFormModal } from "./ContractFormModal";
 import { CancelContractModal } from "./CancelContractModal";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { usePresence } from "@/lib/realtime/usePresence";
+import { PresenceAvatars } from "@/components/presence/PresenceAvatars";
 import { CompanyTasksSection } from "@/components/company/CompanyTasksSection";
 import type { CompanyTask } from "@/lib/repository/types";
 import type {
@@ -395,6 +397,21 @@ export function CompanyDetail({
   })();
   const updateContact = (next: Contact) =>
     setContactList((prev) => prev.map((c) => (c.id === next.id ? next : c)));
+
+  // Presence: この企業ページを今見ているユーザーをヘッダーにアバター表示
+  const { user: presenceCurrentUser } = useCurrentUser();
+  const presenceMe = presenceCurrentUser
+    ? {
+        userId: presenceCurrentUser.id,
+        name: presenceCurrentUser.name ?? "ゲスト",
+        avatarUrl: presenceCurrentUser.pictureUrl
+      }
+    : null;
+  const presenceMembers = usePresence({
+    channelName: `company:${company.id}`,
+    me: presenceMe
+  });
+
   // ヘッダーのヘルスカラーは Server 側で health_score_snapshots から算出済みの値を使う。
   // 旧来の lib/mock/health.companyHealthColor() (mock onboarding 直読み) は廃止。
   const healthColor: HealthColor = headerHealthColor;
@@ -436,6 +453,11 @@ export function CompanyDetail({
           </span>
         )}
         <div className="flex items-center gap-2 ml-auto shrink-0">
+          <PresenceAvatars
+            members={presenceMembers}
+            myUserId={presenceMe?.userId ?? null}
+            label="閲覧中"
+          />
           <CompanyWeatherPicker companyId={company.id} weather={weatherOverride} />
           <HealthWithTrend
             companyId={company.id}

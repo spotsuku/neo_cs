@@ -9,7 +9,12 @@
 
 import { revalidatePath } from "next/cache";
 import { weeklyReviewRepo, DEFAULT_ORG_ID } from "@/lib/repository/server";
-import type { WeeklyAction, WeeklyNextAction } from "@/lib/repository/server";
+import type {
+  WeeklyAction,
+  WeeklyNextAction,
+  WeeklyReview,
+  ProductCode
+} from "@/lib/repository/server";
 
 export type WeeklyReviewSubmit = {
   companyId: string;
@@ -51,5 +56,39 @@ export async function submitWeeklyReviewAction(input: WeeklyReviewSubmit): Promi
       ok: false,
       message: e instanceof Error ? e.message : String(e)
     };
+  }
+}
+
+// ─────────────────────────────────────────────
+// Realtime からの差分検知後に呼ばれる re-fetch action
+//
+// weekly_reviews / weekly_actions / weekly_next_actions の変更通知を受けた
+// クライアントが、最新の確定レビュー (1 件) をサーバから取り直す。
+// revalidatePath を踏まないので連発しても重くない。
+// ─────────────────────────────────────────────
+
+export async function refreshWeeklyReviewAction(input: {
+  companyId: string;
+  product: string;
+  weekStart: string;
+}): Promise<WeeklyReview | null> {
+  try {
+    return await weeklyReviewRepo.getByKey(
+      input.companyId,
+      input.product as ProductCode,
+      input.weekStart
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function refreshWeeklyReviewByIdAction(
+  id: string
+): Promise<WeeklyReview | null> {
+  try {
+    return await weeklyReviewRepo.getById(id);
+  } catch {
+    return null;
   }
 }

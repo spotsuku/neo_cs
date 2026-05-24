@@ -180,3 +180,40 @@ SKIP_BUILD_ASSERT=1 npm run build   # ローカルビルド
 - マネージャー画面に CS ごとの応答時間ダッシュボード
 - 企業カルテに `email_domains` を編集する UI
 - `voc.test.ts` の 3 件失敗 (pre-existing、本パイプラインと無関係だが CI red の原因)
+
+---
+
+## 8. Realtime / 共同編集 (2026-05-24 実装)
+
+更新頻度が高い & 複数人が同時に触る画面で「Notion 級のぬるぬる感」を実現するための共通基盤。
+
+### 構成
+| レイヤ | ファイル | 役割 |
+|---|---|---|
+| Browser client | [lib/supabase/client.ts](neo-cs-v2/lib/supabase/client.ts) | `createBrowserClient` を singleton 管理 |
+| 汎用 hook | [lib/realtime/useRealtimeTable.ts](neo-cs-v2/lib/realtime/useRealtimeTable.ts) | postgres_changes 購読。複数テーブルを 1 channel にまとめる `useRealtimeChannel` も提供 |
+| Presence | [lib/realtime/usePresence.ts](neo-cs-v2/lib/realtime/usePresence.ts) | 「誰が今このページを見ているか」のリアルタイム集計 |
+| UI | [components/presence/PresenceAvatars.tsx](neo-cs-v2/components/presence/PresenceAvatars.tsx) | アバター列表示 |
+| DB 設定 | [supabase/migrations/0053_realtime_publication.sql](supabase/migrations/0053_realtime_publication.sql) | `supabase_realtime` publication に対象テーブルを追加 + `replica identity full` |
+
+### Realtime 対応済みテーブル
+- `weekly_reviews` / `weekly_actions` / `weekly_next_actions`
+- `journey_checkpoint_status`
+- `company_journeys` / `business_journeys`
+
+### Realtime 対応済み画面
+- `/weekly` ([WeeklyView](neo-cs-v2/app/(cohort)/weekly/WeeklyView.tsx)): 他ユーザーの編集を 250ms デバウンスで refetch + presence avatars
+- ジャーニーチェックポイント ([JourneyCheckpointPanel](neo-cs-v2/components/journey/JourneyCheckpointPanel.tsx)): チェック ON/OFF を即時反映
+- 企業詳細ヘッダー ([CompanyDetail](neo-cs-v2/app/(relationship)/companies/[id]/CompanyDetail.tsx)): presence avatars
+
+### 新規画面に適用するときのパターン
+1. テーブルを publication に追加 — 新規 migration で `alter publication supabase_realtime add table public.<table>` + `replica identity full`
+2. 画面で `useRealtimeTable` を呼ぶ — 変更通知 → refetch server action → ローカル state 差し替え
+3. 楽観的更新は局所 state で実装 — server action 呼び出し前に `setState` し、エラー時のみロールバック
+4. presence が欲しいなら `usePresence` + `<PresenceAvatars />` — channelName はページ単位で一意 (例: `weekly:academia:2026-05-19`, `company:c-001`)
+
+### 触る前に知っておくべきこと
+- **クライアント側は anon key + RLS が前提**。`getServiceClient` を browser bundle に持ち込まない
+- **`replica identity full` は WAL を膨らませる**。大きい列を含むテーブル (email_messages, drive_send_logs 等) には適用しない
+- **last-write-wins**。CRDT は未導入。同じセルを 2 人が同時に編集すると後勝ち
+- **mock 環境では noop**。`NEXT_PUBLIC_SUPABASE_URL` がないと subscribe しない

@@ -4,6 +4,10 @@
 //
 // 現在ステージに紐付く 2〜3 個のチェック項目を縦リストで表示。
 // チェック切り替えで toggleJourneyCheckpointAction を呼び出して進捗保存。
+//
+// 共同編集対応 (2026-05-24):
+//   - Realtime で journey_checkpoint_status の更新を購読
+//   - 他ユーザーが同じ checkpoint を toggle したら即時 UI 反映
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -13,6 +17,7 @@ import type {
   JourneyType
 } from "@/lib/repository/types";
 import { toggleJourneyCheckpointAction } from "@/app/(relationship)/companies/[id]/journey-actions";
+import { useRealtimeTable } from "@/lib/realtime/useRealtimeTable";
 
 export function JourneyCheckpointPanel({
   journeyType,
@@ -39,6 +44,39 @@ export function JourneyCheckpointPanel({
       }
     }
     return map;
+  });
+
+  // Realtime: 他ユーザーが同じステージ × subject のチェックポイントを toggle したら反映
+  useRealtimeTable<{
+    journey_type: string;
+    subject_id: string;
+    stage_key: string;
+    checkpoint_key: string;
+    done: boolean;
+  }>({
+    channelName: `journey-cp:${journeyType}:${subjectId}`,
+    table: "journey_checkpoint_status",
+    filter: `subject_id=eq.${subjectId}`,
+    enabled: Boolean(stage),
+    onChange: (e) => {
+      if (!stage) return;
+      const row = e.new ?? e.old;
+      if (!row) return;
+      if (row.journey_type !== journeyType) return;
+      if (row.stage_key !== stage.stageKey) return;
+      setLocalDone((prev) => {
+        // DELETE → 未完了として扱う
+        if (e.eventType === "DELETE") {
+          const next = { ...prev };
+          next[row.checkpoint_key] = false;
+          return next;
+        }
+        // INSERT / UPDATE
+        const newDone = e.new?.done ?? false;
+        if (prev[row.checkpoint_key] === newDone) return prev;
+        return { ...prev, [row.checkpoint_key]: newDone };
+      });
+    }
   });
 
   if (!stage || !stage.checkpoints || stage.checkpoints.length === 0) {
