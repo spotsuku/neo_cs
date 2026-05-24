@@ -3,11 +3,16 @@
 // 週次レビュー テーブルビュー
 // 1行 = 1企業 × 選択研修 × 選択週。折りたたみ状態でも全項目が並列表示され、
 // 全セルがその場で編集可能。詳細ボタンで下にCompanyWeeklyEditor展開。
+//
+// 保存は親 WeeklyView の自動保存 (Notion 風) に委ねる。
+// このコンポーネントは draft を更新するだけ。
 
 import Link from "next/link";
 import { useState } from "react";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useActiveMembers } from "@/lib/hooks/useActiveMembers";
+
+const FALLBACK_ASSIGNEE = "古野";
 import {
   ProductCode,
   productByCode,
@@ -29,9 +34,6 @@ import {
   WeeklyDraft,
   buildInitialDraft
 } from "./CompanyWeeklyEditor";
-import { submitWeeklyReviewAction } from "./actions";
-
-const FALLBACK_ASSIGNEE = "古野";
 
 export type TableRow = {
   companyId: string;
@@ -103,31 +105,6 @@ export function WeeklyTable({
 
   const isRowEditable = (row: TableRow) =>
     isCurrentWeek && !row.review?.locked;
-
-  const { name: currentUserName } = useCurrentUser();
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-
-  const persistRow = async (row: TableRow) => {
-    const draft = getDraft(row.companyId);
-    if (!draft) return;
-    setSavingId(row.companyId);
-    const res = await submitWeeklyReviewAction({
-      companyId: row.companyId,
-      product,
-      weekStart,
-      actions: draft.actions,
-      good: draft.good,
-      more: draft.more,
-      nextActions: draft.nextActions,
-      authorName: currentUserName ?? FALLBACK_ASSIGNEE,
-      locked: false
-    });
-    setSavingId(null);
-    if (res.ok) {
-      setSavedIds((s) => new Set([...s, row.companyId]));
-    }
-  };
 
   return (
     <div className="liquid-surface">
@@ -302,20 +279,6 @@ export function WeeklyTable({
                           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
                             ⚠ Stuck {row.stuckCount}
                           </span>
-                        )}
-                        {draftDirty && editable && (
-                          <button
-                            onClick={() => persistRow(row)}
-                            disabled={savingId === row.companyId}
-                            className="text-[10px] px-2 py-0.5 rounded-full bg-ink-900 text-white hover:bg-ink-700 disabled:opacity-60 whitespace-nowrap"
-                          >
-                            {savingId === row.companyId
-                              ? "保存中..."
-                              : "💾 保存"}
-                          </button>
-                        )}
-                        {savedIds.has(row.companyId) && !draftDirty && (
-                          <span className="text-[10px] text-emerald-600">✓ 保存済</span>
                         )}
                         <button
                           onClick={() => toggleExpand(row.companyId)}

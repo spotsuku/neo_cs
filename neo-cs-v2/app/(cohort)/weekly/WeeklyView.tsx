@@ -18,6 +18,7 @@ import { PresenceAvatars } from "@/components/presence/PresenceAvatars";
 import { useRealtimeChannel } from "@/lib/realtime/useRealtimeTable";
 import { usePresence } from "@/lib/realtime/usePresence";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { useAuthUser } from "@/lib/hooks/useAuthUser";
 import {
   products,
   ProductCode,
@@ -38,7 +39,12 @@ import {
 import type { Company, Contract } from "@/lib/repository/server";
 import { CompanyWeeklyEditor, WeeklyDraft } from "./CompanyWeeklyEditor";
 import { WeeklyTable } from "./WeeklyTable";
-import { refreshWeeklyReviewByIdAction } from "./actions";
+import {
+  refreshWeeklyReviewByIdAction,
+  submitWeeklyReviewAction
+} from "./actions";
+
+const FALLBACK_ASSIGNEE = "古野";
 
 type StatusFilter = "all" | "filled" | "empty" | "stuck";
 type SortMode = "default" | "empty_first" | "name";
@@ -58,6 +64,43 @@ function last5Weeks(): string[] {
 function truncate(s: string, n: number) {
   if (!s) return "";
   return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
+function AutosaveIndicator({
+  state
+}: {
+  state: { pending: number; lastSavedAt: string | null; error: string | null };
+}) {
+  if (state.error) {
+    return (
+      <span
+        className="text-[11px] text-rose-600 inline-flex items-center gap-1"
+        title={state.error}
+      >
+        <span aria-hidden>⚠</span> 自動保存失敗
+      </span>
+    );
+  }
+  if (state.pending > 0) {
+    return (
+      <span className="text-[11px] text-ink-500 inline-flex items-center gap-1">
+        <span
+          className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"
+          aria-hidden
+        />
+        自動保存中…
+      </span>
+    );
+  }
+  if (state.lastSavedAt) {
+    const t = state.lastSavedAt.slice(11, 16);
+    return (
+      <span className="text-[11px] text-ink-500">
+        ✓ 自動保存 {t}
+      </span>
+    );
+  }
+  return null;
 }
 
 export function WeeklyView({
@@ -168,22 +211,92 @@ export function WeeklyView({
   });
 
   // ─── Presence: 同じ週 × 事業を見ているユーザーをアバター表示 ─────────
-  const { user: currentUser } = useCurrentUser();
+  // useCurrentUser は mock 経由で本番でも固定 ID を返すため presence に使えない。
+  // 本物の Supabase Auth uid を取得する useAuthUser を使う。
+  const { user: authUser } = useAuthUser();
   const presenceMe = useMemo(
     () =>
-      currentUser
+      authUser
         ? {
-            userId: currentUser.id,
-            name: currentUser.name ?? "ゲスト",
-            avatarUrl: currentUser.pictureUrl
+            userId: authUser.id,
+            name: authUser.name,
+            avatarUrl: authUser.avatarUrl
           }
         : null,
-    [currentUser]
+    [authUser]
   );
   const presenceMembers = usePresence({
     channelName: `weekly:${selectedProduct}:${selectedWeekStart}`,
     me: presenceMe
   });
+
+  // ─── 自動保存 (Notion 風): drafts の変更を per-key 800ms デバウンス保存 ──
+  const persistTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+  const prevDraftsRef = useRef<Map<string, WeeklyDraft>>(new Map());
+  const [autosave, setAutosave] = useState<{
+    pending: number;
+    lastSavedAt: string | null;
+    error: string | null;
+  }>({ pending: 0, lastSavedAt: null, error: null });
+  const { name: currentUserName } = useCurrentUser();
+  const authorForSave =
+    authUser?.name ?? currentUserName ?? FALLBACK_ASSIGNEE;
+
+  useEffect(() => {
+    // 過去週 (locked) は自動保存しない
+    if (selectedWeekStart !== CURRENT_WEEK_MONDAY) {
+      prevDraftsRef.current = new Map(drafts);
+      return;
+    }
+
+    drafts.forEach((d, key) => {
+      if (prevDraftsRef.current.get(key) === d) return; // 変化なし
+
+      // 既存タイマーをリセット (per-key デバウンス)
+      const existing = persistTimers.current.get(key);
+      if (existing) clearTimeout(existing);
+
+      const parts = key.split("::");
+      if (parts.length !== 3) return;
+      const [cid, prod, ws] = parts;
+      // この週・事業以外のドラフトは保存しない (Map に古いキーが残っているケース)
+      if (ws !== selectedWeekStart) return;
+
+      const t = setTimeout(async () => {
+        persistTimers.current.delete(key);
+        setAutosave((s) => ({ ...s, pending: s.pending + 1, error: null }));
+        const res = await submitWeeklyReviewAction({
+          companyId: cid,
+          product: prod,
+          weekStart: ws,
+          actions: d.actions,
+          good: d.good,
+          more: d.more,
+          nextActions: d.nextActions,
+          authorName: authorForSave,
+          locked: false
+        });
+        setAutosave((s) => ({
+          pending: Math.max(0, s.pending - 1),
+          lastSavedAt: res.ok ? new Date().toISOString() : s.lastSavedAt,
+          error: res.ok ? null : res.message
+        }));
+      }, 800);
+      persistTimers.current.set(key, t);
+    });
+
+    prevDraftsRef.current = new Map(drafts);
+  }, [drafts, selectedWeekStart, authorForSave]);
+
+  // unmount 時に保留中の save タイマーをクリーンアップ
+  useEffect(() => {
+    return () => {
+      persistTimers.current.forEach((t) => clearTimeout(t));
+      persistTimers.current.clear();
+    };
+  }, []);
 
   const weekSlots = useMemo(() => last5Weeks(), []);
   const selectedRange = getWeekRange(selectedWeekStart);
@@ -555,6 +668,7 @@ export function WeeklyView({
           </div>
 
           <div className="ml-auto flex items-center gap-3">
+            <AutosaveIndicator state={autosave} />
             <PresenceAvatars
               members={presenceMembers}
               myUserId={presenceMe?.userId ?? null}

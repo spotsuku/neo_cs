@@ -9,6 +9,7 @@ import { AddLogModal } from "./AddLogModal";
 import { ContractFormModal } from "./ContractFormModal";
 import { CancelContractModal } from "./CancelContractModal";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { useAuthUser } from "@/lib/hooks/useAuthUser";
 import { usePresence } from "@/lib/realtime/usePresence";
 import { PresenceAvatars } from "@/components/presence/PresenceAvatars";
 import { CompanyTasksSection } from "@/components/company/CompanyTasksSection";
@@ -399,12 +400,14 @@ export function CompanyDetail({
     setContactList((prev) => prev.map((c) => (c.id === next.id ? next : c)));
 
   // Presence: この企業ページを今見ているユーザーをヘッダーにアバター表示
-  const { user: presenceCurrentUser } = useCurrentUser();
-  const presenceMe = presenceCurrentUser
+  // useCurrentUser は mock の固定 ID を返すため使えない (2 ブラウザで衝突)。
+  // 本物の Supabase Auth uid を使う useAuthUser を採用。
+  const { user: authUserForPresence } = useAuthUser();
+  const presenceMe = authUserForPresence
     ? {
-        userId: presenceCurrentUser.id,
-        name: presenceCurrentUser.name ?? "ゲスト",
-        avatarUrl: presenceCurrentUser.pictureUrl
+        userId: authUserForPresence.id,
+        name: authUserForPresence.name,
+        avatarUrl: authUserForPresence.avatarUrl
       }
     : null;
   const presenceMembers = usePresence({

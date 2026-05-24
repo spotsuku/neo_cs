@@ -307,15 +307,9 @@ export function CompanyWeeklyEditor({
 
         {isEditable && (
           <div className="flex items-center justify-end gap-3 mt-6 pt-5 border-t border-ink-100 flex-wrap">
-            <SaveStatus state={saveState} error={saveError} localSavedAt={localSavedAt} />
-            <button
-              type="button"
-              onClick={() => persist(false)}
-              disabled={saveState === "saving"}
-              className="px-4 py-2 rounded-full text-xs text-ink-700 border border-ink-100 hover:bg-ink-50 disabled:opacity-50"
-            >
-              {saveState === "saving" ? "保存中..." : "下書き保存"}
-            </button>
+            <span className="text-[11px] text-ink-500">
+              編集内容は自動保存されます
+            </span>
             <button
               type="button"
               onClick={() => setLockConfirmOpen(true)}
